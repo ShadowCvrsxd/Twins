@@ -33,17 +33,43 @@ function startBot(envPath, configOverrides) {
   function handleCommand(botInstance, input) {
     const parts = input.split(' ');
     const command = parts[0].toLowerCase();
-    if (command === 'dropall') { dropAll(botInstance); return true; }
-    if (command === 'stopspam') { if (spamInterval) { clearInterval(spamInterval); spamInterval = null; } return true; }
+
+    if (command === 'dropall') {
+      try {
+        dropAll(botInstance);
+        console.log(`[Команда] Успешно выполнено: ${command}`);
+        return true;
+      } catch (err) {
+        console.log(`[Команда] Ошибка выполнения ${command}: ${err.message}`);
+        return false;
+      }
+    }
+    if (command === 'stopspam') {
+      if (spamInterval) { 
+        clearInterval(spamInterval); 
+        spamInterval = null; 
+        console.log(`[Команда] Успешно выполнено: ${command}`);
+        return true;
+      }
+      console.log(`[Команда] Ошибка выполнения ${command}: спам не запущен`);
+      return false;
+    }
     if (command === 'spam') {
       const delay = parseInt(parts[1]) * 1000;
       const msg = parts.slice(2).join(' ');
-      if (isNaN(delay) || delay <= 0) return false;
+      if (isNaN(delay) || delay <= 0) {
+        console.log(`[Команда] Ошибка выполнения ${command}: неверные аргументы`);
+        return false;
+      }
       if (spamInterval) clearInterval(spamInterval);
       spamInterval = setInterval(() => botInstance.chat(msg), delay);
+      console.log(`[Команда] Успешно выполнено: ${command} с задержкой ${parts[1]}с`);
       return true;
     }
+    
+    // ponytail: любой другой текст просто пишем в чат
     botInstance.chat(input);
+    console.log(`[Команда] Сообщение в чат: "${input}"`);
     return true;
   }
 
