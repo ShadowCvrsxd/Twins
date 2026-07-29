@@ -1,6 +1,6 @@
 
-const TWINKS = ['AlexZTI_Twin', 'AlexZTI_Twin1'];
-const MAIN_ACCOUNT = 'AlexZTI_';
+const TWINKS = process.env.TWINKS ? process.env.TWINKS.split(',') : ['AlexZTI_Twin', 'AlexZTI_Twin1'];
+const MAIN_ACCOUNT = process.env.MAIN_ACCOUNT || 'AlexZTI_';
 const RESPECT_COOLDOWN = 60 * 60 * 1000;
 
 function parseCooldown(msg) {
