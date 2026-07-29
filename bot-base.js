@@ -12,6 +12,8 @@ function startBot(envPath, configOverrides) {
     username: process.env.USERNAME,
     version: '1.21.1',
     brand: 'vanilla',
+    viewDistance: 'tiny', // ponytail: минимум чанков
+    loadInternalChunks: false, // ponytail: не качаем мир
     ...configOverrides
   };
 
@@ -116,7 +118,8 @@ function startBot(envPath, configOverrides) {
     bot.on('message', (jsonMsg) => {
       const text = jsonMsg.toString();
       if (!text.trim()) return;
-      console.log(`[Чат] ${text}`);
+      // console.log(`[Чат] ${text}`); // ponytail: лог чата выключен для экономии ресурсов
+
       if (text.includes(' › ')) {
         const parts = text.split(' › ');
         if (parts.length >= 3 && parts[1].trim() === bot.username) {
