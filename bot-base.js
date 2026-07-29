@@ -4,8 +4,14 @@ const fs = require('fs');
 const { TWINKS, MAIN_ACCOUNT, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll } = require('./utils.js');
 
 function startBot(envPath, configOverrides) {
+  console.log('--- [DEBUG] Запуск инициализации startBot ---');
   require('dotenv').config({ path: envPath });
   
+  if (!process.env.USERNAME || !process.env.PASSWORD) {
+    console.error('--- [DEBUG] ОШИБКА: Не найдены USERNAME или PASSWORD в .env ---');
+    return;
+  }
+
   const config = {
     host: '5.83.140.251',
     port: 25809,
@@ -33,7 +39,6 @@ function startBot(envPath, configOverrides) {
   function handleCommand(botInstance, input) {
     const parts = input.split(' ');
     const command = parts[0].toLowerCase();
-
     if (command === 'dropall') {
       try {
         dropAll(botInstance);
@@ -96,7 +101,21 @@ function startBot(envPath, configOverrides) {
   }
 
   function createBotInstance() {
-    bot = mineflayer.createBot(config);
+    console.log(`[Система] Попытка создания бота для ${config.username}...`);
+    try {
+      bot = mineflayer.createBot(config);
+    } catch (err) {
+      console.error('[Система] КРИТИЧЕСКАЯ ОШИБКА при создании бота:', err);
+      return;
+    }
+
+    bot.on('error', (err) => {
+        console.error('[Система] Ошибка mineflayer:', err);
+    });
+
+    bot.on('login', () => {
+        console.log('[Система] Успешный логин.');
+    });
 
     if (!schedulerInterval) {
       schedulerInterval = setInterval(() => {
@@ -116,6 +135,7 @@ function startBot(envPath, configOverrides) {
     });
 
     bot.on('spawn', () => {
+      console.log(`[Система] Бот ${bot.username} заспавнился!`);
       clearInterval(antiAfkInterval);
       antiAfkInterval = setInterval(() => {
         if (!bot || !bot.entity) return;
