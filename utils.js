@@ -13,7 +13,6 @@ function sendResourcePackAck(client, uuid, RESOURCE_PACK_RESPONSE_NAMES, RESULT_
   for (const name of RESOURCE_PACK_RESPONSE_NAMES) {
     try {
       client.write(name, { uuid, result: RESULT_SUCCESS });
-      console.log(`[Ресурспак] Фейк-успех отправлен через "${name}"`);
       return true;
     } catch (e) {}
   }

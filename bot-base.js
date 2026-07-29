@@ -81,7 +81,11 @@ function startBot(envPath, configOverrides) {
       }, 30000);
     }
 
-    bot._client.on('add_resource_pack', (packet) => sendResourcePackAck(bot._client, packet.uuid, RESOURCE_PACK_RESPONSE_NAMES, RESULT_SUCCESS));
+    bot._client.on('add_resource_pack', (packet) => {
+        setTimeout(() => {
+            sendResourcePackAck(bot._client, packet.uuid, RESOURCE_PACK_RESPONSE_NAMES, RESULT_SUCCESS);
+        }, 1000);
+    });
 
     bot.on('spawn', () => {
       clearInterval(antiAfkInterval);
