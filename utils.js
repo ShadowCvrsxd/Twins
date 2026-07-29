@@ -1,5 +1,6 @@
 
 const TWINKS = ['AlexZTI_Twin', 'AlexZTI_Twin1'];
+const MAIN_ACCOUNT = 'AlexZTI_';
 const RESPECT_COOLDOWN = 60 * 60 * 1000;
 
 function parseCooldown(msg) {
@@ -19,7 +20,7 @@ function sendResourcePackAck(client, uuid, RESOURCE_PACK_RESPONSE_NAMES, RESULT_
   return false;
 }
 
-module.exports = { TWINKS, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll };
+module.exports = { TWINKS, MAIN_ACCOUNT, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll };
 
 async function dropAll(bot) {
   const items = bot.inventory.items();
