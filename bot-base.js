@@ -69,12 +69,11 @@ function startBot(envPath, configOverrides) {
       return true;
     }
     if (command === 'spamlist') {
-        let textToSend = "";
+        let textToSend = "Спам не запущен.";
         if (spamTasks.length > 0) {
-            const list = spamTasks.map((t, i) => `${i+1}: "${t.msg}" (${t.delay}с)`).join('\n');
-            textToSend = `Активный спам:\n${list}`;
-        } else {
-            textToSend = "Спам не запущен.";
+            // ponytail: собираем в одну строку, чтобы не триггерить анти-спам
+            const list = spamTasks.map((t, i) => `${i+1}:"${t.msg}"(${t.delay}с)`).join('; ');
+            textToSend = `Спам: ${list}`;
         }
         
         console.log(`[DEBUG] Пытаюсь отправить мейну: ${textToSend}`);
