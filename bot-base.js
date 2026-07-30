@@ -18,8 +18,9 @@ function startBot(envPath, configOverrides) {
     username: process.env.USERNAME,
     version: '1.21.1',
     brand: 'vanilla',
-    viewDistance: 'tiny', // ponytail: минимум чанков
-    loadInternalChunks: false, // ponytail: не качаем мир
+    viewDistance: 'tiny',
+    loadInternalChunks: false,
+    checkTimeoutInterval: 60000, // ponytail: увеличиваем тайм-аут ожидания пакетов
     ...configOverrides
   };
 
