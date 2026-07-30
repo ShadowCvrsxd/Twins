@@ -201,12 +201,21 @@ function startBot(envPath, configOverrides) {
     });
 
     bot.on('end', (reason) => {
+      // ponytail: принудительно убиваем сокет, чтобы сервер не держал соединение
+      if (bot && bot._client) {
+          try { bot._client.end(); } catch (e) {}
+      }
+      clearTimeout(spawnTimeout);
       clearInterval(antiAfkInterval);
       spamTasks.forEach(task => clearInterval(task.interval));
       spamTasks = [];
       if (schedulerInterval) clearInterval(schedulerInterval);
       bot = null;
-      if (!isManualQuit) setTimeout(() => { try { createBotInstance(); } catch (e) {} }, 30000);
+      console.log(`[Система] Соединение закрыто. Причина: ${reason}`);
+      if (!isManualQuit) {
+        console.log('[Система] Запуск реконнекта через 30 сек...');
+        setTimeout(() => { try { createBotInstance(); } catch (e) {} }, 30000);
+      }
     });
 
     bot.on('message', (jsonMsg) => {
