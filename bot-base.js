@@ -71,8 +71,8 @@ function startBot(envPath, configOverrides) {
     if (command === 'spamlist') {
         let textToSend = "Спам не запущен.";
         if (spamTasks.length > 0) {
-            // ponytail: максимально компактный формат для надежной отправки через /r
-            const list = spamTasks.map((t, i) => `${i+1}:${t.msg}`).join(' | ');
+            // ponytail: формат с тире: 1:/cookie - 310 сек
+            const list = spamTasks.map((t, i) => `${i+1}:${t.msg} - ${t.delay} сек`).join(' | ');
             textToSend = `Спам: ${list}`;
         }
         
