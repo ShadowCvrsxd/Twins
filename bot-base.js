@@ -102,9 +102,20 @@ function startBot(envPath, configOverrides) {
 
   function createBotInstance() {
     console.log(`[Система] Попытка создания бота для ${config.username}...`);
+    
+    // ponytail: Watchdog таймер
+    const spawnTimeout = setTimeout(() => {
+        if (bot) {
+            console.log('[Watchdog] Бот завис при входе. Принудительный перезапуск.');
+            bot.quit();
+            bot = null;
+        }
+    }, 60000); // 1 минута на вход
+
     try {
       bot = mineflayer.createBot(config);
     } catch (err) {
+      clearTimeout(spawnTimeout);
       console.error('[Система] КРИТИЧЕСКАЯ ОШИБКА при создании бота:', err);
       return;
     }
@@ -146,6 +157,7 @@ function startBot(envPath, configOverrides) {
     });
 
     bot.on('spawn', () => {
+      clearTimeout(spawnTimeout); // ponytail: вход успешный, watchdog не нужен
       console.log(`[Система] Бот ${bot.username} заспавнился!`);
       clearInterval(antiAfkInterval);
       antiAfkInterval = setInterval(() => {
