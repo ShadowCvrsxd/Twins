@@ -27,8 +27,7 @@ function startBot(envPath, configOverrides) {
 
   let bot;
   let antiAfkInterval;
-  let spamInterval = null;
-  let spamMessage = ''; // ponytail: храним текущую фразу спама
+  let spamTasks = [];
   let isManualQuit = false;
   let schedulerInterval;
   let lastRespectTime = 0;
@@ -51,15 +50,10 @@ function startBot(envPath, configOverrides) {
       }
     }
     if (command === 'stopspam') {
-      if (spamInterval) { 
-        clearInterval(spamInterval); 
-        spamInterval = null; 
-        spamMessage = '';
-        console.log(`[Команда] Успешно выполнено: ${command}`);
+        spamTasks.forEach(task => clearInterval(task.interval));
+        spamTasks = []; 
+        console.log(`[Команда] Успешно выполнено: ${command} (остановлено всё)`);
         return true;
-      }
-      console.log(`[Команда] Ошибка выполнения ${command}: спам не запущен`);
-      return false;
     }
     if (command === 'spam') {
       const delay = parseInt(parts[1]) * 1000;
@@ -68,17 +62,19 @@ function startBot(envPath, configOverrides) {
         console.log(`[Команда] Ошибка выполнения ${command}: неверные аргументы`);
         return false;
       }
-      if (spamInterval) clearInterval(spamInterval);
-      spamInterval = setInterval(() => botInstance.chat(msg), delay);
-      spamMessage = msg;
+      const interval = setInterval(() => botInstance.chat(msg), delay);
+      spamTasks.push({ msg, interval, delay: parts[1] });
       console.log(`[Команда] Успешно выполнено: ${command} с задержкой ${parts[1]}с`);
       return true;
     }
     if (command === 'spamlist') {
-        if (spamInterval) {
-            console.log(`[Команда] Сейчас спамится: "${spamMessage}"`);
+        if (spamTasks.length > 0) {
+            const list = spamTasks.map((t, i) => `${i+1}: "${t.msg}" (${t.delay}с)`).join('\n');
+            botInstance.chat(`/msg ${MAIN_ACCOUNT} Активный спам:\n${list}`);
+            console.log(`[Команда] spamlist: отправлено мейну`);
         } else {
-            console.log(`[Команда] Спам не запущен.`);
+            botInstance.chat(`/msg ${MAIN_ACCOUNT} Спам не запущен.`);
+            console.log(`[Команда] spamlist: спам не запущен`);
         }
         return true;
     }
@@ -189,7 +185,8 @@ function startBot(envPath, configOverrides) {
 
     bot.on('end', (reason) => {
       clearInterval(antiAfkInterval);
-      if (spamInterval) { clearInterval(spamInterval); spamInterval = null; }
+      spamTasks.forEach(task => clearInterval(task.interval));
+      spamTasks = [];
       if (schedulerInterval) clearInterval(schedulerInterval);
       bot = null;
       if (!isManualQuit) setTimeout(() => { try { createBotInstance(); } catch (e) {} }, 30000);
