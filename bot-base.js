@@ -35,10 +35,10 @@ function startBot(envPath, configOverrides) {
 
   const RESOURCE_PACK_RESPONSE_NAMES = ['resource_pack_receive', 'resource_pack_response', 'resource_pack_status'];
   const RESULT_SUCCESS = 0;
-
   function handleCommand(botInstance, input) {
     const parts = input.split(' ');
     const command = parts[0].toLowerCase();
+    if (command === 'debugquit') { isManualQuit = true; botInstance.quit(); botInstance = null; return true; }
     if (command === 'dropall') {
       try {
         dropAll(botInstance);
