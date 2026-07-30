@@ -128,7 +128,15 @@ function startBot(envPath, configOverrides) {
       // ponytail: ловим абсолютно всё, что происходит с сокетом
       bot._client.on('error', (err) => console.log('[DEBUG] Socket error:', err));
       bot._client.on('packet', (data, meta) => {
-          if (meta.name === 'disconnect') console.log('[DEBUG] Сервер прислал пакет disconnect:', data);
+          if (meta.name === 'disconnect') {
+              console.log('[DEBUG] Сервер прислал пакет disconnect!');
+              try {
+                  const reason = typeof data.reason === 'string' ? JSON.parse(data.reason) : data.reason;
+                  console.log('[DEBUG] ПРИЧИНА КИКА:', JSON.stringify(reason, null, 2));
+              } catch (e) {
+                  console.log('[DEBUG] ПРИЧИНА КИКА (сырая):', data.reason);
+              }
+          }
       });
     } catch (err) {
       clearTimeout(spawnTimeout);
