@@ -71,13 +71,13 @@ function startBot(envPath, configOverrides) {
     if (command === 'spamlist') {
         let textToSend = "Спам не запущен.";
         if (spamTasks.length > 0) {
-            // ponytail: собираем в одну строку, чтобы не триггерить анти-спам
-            const list = spamTasks.map((t, i) => `${i+1}:"${t.msg}"(${t.delay}с)`).join('; ');
+            // ponytail: максимально компактный формат для надежной отправки через /r
+            const list = spamTasks.map((t, i) => `${i+1}:${t.msg}`).join(' | ');
             textToSend = `Спам: ${list}`;
         }
         
-        console.log(`[DEBUG] Пытаюсь отправить мейну: ${textToSend}`);
-        botInstance.chat(`/msg ${MAIN_ACCOUNT} ${textToSend}`);
+        console.log(`[DEBUG] Пытаюсь ответить мейну через /r: ${textToSend}`);
+        botInstance.chat(`/r ${textToSend}`);
         return true;
     }
     
