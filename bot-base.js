@@ -68,14 +68,16 @@ function startBot(envPath, configOverrides) {
       return true;
     }
     if (command === 'spamlist') {
+        let textToSend = "";
         if (spamTasks.length > 0) {
             const list = spamTasks.map((t, i) => `${i+1}: "${t.msg}" (${t.delay}с)`).join('\n');
-            botInstance.chat(`/msg ${MAIN_ACCOUNT} Активный спам:\n${list}`);
-            console.log(`[Команда] spamlist: отправлено мейну`);
+            textToSend = `Активный спам:\n${list}`;
         } else {
-            botInstance.chat(`/msg ${MAIN_ACCOUNT} Спам не запущен.`);
-            console.log(`[Команда] spamlist: спам не запущен`);
+            textToSend = "Спам не запущен.";
         }
+        
+        console.log(`[DEBUG] Пытаюсь отправить мейну: ${textToSend}`);
+        botInstance.chat(`/msg ${MAIN_ACCOUNT} ${textToSend}`);
         return true;
     }
     
