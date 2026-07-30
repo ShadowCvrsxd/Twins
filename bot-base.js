@@ -28,6 +28,7 @@ function startBot(envPath, configOverrides) {
   let bot;
   let antiAfkInterval;
   let spamInterval = null;
+  let spamMessage = ''; // ponytail: храним текущую фразу спама
   let isManualQuit = false;
   let schedulerInterval;
   let lastRespectTime = 0;
@@ -53,6 +54,7 @@ function startBot(envPath, configOverrides) {
       if (spamInterval) { 
         clearInterval(spamInterval); 
         spamInterval = null; 
+        spamMessage = '';
         console.log(`[Команда] Успешно выполнено: ${command}`);
         return true;
       }
@@ -68,8 +70,17 @@ function startBot(envPath, configOverrides) {
       }
       if (spamInterval) clearInterval(spamInterval);
       spamInterval = setInterval(() => botInstance.chat(msg), delay);
+      spamMessage = msg;
       console.log(`[Команда] Успешно выполнено: ${command} с задержкой ${parts[1]}с`);
       return true;
+    }
+    if (command === 'spamlist') {
+        if (spamInterval) {
+            console.log(`[Команда] Сейчас спамится: "${spamMessage}"`);
+        } else {
+            console.log(`[Команда] Спам не запущен.`);
+        }
+        return true;
     }
     
     // ponytail: любой другой текст просто пишем в чат
