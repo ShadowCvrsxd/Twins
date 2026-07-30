@@ -124,6 +124,7 @@ function startBot(envPath, configOverrides) {
 
     try {
       bot = mineflayer.createBot(config);
+      bot._client.keepAlive = false; // ponytail: отключаем самоубийство при лагах
       
       // ponytail: ловим абсолютно всё, что происходит с сокетом
       bot._client.on('error', (err) => console.log('[DEBUG] Socket error:', err));
