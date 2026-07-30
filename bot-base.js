@@ -123,6 +123,12 @@ function startBot(envPath, configOverrides) {
 
     try {
       bot = mineflayer.createBot(config);
+      
+      // ponytail: ловим абсолютно всё, что происходит с сокетом
+      bot._client.on('error', (err) => console.log('[DEBUG] Socket error:', err));
+      bot._client.on('packet', (data, meta) => {
+          if (meta.name === 'disconnect') console.log('[DEBUG] Сервер прислал пакет disconnect:', data);
+      });
     } catch (err) {
       clearTimeout(spawnTimeout);
       console.error('[Система] КРИТИЧЕСКАЯ ОШИБКА при создании бота:', err);
