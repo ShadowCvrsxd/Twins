@@ -207,8 +207,6 @@ function startBot(envPath, configOverrides) {
       }
       clearTimeout(spawnTimeout);
       clearInterval(antiAfkInterval);
-      spamTasks.forEach(task => clearInterval(task.interval));
-      spamTasks = [];
       if (schedulerInterval) clearInterval(schedulerInterval);
       bot = null;
       console.log(`[Система] Соединение закрыто. Причина: ${reason}`);
