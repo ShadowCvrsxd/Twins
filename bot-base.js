@@ -109,6 +109,28 @@ function startBot(envPath, configOverrides) {
     }
   }
 
+      // ponytail: проверка времени по МСК (UTC+3)
+  // ponytail: проверка времени по МСК (UTC+3)
+  schedulerInterval = setInterval(() => {
+    const now = new Date();
+    const mskTime = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (3600000 * 3));
+    const h = mskTime.getHours();
+    const m = mskTime.getMinutes();
+
+    if (h === 11 && m === 58) {
+      if (bot) {
+        console.log('[Scheduler] Время 11:58 МСК. Выполняю плановый выход.');
+        isManualQuit = true;
+        bot.quit();
+        bot = null;
+      }
+    } else if (h === 12 && m >= 10 && !bot) {
+      console.log('[Scheduler] Время 12:10 МСК. Выполняю плановое подключение.');
+      isManualQuit = false;
+      createBotInstance();
+    }
+  }, 30000);
+
   function createBotInstance() {
     console.log(`[Система] Попытка создания бота для ${config.username}...`);
     
