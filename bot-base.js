@@ -27,10 +27,9 @@ function startBot(envPath, configOverrides) {
   const PASSWORD = process.env.PASSWORD;
 
   let bot;
-  let antiAfkInterval;
-  let spamTasks = [];
   let isManualQuit = false;
   let schedulerInterval;
+  let spamTasks = [];
   let lastRespectTime = 0;
   let isRespectFailed = false;
 
@@ -205,11 +204,6 @@ function startBot(envPath, configOverrides) {
     bot.on('spawn', () => {
       clearTimeout(spawnTimeout); // ponytail: вход успешный, watchdog не нужен
       console.log(`[Система] Бот ${bot.username} заспавнился!`);
-      clearInterval(antiAfkInterval);
-      antiAfkInterval = setInterval(() => {
-        if (!bot || !bot.entity) return;
-        bot.look(bot.entity.yaw + 0.1, bot.entity.pitch, true);
-      }, 25000);
     });
 
     bot.on('messagestr', (message) => {
@@ -228,7 +222,6 @@ function startBot(envPath, configOverrides) {
           try { bot._client.end(); } catch (e) {}
       }
       clearTimeout(spawnTimeout);
-      clearInterval(antiAfkInterval);
       if (schedulerInterval) clearInterval(schedulerInterval);
       bot = null;
       console.log(`[Система] Соединение закрыто. Причина: ${reason}`);
