@@ -19,7 +19,28 @@ function sendResourcePackAck(client, uuid, RESOURCE_PACK_RESPONSE_NAMES, RESULT_
   return false;
 }
 
-module.exports = { TWINKS, MAIN_ACCOUNT, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll };
+const fs = require('fs');
+const STATS_FILE = 'traffic_stats.json';
+
+function updateTraffic(username, bytes) {
+    let stats = {};
+    if (fs.existsSync(STATS_FILE)) {
+        try {
+            stats = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
+        } catch (e) { stats = {}; }
+    }
+    stats[username] = (stats[username] || 0) + bytes;
+    fs.writeFileSync(STATS_FILE, JSON.stringify(stats));
+}
+
+function getTraffic() {
+    if (!fs.existsSync(STATS_FILE)) return {};
+    try {
+        return JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
+    } catch (e) { return {}; }
+}
+
+module.exports = { TWINKS, MAIN_ACCOUNT, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic };
 
 async function dropAll(bot) {
   const items = bot.inventory.items();

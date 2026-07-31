@@ -32,9 +32,18 @@ function startBot(envPath, configOverrides) {
   let spamTasks = [];
   let lastRespectTime = 0;
   let isRespectFailed = false;
+  let sessionBytes = 0; // ponytail: счетчик сессии
 
   const RESOURCE_PACK_RESPONSE_NAMES = ['resource_pack_receive', 'resource_pack_response', 'resource_pack_status'];
   const RESULT_SUCCESS = 0;
+
+  // ponytail: раз в 10 секунд сбрасываем стату в общий файл
+  setInterval(() => {
+      if (sessionBytes > 0) {
+          updateTraffic(config.username, sessionBytes);
+          sessionBytes = 0;
+      }
+  }, 10000);
   function handleCommand(botInstance, input) {
     const parts = input.split(' ');
     const command = parts[0].toLowerCase();
@@ -77,6 +86,14 @@ function startBot(envPath, configOverrides) {
         
         console.log(`[DEBUG] Пытаюсь ответить мейну через /r: ${textToSend}`);
         botInstance.chat(`/r ${textToSend}`);
+        return true;
+    }
+    if (command === 'traffic') {
+        const stats = getTraffic();
+        const total = Object.entries(stats).map(([name, bytes]) => 
+            `${name}:${(bytes / 1024 / 1024).toFixed(2)}МБ`
+        ).join(' | ');
+        botInstance.chat(`/r Трафик ботов: ${total}`);
         return true;
     }
     
@@ -148,7 +165,8 @@ function startBot(envPath, configOverrides) {
       
       // ponytail: ловим абсолютно всё, что происходит с сокетом
       bot._client.on('error', (err) => console.log('[DEBUG] Socket error:', err));
-      bot._client.on('packet', (data, meta) => {
+      bot._client.on('packet', (data, meta, buffer) => {
+          if (buffer) sessionBytes += buffer.length; // ponytail: считаем байты
           if (meta.name === 'disconnect') {
               console.log('[DEBUG] Сервер прислал пакет disconnect!');
               try {
