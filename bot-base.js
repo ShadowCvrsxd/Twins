@@ -1,7 +1,7 @@
 const mineflayer = require('mineflayer');
 const readline = require('readline');
 const fs = require('fs');
-const { TWINKS, MAIN_ACCOUNT, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll } = require('./utils.js');
+const { TWINKS, MAIN_ACCOUNT, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic } = require('./utils.js');
 
 function startBot(envPath, configOverrides) {
   console.log('--- [DEBUG] Запуск инициализации startBot ---');
