@@ -18,9 +18,22 @@ function startBot(envPath, configOverrides) {
     username: process.env.USERNAME,
     version: '1.21.1',
     brand: 'vanilla',
-    viewDistance: 'tiny',
-    loadInternalChunks: false,
-    checkTimeoutInterval: 60000, // ponytail: увеличиваем тайм-аут ожидания пакетов
+    viewDistance: 'tiny',          // ponytail: самый минимум чанков
+    loadInternalChunks: false,     // ponytail: не качаем мир вообще
+    checkTimeoutInterval: 60000,
+    hideErrors: true,
+    disableChatSigning: true,
+    // ponytail: оставляем только базу для откидывания
+    plugins: {
+        entities: true,    // Нужно, чтобы "видеть" того, кто бьет
+        physics: true,     // Нужно, чтобы откидываться от ударов
+        pathfinder: false,
+        beds: false,
+        rain: false,
+        book: false,
+        experience: false,
+        genericPVP: false
+    },
     ...configOverrides
   };
 
