@@ -25,7 +25,7 @@ function startBot(envPath, configOverrides) {
     disableChatSigning: true,
     // ponytail: оставляем только базу для откидывания
     plugins: {
-        entities: false,    // ponytail: вырезаем сущности ради экономии трафика
+        entities: true,    // Нужно, чтобы "видеть" сущности для инвентаря
         physics: true,     // Нужно, чтобы откидываться от ударов
         pathfinder: false,
         beds: false,
