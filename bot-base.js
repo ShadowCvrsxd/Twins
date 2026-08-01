@@ -20,13 +20,13 @@ function startBot(envPath, configOverrides) {
     brand: 'vanilla',
     viewDistance: 'tiny',          // ponytail: самый минимум чанков
     loadInternalChunks: false,     // ponytail: не качаем мир вообще
-    checkTimeoutInterval: 120000,  // ponytail: увеличили до 2 минут
+    checkTimeoutInterval: 120000,  // ponytail: 2 минуты
     hideErrors: true,
     disableChatSigning: true,
-    // ponytail: оставляем базу для откидывания и инвентаря
+    // ponytail: ультра-экономный режим
     plugins: {
-        entities: true,
-        physics: true,
+        entities: false,
+        physics: false,
         pathfinder: false,
         beds: false,
         rain: false,
@@ -185,9 +185,6 @@ function startBot(envPath, configOverrides) {
       bot._client.on('packet', (data, meta, buffer) => {
           if (buffer) sessionBytes += buffer.length;
           
-          // Собираем статистику раз в 5 минут
-          packetStats[meta.name] = (packetStats[meta.name] || 0) + 1;
-          
           if (meta.name === 'disconnect') {
               console.log('[DEBUG] Сервер прислал пакет disconnect!');
               try {
@@ -198,10 +195,6 @@ function startBot(envPath, configOverrides) {
               }
           }
       });
-      setInterval(() => {
-          console.log('[DEBUG] Статистика пакетов:', JSON.stringify(packetStats));
-          packetStats = {}; // сброс статы
-      }, 300000); // 5 минут
     } catch (err) {
       clearTimeout(spawnTimeout);
       console.error('[Система] КРИТИЧЕСКАЯ ОШИБКА при создании бота:', err);
