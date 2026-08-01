@@ -23,10 +23,10 @@ function startBot(envPath, configOverrides) {
     checkTimeoutInterval: 120000,  // ponytail: 2 минуты
     hideErrors: true,
     disableChatSigning: true,
-    // ponytail: ультра-экономный режим
+    // ponytail: оставляем базу для откидывания и инвентаря
     plugins: {
-        entities: false,
-        physics: false,
+        entities: true,
+        physics: true,
         pathfinder: false,
         beds: false,
         rain: false,
