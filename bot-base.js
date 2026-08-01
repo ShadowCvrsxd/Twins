@@ -20,19 +20,20 @@ function startBot(envPath, configOverrides) {
     brand: 'vanilla',
     viewDistance: 'tiny',          // ponytail: самый минимум чанков
     loadInternalChunks: false,     // ponytail: не качаем мир вообще
-    checkTimeoutInterval: 60000,
+    checkTimeoutInterval: 120000,  // ponytail: увеличили до 2 минут
     hideErrors: true,
     disableChatSigning: true,
-    // ponytail: оставляем только базу для откидывания
+    // ponytail: оставляем базу для откидывания и инвентаря
     plugins: {
-        entities: true,    // Нужно, чтобы "видеть" сущности для инвентаря
-        physics: true,     // Нужно, чтобы откидываться от ударов
+        entities: true,
+        physics: true,
         pathfinder: false,
         beds: false,
         rain: false,
         book: false,
         experience: false,
-        genericPVP: false
+        genericPVP: false,
+        tablist: false
     },
     ...configOverrides
   };
