@@ -178,8 +178,15 @@ function startBot(envPath, configOverrides) {
       
       // ponytail: ловим абсолютно всё, что происходит с сокетом
       bot._client.on('error', (err) => console.log('[DEBUG] Socket error:', err));
+      
+      // ponytail: дебаг пакетов для поиска "обжоры" трафика
+      let packetStats = {};
       bot._client.on('packet', (data, meta, buffer) => {
-          if (buffer) sessionBytes += buffer.length; // ponytail: считаем байты
+          if (buffer) sessionBytes += buffer.length;
+          
+          // Собираем статистику раз в 5 минут
+          packetStats[meta.name] = (packetStats[meta.name] || 0) + 1;
+          
           if (meta.name === 'disconnect') {
               console.log('[DEBUG] Сервер прислал пакет disconnect!');
               try {
@@ -190,6 +197,10 @@ function startBot(envPath, configOverrides) {
               }
           }
       });
+      setInterval(() => {
+          console.log('[DEBUG] Статистика пакетов:', JSON.stringify(packetStats));
+          packetStats = {}; // сброс статы
+      }, 300000); // 5 минут
     } catch (err) {
       clearTimeout(spawnTimeout);
       console.error('[Система] КРИТИЧЕСКАЯ ОШИБКА при создании бота:', err);
