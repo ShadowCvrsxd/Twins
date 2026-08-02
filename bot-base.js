@@ -209,28 +209,6 @@ function startBot(envPath, configOverrides) {
         console.log('[Система] Успешный логин.');
     });
 
-    if (!schedulerInterval) {
-      schedulerInterval = setInterval(() => {
-        const now = new Date();
-        const mskTime = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (3600000 * 3));
-        const h = mskTime.getHours();
-        const m = mskTime.getMinutes();
-
-        if (h === 11 && m === 58) {
-          if (bot) {
-            console.log('[Scheduler] Время 11:58 МСК. Выполняю плановый выход.');
-            isManualQuit = true;
-            bot.quit();
-            bot = null;
-          }
-        } else if (h === 12 && m >= 10 && !bot) {
-          console.log('[Scheduler] Время 12:10 МСК. Выполняю плановое подключение.');
-          isManualQuit = false;
-          createBotInstance();
-        }
-      }, 30000);
-    }
-
     bot._client.on('add_resource_pack', (packet) => {
         setTimeout(() => {
             sendResourcePackAck(bot._client, packet.uuid, RESOURCE_PACK_RESPONSE_NAMES, RESULT_SUCCESS);
@@ -258,7 +236,6 @@ function startBot(envPath, configOverrides) {
           try { bot._client.end(); } catch (e) {}
       }
       clearTimeout(spawnTimeout);
-      if (schedulerInterval) clearInterval(schedulerInterval);
       bot = null;
       console.log(`[Система] Соединение закрыто. Причина: ${reason}`);
       if (!isManualQuit) {

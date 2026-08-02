@@ -10,13 +10,9 @@ function parseCooldown(msg) {
 }
 
 function sendResourcePackAck(client, uuid, RESOURCE_PACK_RESPONSE_NAMES, RESULT_SUCCESS) {
-  for (const name of RESOURCE_PACK_RESPONSE_NAMES) {
-    try {
-      client.write(name, { uuid, result: RESULT_SUCCESS });
-      return true;
-    } catch (e) {}
-  }
-  return false;
+  return RESOURCE_PACK_RESPONSE_NAMES.some(name => {
+    try { client.write(name, { uuid, result: RESULT_SUCCESS }); return true; } catch (e) { return false; }
+  });
 }
 
 const fs = require('fs');
@@ -24,11 +20,7 @@ const STATS_FILE = 'traffic_stats.json';
 
 function updateTraffic(username, bytes) {
     let stats = {};
-    if (fs.existsSync(STATS_FILE)) {
-        try {
-            stats = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
-        } catch (e) { stats = {}; }
-    }
+    try { stats = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8')) || {}; } catch (e) {}
     stats[username] = (stats[username] || 0) + bytes;
     fs.writeFileSync(STATS_FILE, JSON.stringify(stats));
 }
