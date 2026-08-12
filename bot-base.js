@@ -234,7 +234,9 @@ function startBot(envPath, configOverrides) {
 
     bot._client.on('add_resource_pack', (packet) => {
         setTimeout(() => {
-            sendResourcePackAck(bot._client, packet.uuid, RESOURCE_PACK_RESPONSE_NAMES, RESULT_SUCCESS);
+            if (bot && bot._client) {
+                sendResourcePackAck(bot._client, packet.uuid, RESOURCE_PACK_RESPONSE_NAMES, RESULT_SUCCESS);
+            }
         }, 1000);
     });
 
