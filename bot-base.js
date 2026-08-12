@@ -1,7 +1,7 @@
 const mineflayer = require('mineflayer');
 const readline = require('readline');
 const fs = require('fs');
-const { TWINKS, MAIN_ACCOUNT, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic } = require('./utils.js');
+const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic } = require('./utils.js');
 
 function startBot(envPath, configOverrides) {
   console.log('--- [DEBUG] Запуск инициализации startBot ---');
@@ -42,6 +42,7 @@ function startBot(envPath, configOverrides) {
 
   let bot;
   let isManualQuit = false;
+  let isScheduledOffline = false; // ponytail: флаг планового отключения
   let schedulerInterval;
   let spamTasks = [];
   let lastRespectTime = 0;
@@ -117,7 +118,7 @@ function startBot(envPath, configOverrides) {
     return true;
   }
 
-  function tryRespect(username = MAIN_ACCOUNT, isAuto = false) {
+  function tryRespect(username = getMainAccount(), isAuto = false) {
     const now = Date.now();
     isRespectFailed = false;
     if (now - lastRespectTime < RESPECT_COOLDOWN) {
@@ -132,34 +133,38 @@ function startBot(envPath, configOverrides) {
           if (bot && !isRespectFailed) {
             bot.chat(`!успешно выдан респект игроку:${username}`);
             lastRespectTime = Date.now();
-            TWINKS.forEach(name => { if (bot && name !== bot.username) bot.chat(`/msg ${name} respect`); });
+            getTwinks().forEach(name => { if (bot && name !== bot.username) bot.chat(`/msg ${name} respect`); });
           }
         }, 3000); 
-      } catch (err) { bot.chat(`/msg ${MAIN_ACCOUNT} Ошибка при авто-респекте: ${err.message}`); }
+      } catch (err) { bot.chat(`/msg ${getMainAccount()} Ошибка при авто-респекте: ${err.message}`); }
     }
   }
 
-      // ponytail: проверка времени по МСК (UTC+3)
-  // ponytail: проверка времени по МСК (UTC+3)
-  schedulerInterval = setInterval(() => {
+  // ponytail: точный планировщик перезагрузки по МСК
+  function scheduleNextRestart() {
     const now = new Date();
-    const mskTime = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (3600000 * 3));
-    const h = mskTime.getHours();
-    const m = mskTime.getMinutes();
+    const msk = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + 10800000);
+    const target = new Date(msk);
+    target.setHours(11, 58, 0, 0);
+    if (msk >= target) target.setDate(target.getDate() + 1);
 
-    if (h === 11 && m === 58) {
+    setTimeout(() => {
+      console.log('[Scheduler] Время 11:58 МСК. Выполняю плановый выход.');
+      isManualQuit = true;
       if (bot) {
-        console.log('[Scheduler] Время 11:58 МСК. Выполняю плановый выход.');
-        isManualQuit = true;
-        bot.quit();
+        try { bot.quit(); } catch (e) {}
         bot = null;
       }
-    } else if (h === 12 && m >= 10 && !bot) {
-      console.log('[Scheduler] Время 12:10 МСК. Выполняю плановое подключение.');
-      isManualQuit = false;
-      createBotInstance();
-    }
-  }, 30000);
+      setTimeout(() => {
+        console.log('[Scheduler] Время 12:12 МСК. Выполняю плановое подключение.');
+        isManualQuit = false;
+        createBotInstance();
+        scheduleNextRestart();
+      }, 14 * 60 * 1000); // 14 минут (12:12 МСК)
+    }, target.getTime() - msk.getTime());
+  }
+
+  scheduleNextRestart();
 
   function createBotInstance() {
     console.log(`[Система] Попытка создания бота для ${config.username}...`);
@@ -254,8 +259,8 @@ function startBot(envPath, configOverrides) {
         if (parts.length >= 3 && parts[1].trim() === bot.username) {
           const senderFull = parts[0].trim();
           const content = parts[2].trim();
-          const isFromMain = senderFull.includes(MAIN_ACCOUNT);
-          const isFromTwin = TWINKS.some(t => senderFull.includes(t));
+          const isFromMain = senderFull.includes(getMainAccount());
+          const isFromTwin = getTwinks().some(t => senderFull.includes(t));
           if (content.toLowerCase().includes('respect') && (isFromMain || isFromTwin)) tryRespect();
           else if (isFromMain) handleCommand(bot, content);
         }

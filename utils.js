@@ -1,10 +1,26 @@
 
-const TWINKS = process.env.TWINKS ? process.env.TWINKS.split(',') : ['AlexZTI_Twin', 'AlexZTI_Twin1'];
-const MAIN_ACCOUNT = process.env.MAIN_ACCOUNT || 'AlexZTI_';
+async function dropAll(bot) {
+  const items = bot.inventory.items();
+  if (items.length === 0) return;
+  for (const item of items) {
+    try {
+      await bot.tossStack(item);
+    } catch (err) {
+      console.log(`[Ошибка] Не удалось выбросить ${item.name}: ${err.message}`);
+    }
+  }
+}
+
+function getTwinks() {
+  return process.env.TWINKS ? process.env.TWINKS.split(',') : ['AlexZTI_Twin', 'AlexZTI_Twin1'];
+}
+function getMainAccount() {
+  return process.env.MAIN_ACCOUNT || 'AlexZTI_';
+}
 const RESPECT_COOLDOWN = 60 * 60 * 1000;
 
 function parseCooldown(msg) {
-  const match = msg.match(/через (\d+) minutes/);
+  const match = msg.match(/через (\d+) (?:minutes|минут)/);
   if (match) return parseInt(match[1]) * 60 * 1000;
   return RESPECT_COOLDOWN;
 }
@@ -32,16 +48,4 @@ function getTraffic() {
     } catch (e) { return {}; }
 }
 
-module.exports = { TWINKS, MAIN_ACCOUNT, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic };
-
-async function dropAll(bot) {
-  const items = bot.inventory.items();
-  if (items.length === 0) return;
-  for (const item of items) {
-    try {
-      await bot.tossStack(item);
-    } catch (err) {
-      console.log(`[Ошибка] Не удалось выбросить ${item.name}: ${err.message}`);
-    }
-  }
-}
+module.exports = { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic };
