@@ -20,7 +20,7 @@ function getMainAccount() {
 const RESPECT_COOLDOWN = 60 * 60 * 1000;
 
 function parseCooldown(msg) {
-  const match = msg.match(/через (\d+) (?:minutes|минут)/);
+  const match = msg.match(/(\d+)\s*(?:minutes|минут|мин)/i);
   if (match) return parseInt(match[1]) * 60 * 1000;
   return RESPECT_COOLDOWN;
 }

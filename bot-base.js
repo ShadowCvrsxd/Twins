@@ -62,7 +62,7 @@ function startBot(envPath, configOverrides) {
       fs.writeFileSync(spamFile, JSON.stringify(data));
     } catch (e) {}
   }
-  let lastRespectTime = 0;
+  let nextRespectTime = 0;
   let isRespectFailed = false;
   let sessionBytes = 0; // ponytail: счетчик сессии
 
@@ -140,9 +140,9 @@ function startBot(envPath, configOverrides) {
   function tryRespect(username = getMainAccount(), isAuto = false) {
     const now = Date.now();
     isRespectFailed = false;
-    if (now - lastRespectTime < RESPECT_COOLDOWN) {
+    if (now < nextRespectTime) {
       if (!isAuto) {
-        const remaining = Math.ceil((RESPECT_COOLDOWN - (now - lastRespectTime)) / 1000 / 60);
+        const remaining = Math.ceil((nextRespectTime - now) / 1000 / 60);
         bot.chat(`/r КД на респект: ${remaining} мин.`);
       }
     } else {
@@ -151,7 +151,7 @@ function startBot(envPath, configOverrides) {
         setTimeout(() => {
           if (bot && !isRespectFailed) {
             bot.chat(`!успешно выдан респект игроку:${username}`);
-            lastRespectTime = Date.now();
+            nextRespectTime = Date.now() + RESPECT_COOLDOWN;
             getTwinks().forEach(name => { if (bot && name !== bot.username) bot.chat(`/msg ${name} respect`); });
           }
         }, 3000); 
@@ -262,8 +262,9 @@ function startBot(envPath, configOverrides) {
       const msg = message.toLowerCase();
       if (msg.includes('/login') || msg.includes('авторизуйтесь')) bot.chat(`/login ${PASSWORD}`);
       else if (msg.includes('/register') || msg.includes('зарегистрируйтесь')) bot.chat(`/register ${PASSWORD} ${PASSWORD}`);
-      else if ((msg.includes('через') && msg.includes('minutes')) || msg.includes('вы сможете отправить следующий')) {
-        lastRespectTime = Date.now() - (RESPECT_COOLDOWN - parseCooldown(msg));
+      else if (msg.includes('вы сможете отправить следующий') || msg.includes('через') || msg.includes('minutes') || msg.includes('минут')) {
+        const cdMs = parseCooldown(message);
+        nextRespectTime = Date.now() + cdMs;
         isRespectFailed = true;
       }
     });
