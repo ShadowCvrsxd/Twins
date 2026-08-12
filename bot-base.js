@@ -250,7 +250,11 @@ function startBot(envPath, configOverrides) {
       const savedTasks = loadSpamTasks();
       savedTasks.forEach(st => {
         const delayMs = parseInt(st.delay) * 1000;
-        const interval = setInterval(() => bot.chat(st.msg), delayMs);
+        const interval = setInterval(() => {
+          if (bot) {
+            try { bot.chat(st.msg); } catch (e) {}
+          }
+        }, delayMs);
         spamTasks.push({ msg: st.msg, interval, delay: st.delay });
       });
       if (savedTasks.length > 0) {
