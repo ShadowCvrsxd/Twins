@@ -45,6 +45,23 @@ function startBot(envPath, configOverrides) {
   let isScheduledOffline = false; // ponytail: флаг планового отключения
   let schedulerInterval;
   let spamTasks = [];
+  const spamFile = `spam_tasks_${config.username}.json`;
+
+  function loadSpamTasks() {
+    if (!fs.existsSync(spamFile)) return [];
+    try {
+      return JSON.parse(fs.readFileSync(spamFile, 'utf8')) || [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveSpamTasks(tasks) {
+    try {
+      const data = tasks.map(t => ({ msg: t.msg, delay: t.delay }));
+      fs.writeFileSync(spamFile, JSON.stringify(data));
+    } catch (e) {}
+  }
   let lastRespectTime = 0;
   let isRespectFailed = false;
   let sessionBytes = 0; // ponytail: счетчик сессии
@@ -76,6 +93,7 @@ function startBot(envPath, configOverrides) {
     if (command === 'stopspam') {
         spamTasks.forEach(task => clearInterval(task.interval));
         spamTasks = []; 
+        saveSpamTasks([]);
         console.log(`[Команда] Успешно выполнено: ${command} (остановлено всё)`);
         return true;
     }
@@ -88,6 +106,7 @@ function startBot(envPath, configOverrides) {
       }
       const interval = setInterval(() => botInstance.chat(msg), delay);
       spamTasks.push({ msg, interval, delay: parts[1] });
+      saveSpamTasks(spamTasks);
       console.log(`[Команда] Успешно выполнено: ${command} с задержкой ${parts[1]}с`);
       return true;
     }
@@ -222,6 +241,19 @@ function startBot(envPath, configOverrides) {
     bot.on('spawn', () => {
       clearTimeout(spawnTimeout); // ponytail: вход успешный, watchdog не нужен
       console.log(`[Система] Бот ${bot.username} заспавнился!`);
+
+      // ponytail: восстановление спама из файла
+      spamTasks.forEach(t => clearInterval(t.interval));
+      spamTasks = [];
+      const savedTasks = loadSpamTasks();
+      savedTasks.forEach(st => {
+        const delayMs = parseInt(st.delay) * 1000;
+        const interval = setInterval(() => bot.chat(st.msg), delayMs);
+        spamTasks.push({ msg: st.msg, interval, delay: st.delay });
+      });
+      if (savedTasks.length > 0) {
+        console.log(`[Спам] Восстановлено активных задач: ${savedTasks.length}`);
+      }
     });
 
     bot.on('messagestr', (message) => {
