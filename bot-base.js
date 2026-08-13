@@ -266,7 +266,10 @@ function startBot(envPath, configOverrides) {
       const msg = message.toLowerCase();
       if (msg.includes('/login') || msg.includes('авторизуйтесь')) bot.chat(`/login ${PASSWORD}`);
       else if (msg.includes('/register') || msg.includes('зарегистрируйтесь')) bot.chat(`/register ${PASSWORD} ${PASSWORD}`);
-      else if (msg.includes('вы сможете отправить следующий') || msg.includes('через') || msg.includes('minutes') || msg.includes('минут')) {
+      else if (
+        (msg.includes('respect') || msg.includes('респект') || msg.includes('следующий')) &&
+        (msg.includes('через') || msg.includes('минут') || msg.includes('minutes') || msg.includes('мин'))
+      ) {
         const cdMs = parseCooldown(message);
         nextRespectTime = Date.now() + cdMs;
         isRespectFailed = true;
