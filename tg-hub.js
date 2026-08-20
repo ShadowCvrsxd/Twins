@@ -41,19 +41,11 @@ async function telegramAPI(method, body = {}) {
   }
 }
 
-async function sendMessage(chatId, text, withKeyboard = false) {
-  const reply_markup = withKeyboard ? {
-    keyboard: [
-      [{ text: '/status' }, { text: '/stopspam' }]
-    ],
-    resize_keyboard: true
-  } : undefined;
-
+async function sendMessage(chatId, text) {
   await telegramAPI('sendMessage', {
     chat_id: chatId,
     text,
-    parse_mode: 'Markdown',
-    reply_markup
+    parse_mode: 'Markdown'
   });
 }
 
@@ -115,7 +107,7 @@ async function poll() {
         const cmd = parts[0].toLowerCase();
 
         if (cmd === '/start') {
-          await sendMessage(chatId, '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nИспользуй кнопки снизу для быстрого доступа или команды:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/status` - список и статус ботов\n`/chat <алиас> <текст>` - написать в чат', true);
+          await sendMessage(chatId, '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/status` - список и статус ботов\n`/chat <алиас> <текст>` - написать в чат');
         } 
         else if (cmd === '/addtwin' || cmd === '/link') {
           const username = parts[1];
@@ -240,7 +232,7 @@ async function poll() {
               }
               msg += `)\n   Статус: ${onlineStr}\n\n`;
             });
-            await sendMessage(chatId, msg, true);
+            await sendMessage(chatId, msg);
           }
         }
         else if (cmd === '/chat') {
