@@ -262,7 +262,12 @@ function startBot(envPath, configOverrides) {
               approved = JSON.parse(fs.readFileSync(approvedFile, 'utf8')) || {};
             }
             if (!approved[chatId]) approved[chatId] = [];
-            if (!approved[chatId].includes(config.username)) {
+            const alreadyLinked = approved[chatId].some(b => b.toLowerCase() === config.username.toLowerCase());
+            if (!alreadyLinked && approved[chatId].length >= 2) {
+              console.log(`[Telegram] Лимит (2 твинка) исчерпан для чата ${chatId}. Привязка отклонена.`);
+              return;
+            }
+            if (!alreadyLinked) {
               approved[chatId].push(config.username);
               fs.writeFileSync(approvedFile, JSON.stringify(approved, null, 2));
             }

@@ -57,7 +57,7 @@ async function poll() {
         const cmd = parts[0].toLowerCase();
 
         if (cmd === '/start') {
-          await sendMessage(chatId, '🤖 *Twins Telegram Hub*\n\nТвой Telegram успешно зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - добавить твинка для привязки\n`/status` - список твоих привязанных ботов\n`/stopspam` - остановить спам всех твоих ботов');
+          await sendMessage(chatId, '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - добавить твинка (макс. 2)\n`/deltwin <ник>` - отвязать твинка\n`/status` - список твоих привязанных ботов\n`/stopspam` - остановить спам всех твоих ботов');
         } 
         else if (cmd === '/addtwin' || cmd === '/link') {
           const username = parts[1];
@@ -65,6 +65,16 @@ async function poll() {
             await sendMessage(chatId, '❌ Укажи ник твинка: `/addtwin ИмяБота`');
             continue;
           }
+
+          const approved = readJSON(APPROVED_FILE);
+          const userBots = approved[chatId] || [];
+          // Проверяем, не привязан ли уже этот бот или не превышен ли лимит (2)
+          const alreadyLinked = userBots.some(b => b.toLowerCase() === username.toLowerCase());
+          if (!alreadyLinked && userBots.length >= 2) {
+            await sendMessage(chatId, '❌ Достигнут лимит: можно привязать максимум 2 твинка. Используйте `/deltwin <ник>` для удаления.');
+            continue;
+          }
+
           const code = Math.floor(100000 + Math.random() * 900000).toString();
           const pending = readJSON(PENDING_FILE);
           pending[username.toLowerCase()] = { code, chatId };
@@ -72,13 +82,33 @@ async function poll() {
 
           await sendMessage(chatId, `🔗 Запрос на привязку твинка *${username}* добавлен.\n\nЗапусти этого твинка локально — при входе в игру он автоматически привяжется к твоему Telegram!`);
         }
-        else if (cmd === '/status') {
+        else if (cmd === '/deltwin' || cmd === '/removetwin') {
+          const username = parts[1];
+          if (!username) {
+            await sendMessage(chatId, '❌ Укажи ник твинка для отвязки: `/deltwin ИмяБота`');
+            continue;
+          }
+          const approved = readJSON(APPROVED_FILE);
+          if (approved[chatId]) {
+            const index = approved[chatId].findIndex(b => b.toLowerCase() === username.toLowerCase());
+            if (index !== -1) {
+              approved[chatId].splice(index, 1);
+              writeJSON(APPROVED_FILE, approved);
+              await sendMessage(chatId, `🗑 Твинк *${username}* успешно отвязан.`);
+            } else {
+              await sendMessage(chatId, `❌ Твинк *${username}* не найден в твоем списке.`);
+            }
+          } else {
+            await sendMessage(chatId, `❌ У тебя нет привязанных твинков.`);
+          }
+        }
+        else if (cmd === '/status' || cmd === '/list') {
           const approved = readJSON(APPROVED_FILE);
           const userBots = approved[chatId] || [];
           if (userBots.length === 0) {
             await sendMessage(chatId, '📭 У тебя нет привязанных твинков. Используй `/addtwin <ник>`.');
           } else {
-            await sendMessage(chatId, `📋 Твои привязанные твинки:\n- ${userBots.join('\n- ')}`);
+            await sendMessage(chatId, `📋 Твои привязанные твинки (${userBots.length}/2):\n- ${userBots.join('\n- ')}`);
           }
         }
       }
