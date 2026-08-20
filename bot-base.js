@@ -346,7 +346,7 @@ function startBot(envPath, configOverrides) {
       }
       clearTimeout(spawnTimeout);
       if (bot) {
-          updateBotStatus(bot.username, false);
+          updateBotStatus(bot.username || config.username, false);
       }
       bot = null;
       console.log(`[Система] Соединение закрыто. Причина: ${reason}`);

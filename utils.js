@@ -38,6 +38,7 @@ const STATUS_FILE = path.join(__dirname, 'bots_status.json');
 const APPROVED_FILE = path.join(__dirname, 'links_approved.json');
 
 function updateBotStatus(username, online) {
+  if (!username) return;
   let statuses = {};
   try { statuses = JSON.parse(fs.readFileSync(STATUS_FILE, 'utf8')) || {}; } catch(e){}
   statuses[username.toLowerCase()] = {
