@@ -360,7 +360,6 @@ function startBot(envPath, configOverrides) {
     bot.on('message', (jsonMsg) => {
       const text = jsonMsg.toString();
       if (!text.trim()) return;
-      sendTelegramNotification(bot.username, text);
 
       if (text.includes(' › ')) {
         const parts = text.split(' › ');
