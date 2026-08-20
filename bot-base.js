@@ -5,7 +5,8 @@ const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResource
 
 function startBot(envPath, configOverrides) {
   console.log('--- [DEBUG] Запуск инициализации startBot ---');
-  require('dotenv').config({ path: envPath });
+  require('dotenv').config();
+  require('dotenv').config({ path: envPath, override: true });
   
   if (!process.env.USERNAME || !process.env.PASSWORD) {
     console.error('--- [DEBUG] ОШИБКА: Не найдены USERNAME или PASSWORD в .env ---');

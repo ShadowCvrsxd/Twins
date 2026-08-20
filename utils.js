@@ -74,7 +74,7 @@ function sendTelegramNotification(username, text) {
       return;
     }
 
-    const token = process.env.TG_CHAT_BOT_TOKEN;
+    const token = process.env.TG_CHAT_BOT_TOKEN || process.env.TG_BOT_TOKEN;
     if (token) {
       fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: 'POST',
