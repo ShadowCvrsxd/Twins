@@ -32,7 +32,46 @@ function sendResourcePackAck(client, uuid, RESOURCE_PACK_RESPONSE_NAMES, RESULT_
 }
 
 const fs = require('fs');
+const path = require('path');
 const STATS_FILE = 'traffic_stats.json';
+const STATUS_FILE = path.join(__dirname, 'bots_status.json');
+const APPROVED_FILE = path.join(__dirname, 'links_approved.json');
+
+function updateBotStatus(username, online) {
+  let statuses = {};
+  try { statuses = JSON.parse(fs.readFileSync(STATUS_FILE, 'utf8')) || {}; } catch(e){}
+  statuses[username.toLowerCase()] = {
+    online,
+    onlineSince: online ? Date.now() : null,
+    username
+  };
+  fs.writeFileSync(STATUS_FILE, JSON.stringify(statuses, null, 2));
+}
+
+function sendTelegramNotification(username, text) {
+  try {
+    if (!fs.existsSync(APPROVED_FILE)) return;
+    const approved = JSON.parse(fs.readFileSync(APPROVED_FILE, 'utf8')) || {};
+    let targetChatId = null;
+    for (const [chatId, bots] of Object.entries(approved)) {
+      if (bots.some(b => b.toLowerCase() === username.toLowerCase())) {
+        targetChatId = chatId;
+        break;
+      }
+    }
+    if (targetChatId && process.env.TG_BOT_TOKEN) {
+      fetch(`https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: targetChatId,
+          text: `💬 *[${username}]* ${text}`,
+          parse_mode: 'Markdown'
+        })
+      }).catch(() => {});
+    }
+  } catch(e){}
+}
 
 function updateTraffic(username, bytes) {
     let stats = {};
@@ -48,4 +87,4 @@ function getTraffic() {
     } catch (e) { return {}; }
 }
 
-module.exports = { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic };
+module.exports = { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification };

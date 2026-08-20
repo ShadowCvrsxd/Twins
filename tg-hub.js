@@ -11,6 +11,8 @@ if (!TOKEN) {
 
 const PENDING_FILE = path.join(__dirname, 'links_pending.json');
 const APPROVED_FILE = path.join(__dirname, 'links_approved.json');
+const STATUS_FILE = path.join(__dirname, 'bots_status.json');
+const CMDS_FILE = path.join(__dirname, 'bot_commands.json');
 
 function readJSON(file) {
   if (!fs.existsSync(file)) return {};
@@ -41,6 +43,14 @@ async function sendMessage(chatId, text) {
   await telegramAPI('sendMessage', { chat_id: chatId, text, parse_mode: 'Markdown' });
 }
 
+function formatUptime(ms) {
+  const seconds = Math.floor(ms / 1000);
+  const m = Math.floor(seconds / 60) % 60;
+  const h = Math.floor(seconds / 3600);
+  if (h > 0) return `${h} ч. ${m} мин.`;
+  return `${m} мин.`;
+}
+
 console.log('[Telegram] Хаб запущен и слушает сообщения...');
 
 async function poll() {
@@ -57,7 +67,7 @@ async function poll() {
         const cmd = parts[0].toLowerCase();
 
         if (cmd === '/start') {
-          await sendMessage(chatId, '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - добавить твинка (макс. 2)\n`/deltwin <ник>` - отвязать твинка\n`/status` - список твоих привязанных ботов\n`/stopspam` - остановить спам всех твоих ботов');
+          await sendMessage(chatId, '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - добавить твинка (макс. 2)\n`/deltwin <ник>` - отвязать твинка\n`/status` - статус твинков (онлайн / время)\n`/chat <бот/ник> <текст>` - написать в чат от имени бота\n`/stopspam` - остановить спам');
         } 
         else if (cmd === '/addtwin' || cmd === '/link') {
           const username = parts[1];
@@ -68,10 +78,9 @@ async function poll() {
 
           const approved = readJSON(APPROVED_FILE);
           const userBots = approved[chatId] || [];
-          // Проверяем, не привязан ли уже этот бот или не превышен ли лимит (2)
           const alreadyLinked = userBots.some(b => b.toLowerCase() === username.toLowerCase());
           if (!alreadyLinked && userBots.length >= 2) {
-            await sendMessage(chatId, '❌ Достигнут лимит: можно привязать максимум 2 твинка. Используйте `/deltwin <ник>` для удаления.');
+            await sendMessage(chatId, '❌ Достигнут лимит: можно привязать максимум 2 твинка. Используй `/deltwin <ник>`.');
             continue;
           }
 
@@ -108,8 +117,55 @@ async function poll() {
           if (userBots.length === 0) {
             await sendMessage(chatId, '📭 У тебя нет привязанных твинков. Используй `/addtwin <ник>`.');
           } else {
-            await sendMessage(chatId, `📋 Твои привязанные твинки (${userBots.length}/2):\n- ${userBots.join('\n- ')}`);
+            const statuses = readJSON(STATUS_FILE);
+            let msg = `📋 *Твои привязанные твинки (${userBots.length}/2):*\n\n`;
+            userBots.forEach((botName, index) => {
+              const st = statuses[botName.toLowerCase()];
+              const alias = `bot${index + 1}`;
+              if (st && st.online) {
+                const uptime = st.onlineSince ? formatUptime(Date.now() - st.onlineSince) : 'недавно';
+                msg += `🟢 *${botName}* (алиас: \`${alias}\`)\n   Статус: Онлайн (в сети ${uptime})\n\n`;
+              } else {
+                msg += `🔴 *${botName}* (алиас: \`${alias}\`)\n   Статус: Офлайн\n\n`;
+              }
+            });
+            await sendMessage(chatId, msg);
           }
+        }
+        else if (cmd === '/chat') {
+          const targetArg = parts[1];
+          const messageText = parts.slice(2).join(' ');
+          if (!targetArg || !messageText) {
+            await sendMessage(chatId, '❌ Использование: `/chat <бот1/бот2 или ник> <текст>`');
+            continue;
+          }
+
+          const approved = readJSON(APPROVED_FILE);
+          const userBots = approved[chatId] || [];
+          let targetBot = null;
+
+          if (targetArg.toLowerCase() === 'bot1' && userBots[0]) targetBot = userBots[0];
+          else if (targetArg.toLowerCase() === 'bot2' && userBots[1]) targetBot = userBots[1];
+          else {
+            const found = userBots.find(b => b.toLowerCase() === targetArg.toLowerCase());
+            if (found) targetBot = found;
+          }
+
+          if (!targetBot) {
+            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден среди твоих привязанных ботов.`);
+            continue;
+          }
+
+          const cmds = readJSON(CMDS_FILE);
+          if (!Array.isArray(cmds)) {
+            // reset if corrupted
+            writeJSON(CMDS_FILE, [{ username: targetBot, text: messageText }]);
+          } else {
+            cmds.push({ username: targetBot, text: messageText });
+            writeJSON(CMDS_FILE, cmds);
+          }
+
+          await sendMessage(chatId, `📤 Команда отправлена в чат для *${targetBot}*: \`${messageText}\``);
         }
       }
     }

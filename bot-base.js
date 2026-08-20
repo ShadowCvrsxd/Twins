@@ -1,7 +1,7 @@
 const mineflayer = require('mineflayer');
 const readline = require('readline');
 const fs = require('fs');
-const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic } = require('./utils.js');
+const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification } = require('./utils.js');
 
 function startBot(envPath, configOverrides) {
   console.log('--- [DEBUG] Запуск инициализации startBot ---');
@@ -69,13 +69,26 @@ function startBot(envPath, configOverrides) {
   const RESOURCE_PACK_RESPONSE_NAMES = ['resource_pack_receive', 'resource_pack_response', 'resource_pack_status'];
   const RESULT_SUCCESS = 0;
 
-  // ponytail: раз в 10 секунд сбрасываем стату в общий файл
+  // ponytail: раз в 1 секунду проверяем команды чата из Telegram-хаба
+  const path = require('path');
+  const cmdFile = path.join(__dirname, 'bot_commands.json');
   setInterval(() => {
-      if (sessionBytes > 0) {
-          updateTraffic(config.username, sessionBytes);
-          sessionBytes = 0;
+    if (!bot) return;
+    try {
+      if (fs.existsSync(cmdFile)) {
+        let cmds = JSON.parse(fs.readFileSync(cmdFile, 'utf8')) || [];
+        const myCmds = cmds.filter(c => c.username.toLowerCase() === config.username.toLowerCase());
+        if (myCmds.length > 0) {
+          myCmds.forEach(c => {
+            bot.chat(c.text);
+            console.log(`[Telegram Chat] Отправлено в игру: "${c.text}"`);
+          });
+          cmds = cmds.filter(c => c.username.toLowerCase() !== config.username.toLowerCase());
+          fs.writeFileSync(cmdFile, JSON.stringify(cmds, null, 2));
+        }
       }
-  }, 10000);
+    } catch(e){}
+  }, 1000);
   function handleCommand(botInstance, input) {
     const parts = input.split(' ');
     const command = parts[0].toLowerCase();
@@ -243,6 +256,7 @@ function startBot(envPath, configOverrides) {
     bot.on('spawn', () => {
       clearTimeout(spawnTimeout); // ponytail: вход успешный, watchdog не нужен
       console.log(`[Система] Бот ${bot.username} заспавнился!`);
+      updateBotStatus(config.username, true);
 
       // ponytail: проверка и автопривязка к Telegram
       try {
@@ -327,6 +341,9 @@ function startBot(envPath, configOverrides) {
           try { bot._client.end(); } catch (e) {}
       }
       clearTimeout(spawnTimeout);
+      if (bot) {
+          updateBotStatus(bot.username, false);
+      }
       bot = null;
       console.log(`[Система] Соединение закрыто. Причина: ${reason}`);
       if (!isManualQuit) {
@@ -338,7 +355,7 @@ function startBot(envPath, configOverrides) {
     bot.on('message', (jsonMsg) => {
       const text = jsonMsg.toString();
       if (!text.trim()) return;
-      // console.log(`[Чат] ${text}`); // ponytail: лог чата выключен для экономии ресурсов
+      sendTelegramNotification(bot.username, text);
 
       if (text.includes(' › ')) {
         const parts = text.split(' › ');
