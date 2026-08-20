@@ -276,6 +276,20 @@ function startBot(envPath, configOverrides) {
             if (fs.existsSync(approvedFile)) {
               approved = JSON.parse(fs.readFileSync(approvedFile, 'utf8')) || {};
             }
+
+            let isOwnedElsewhere = false;
+            for (const [ownerChatId, bots] of Object.entries(approved)) {
+              if (bots.some(b => b.toLowerCase() === config.username.toLowerCase()) && ownerChatId !== chatId.toString()) {
+                isOwnedElsewhere = true;
+                break;
+              }
+            }
+
+            if (isOwnedElsewhere) {
+              console.log(`[Telegram] Бот ${config.username} уже привязан к другому Telegram аккаунту. Привязка отклонена.`);
+              return;
+            }
+
             if (!approved[chatId]) approved[chatId] = [];
             const alreadyLinked = approved[chatId].some(b => b.toLowerCase() === config.username.toLowerCase());
             if (!alreadyLinked && approved[chatId].length >= 2) {

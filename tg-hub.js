@@ -117,6 +117,20 @@ async function poll() {
           }
 
           const approved = readJSON(APPROVED_FILE);
+          
+          let alreadyOwnedBy = null;
+          for (const [ownerChatId, bots] of Object.entries(approved)) {
+            if (bots.some(b => b.toLowerCase() === username.toLowerCase())) {
+              alreadyOwnedBy = ownerChatId;
+              break;
+            }
+          }
+
+          if (alreadyOwnedBy && alreadyOwnedBy !== chatId.toString()) {
+            await sendMessage(chatId, `❌ Этот твинк уже привязан к другому Telegram аккаунту.`);
+            continue;
+          }
+
           const userBots = approved[chatId] || [];
           const alreadyLinked = userBots.some(b => b.toLowerCase() === username.toLowerCase());
           if (!alreadyLinked && userBots.length >= 2) {
