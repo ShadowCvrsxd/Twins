@@ -14,6 +14,7 @@ const APPROVED_FILE = path.join(__dirname, 'links_approved.json');
 const STATUS_FILE = path.join(__dirname, 'bots_status.json');
 const CMDS_FILE = path.join(__dirname, 'bot_commands.json');
 const STREAMING_FILE = path.join(__dirname, 'chat_streaming.json');
+const ALIASES_FILE = path.join(__dirname, 'bot_aliases.json');
 
 function readJSON(file) {
   if (!fs.existsSync(file)) return {};
@@ -52,6 +53,25 @@ function formatUptime(ms) {
   return `${m} мин.`;
 }
 
+function resolveBot(chatId, targetArg) {
+  const approved = readJSON(APPROVED_FILE);
+  const userBots = approved[chatId] || [];
+  const aliases = readJSON(ALIASES_FILE)[chatId] || {}; // { alias: realUsername }
+  const searchKey = targetArg.toLowerCase();
+
+  if (aliases[searchKey]) {
+    return aliases[searchKey];
+  }
+  if (searchKey === 'bot1' && userBots[0]) {
+    return userBots[0];
+  }
+  if (searchKey === 'bot2' && userBots[1]) {
+    return userBots[1];
+  }
+  const found = userBots.find(b => b.toLowerCase() === searchKey);
+  return found || null;
+}
+
 console.log('[Telegram] Хаб запущен и слушает сообщения...');
 
 async function poll() {
@@ -68,7 +88,7 @@ async function poll() {
         const cmd = parts[0].toLowerCase();
 
         if (cmd === '/start') {
-          await sendMessage(chatId, '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - добавить твинка (макс. 2)\n`/deltwin <ник>` - отвязать твинка\n`/status` - статус твинков (онлайн / время / чат в ТГ)\n`/chaton <бот>` - включить дублирование чата в ТГ\n`/chatoff <бот>` - выключить дублирование чата\n`/chat <бот/ник> <текст>` - написать в чат от имени бота\n`/stopspam` - остановить спам');
+          await sendMessage(chatId, '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - добавить твинка (макс. 2)\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас твинку\n`/unalias <алиас>` - удалить алиас\n`/status` - статус твинков\n`/chat <алиас/ник> <текст>` - написать в чат от имени бота\n`/stopspam` - остановить спам');
         } 
         else if (cmd === '/addtwin' || cmd === '/link') {
           const username = parts[1];
@@ -104,12 +124,68 @@ async function poll() {
             if (index !== -1) {
               approved[chatId].splice(index, 1);
               writeJSON(APPROVED_FILE, approved);
+              
+              // Также удаляем алиасы, связанные с этим ботом
+              const aliases = readJSON(ALIASES_FILE);
+              if (aliases[chatId]) {
+                for (const [alias, realName] of Object.entries(aliases[chatId])) {
+                  if (realName.toLowerCase() === username.toLowerCase()) {
+                    delete aliases[chatId][alias];
+                  }
+                }
+                writeJSON(ALIASES_FILE, aliases);
+              }
+
               await sendMessage(chatId, `🗑 Твинк *${username}* успешно отвязан.`);
             } else {
               await sendMessage(chatId, `❌ Твинк *${username}* не найден в твоем списке.`);
             }
           } else {
             await sendMessage(chatId, `❌ У тебя нет привязанных твинков.`);
+          }
+        }
+        else if (cmd === '/alias') {
+          const targetArg = parts[1];
+          const newAlias = parts[2];
+          if (!targetArg || !newAlias) {
+            await sendMessage(chatId, '❌ Использование: `/alias <бот1/бот2 или ник> <новый_алиас>`');
+            continue;
+          }
+
+          const realBot = resolveBot(chatId, targetArg);
+          if (!realBot) {
+            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден среди твоих привязанных ботов.`);
+            continue;
+          }
+
+          const aliases = readJSON(ALIASES_FILE);
+          if (!aliases[chatId]) aliases[chatId] = {};
+          
+          // Удаляем старый алиас если этот бот уже имел другой алиас
+          for (const [al, rb] of Object.entries(aliases[chatId])) {
+            if (rb.toLowerCase() === realBot.toLowerCase()) {
+              delete aliases[chatId][al];
+            }
+          }
+
+          aliases[chatId][newAlias.toLowerCase()] = realBot;
+          writeJSON(ALIASES_FILE, aliases);
+
+          await sendMessage(chatId, `🏷 Алиас \`${newAlias}\` успешно закреплен за твинком *${realBot}*!`);
+        }
+        else if (cmd === '/unalias') {
+          const aliasArg = parts[1];
+          if (!aliasArg) {
+            await sendMessage(chatId, '❌ Укажи алиас для удаления: `/unalias <алиас>`');
+            continue;
+          }
+          const aliases = readJSON(ALIASES_FILE);
+          if (aliases[chatId] && aliases[chatId][aliasArg.toLowerCase()]) {
+            delete aliases[chatId][aliasArg.toLowerCase()];
+            writeJSON(ALIASES_FILE, aliases);
+            await sendMessage(chatId, `🗑 Алиас \`${aliasArg}\` удален.`);
+          } else {
+            await sendMessage(chatId, `❌ Алиас \`${aliasArg}\` не найден.`);
           }
         }
         else if (cmd === '/status' || cmd === '/list') {
@@ -120,95 +196,40 @@ async function poll() {
           } else {
             const statuses = readJSON(STATUS_FILE);
             const streaming = readJSON(STREAMING_FILE);
+            const aliases = readJSON(ALIASES_FILE)[chatId] || {};
+            
             let msg = `📋 *Твои привязанные твинки (${userBots.length}/2):*\n\n`;
             userBots.forEach((botName, index) => {
               const st = statuses[botName.toLowerCase()];
               const userStream = streaming[chatId] || {};
               const isStreaming = !!userStream[botName.toLowerCase()];
               const alias = `bot${index + 1}`;
+              
+              // Ищем кастомные алиасы для этого бота
+              const customAliases = Object.entries(aliases)
+                .filter(([al, rb]) => rb.toLowerCase() === botName.toLowerCase())
+                .map(([al]) => al);
+
               const onlineStr = (st && st.online) ? `🟢 Онлайн (в сети ${st.onlineSince ? formatUptime(Date.now() - st.onlineSince) : 'недавно'})` : `🔴 Офлайн`;
-              const chatStreamStr = isStreaming ? `🟢 ВКЛ` : `🔴 ВЫКЛ`;
-              msg += `• *${botName}* (алиас: \`${alias}\`)\n   Статус: ${onlineStr}\n   Дублирование чата: ${chatStreamStr}\n\n`;
+              
+              msg += `• *${botName}* (системный: \`${alias}\``;
+              if (customAliases.length > 0) {
+                msg += `, алиасы: \`${customAliases.join(', ')}\``;
+              }
+              msg += `)\n   Статус: ${onlineStr}\n\n`;
             });
             await sendMessage(chatId, msg);
           }
-        }
-        else if (cmd === '/chaton' || cmd === '/streamon') {
-          const targetArg = parts[1];
-          if (!targetArg) {
-            await sendMessage(chatId, '❌ Укажи бота: `/chaton <bot1/bot2 или ник>`');
-            continue;
-          }
-          const approved = readJSON(APPROVED_FILE);
-          const userBots = approved[chatId] || [];
-          let targetBot = null;
-          if (targetArg.toLowerCase() === 'bot1' && userBots[0]) targetBot = userBots[0];
-          else if (targetArg.toLowerCase() === 'bot2' && userBots[1]) targetBot = userBots[1];
-          else {
-            const found = userBots.find(b => b.toLowerCase() === targetArg.toLowerCase());
-            if (found) targetBot = found;
-          }
-
-          if (!targetBot) {
-            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден среди твоих привязанных ботов.`);
-            continue;
-          }
-
-          const streaming = readJSON(STREAMING_FILE);
-          if (!streaming[chatId]) streaming[chatId] = {};
-          streaming[chatId][targetBot.toLowerCase()] = true;
-          writeJSON(STREAMING_FILE, streaming);
-
-          await sendMessage(chatId, `🟢 Дублирование чата для *${targetBot}* включено.`);
-        }
-        else if (cmd === '/chatoff' || cmd === '/streamoff') {
-          const targetArg = parts[1];
-          if (!targetArg) {
-            await sendMessage(chatId, '❌ Укажи бота: `/chatoff <bot1/bot2 или ник>`');
-            continue;
-          }
-          const approved = readJSON(APPROVED_FILE);
-          const userBots = approved[chatId] || [];
-          let targetBot = null;
-          if (targetArg.toLowerCase() === 'bot1' && userBots[0]) targetBot = userBots[0];
-          else if (targetArg.toLowerCase() === 'bot2' && userBots[1]) targetBot = userBots[1];
-          else {
-            const found = userBots.find(b => b.toLowerCase() === targetArg.toLowerCase());
-            if (found) targetBot = found;
-          }
-
-          if (!targetBot) {
-            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден среди твоих привязанных ботов.`);
-            continue;
-          }
-
-          const streaming = readJSON(STREAMING_FILE);
-          if (streaming[chatId]) {
-            streaming[chatId][targetBot.toLowerCase()] = false;
-            writeJSON(STREAMING_FILE, streaming);
-          }
-
-          await sendMessage(chatId, `🔴 Дублирование чата для *${targetBot}* выключено.`);
         }
         else if (cmd === '/chat') {
           const targetArg = parts[1];
           const messageText = parts.slice(2).join(' ');
           if (!targetArg || !messageText) {
-            await sendMessage(chatId, '❌ Использование: `/chat <bot1/bot2 или ник> <текст>`');
+            await sendMessage(chatId, '❌ Использование: `/chat <алиас или ник> <текст>`');
             continue;
           }
 
-          const approved = readJSON(APPROVED_FILE);
-          const userBots = approved[chatId] || [];
-          let targetBot = null;
-
-          if (targetArg.toLowerCase() === 'bot1' && userBots[0]) targetBot = userBots[0];
-          else if (targetArg.toLowerCase() === 'bot2' && userBots[1]) targetBot = userBots[1];
-          else {
-            const found = userBots.find(b => b.toLowerCase() === targetArg.toLowerCase());
-            if (found) targetBot = found;
-          }
-
+          const targetBot = resolveBot(chatId, targetArg);
           if (!targetBot) {
             await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден среди твоих привязанных ботов.`);
             continue;
