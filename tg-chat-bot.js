@@ -13,6 +13,7 @@ const APPROVED_FILE = path.join(__dirname, 'links_approved.json');
 const STATUS_FILE = path.join(__dirname, 'bots_status.json');
 const STREAMING_FILE = path.join(__dirname, 'chat_streaming.json');
 const ALIASES_FILE = path.join(__dirname, 'bot_aliases.json');
+const DISPLAY_MODE_FILE = path.join(__dirname, 'chat_display_mode.json');
 
 function readJSON(file) {
   if (!fs.existsSync(file)) return {};
@@ -81,7 +82,7 @@ async function poll() {
         const userBots = approved[chatId] || [];
 
         if (cmd === '/start') {
-          await sendMessage(chatId, `💬 *Twins Chat Stream Bot*\n\nЭтот бот управляет дублированием игрового чата твинков.\n\nТвои привязанные твинки: ${userBots.length > 0 ? userBots.join(', ') : 'нет (привяжи через мейн-бота)'}\n\nКоманды:\n\`/streamon <алиас или ник>\` - включить трансляцию чата\n\`/streamoff <алиас или ник>\` - выключить трансляцию\n\`/status\` - статус потоков`);
+          await sendMessage(chatId, `💬 *Twins Chat Stream Bot*\n\nЭтот бот управляет дублированием игрового чата твинков.\n\nТвои привязанные твинки: ${userBots.length > 0 ? userBots.join(', ') : 'нет (привяжи через мейн-бота)'}\n\nКоманды:\n\`/streamon <алиас или ник>\` - включить трансляцию чата\n\`/streamoff <алиас или ник>\` - выключить трансляцию\n\`/display <alias|nick|both>\` - режим отображения ника/алиаса\n\`/status\` - статус потоков`);
         }
         else if (cmd === '/streamon' || cmd === '/chaton') {
           if (userBots.length === 0) {
@@ -132,6 +133,21 @@ async function poll() {
 
           await sendMessage(chatId, `🔴 Трансляция чата для твинка *${targetBot}* выключена.`);
         }
+        else if (cmd === '/display' || cmd === '/mode') {
+          const modeArg = parts[1] ? parts[1].toLowerCase() : '';
+          const validModes = ['alias', 'nick', 'both'];
+
+          if (!validModes.includes(modeArg)) {
+            await sendMessage(chatId, '❌ Использование: `/display <alias | nick | both>`\n- `alias` — только алиас (например: `[twin1]`)\n- `nick` — только ник (например: `[AlexZTI_Twin1]`)\n- `both` — алиас и ник (например: `[twin1 / AlexZTI_Twin1]`)');
+            continue;
+          }
+
+          const modes = readJSON(DISPLAY_MODE_FILE);
+          modes[chatId] = modeArg;
+          writeJSON(DISPLAY_MODE_FILE, modes);
+
+          await sendMessage(chatId, `✅ Режим отображения имен в чате установлен на: *${modeArg}*`);
+        }
         else if (cmd === '/status' || cmd === '/list') {
           if (userBots.length === 0) {
             await sendMessage(chatId, '📭 У тебя нет привязанных твинков. Привяжи их через мейн-бота.');
@@ -139,8 +155,10 @@ async function poll() {
             const streaming = readJSON(STREAMING_FILE);
             const userStream = streaming[chatId] || {};
             const aliases = readJSON(ALIASES_FILE)[chatId] || {};
+            const modes = readJSON(DISPLAY_MODE_FILE);
+            const currentMode = modes[chatId] || 'both';
             
-            let msg = `💬 *Статус трансляций чата:*\n\n`;
+            let msg = `💬 *Статус трансляций чата (режим: ${currentMode}):*\n\n`;
             userBots.forEach((botName, index) => {
               const isStreaming = !!userStream[botName.toLowerCase()];
               const alias = `bot${index + 1}`;

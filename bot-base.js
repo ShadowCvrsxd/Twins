@@ -352,8 +352,8 @@ function startBot(envPath, configOverrides) {
       bot = null;
       console.log(`[Система] Соединение закрыто. Причина: ${reason}`);
       if (!isManualQuit) {
-        console.log('[Система] Запуск реконнекта через 30 сек...');
-        setTimeout(() => { try { createBotInstance(); } catch (e) {} }, 30000);
+        console.log('[Система] Запуск реконнекта через 15 сек...');
+        setTimeout(() => { try { createBotInstance(); } catch (e) {} }, 15000);
       }
     });
 

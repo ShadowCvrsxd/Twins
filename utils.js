@@ -50,6 +50,42 @@ function updateBotStatus(username, online) {
 }
 
 const STREAMING_FILE = path.join(__dirname, 'chat_streaming.json');
+const ALIASES_FILE = path.join(__dirname, 'bot_aliases.json');
+const DISPLAY_MODE_FILE = path.join(__dirname, 'chat_display_mode.json');
+
+function getBotDisplayName(chatId, username) {
+  let mode = 'both';
+  if (fs.existsSync(DISPLAY_MODE_FILE)) {
+    try {
+      const modes = JSON.parse(fs.readFileSync(DISPLAY_MODE_FILE, 'utf8')) || {};
+      if (modes[chatId]) mode = modes[chatId];
+    } catch(e){}
+  }
+
+  const aliases = fs.existsSync(ALIASES_FILE) ? JSON.parse(fs.readFileSync(ALIASES_FILE, 'utf8')) || {} : {};
+  const userAliases = aliases[chatId] || {};
+  
+  let customAlias = null;
+  for (const [al, realName] of Object.entries(userAliases)) {
+    if (realName.toLowerCase() === username.toLowerCase()) {
+      customAlias = al;
+      break;
+    }
+  }
+
+  const approved = fs.existsSync(APPROVED_FILE) ? JSON.parse(fs.readFileSync(APPROVED_FILE, 'utf8')) || {} : {};
+  const userBots = approved[chatId] || [];
+  const index = userBots.findIndex(b => b.toLowerCase() === username.toLowerCase());
+  const systemAlias = index !== -1 ? `bot${index + 1}` : null;
+
+  const primaryAlias = customAlias || systemAlias;
+
+  if (!primaryAlias) return username;
+
+  if (mode === 'alias') return primaryAlias;
+  if (mode === 'nick') return username;
+  return `${primaryAlias} / ${username}`;
+}
 
 function cleanMinecraftText(text) {
   if (!text) return '';
@@ -86,6 +122,7 @@ function sendTelegramNotification(username, text) {
     const cleanedText = cleanMinecraftText(text);
     if (!cleanedText) return;
 
+    const displayName = getBotDisplayName(targetChatId, username);
     const token = process.env.TG_CHAT_BOT_TOKEN || process.env.TG_BOT_TOKEN;
     if (token) {
       fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -93,7 +130,7 @@ function sendTelegramNotification(username, text) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: targetChatId,
-          text: `💬 [${username}] ${cleanedText}`
+          text: `💬 [${displayName}] ${cleanedText}`
         })
       }).catch(() => {});
     }
