@@ -57,12 +57,12 @@ async function poll() {
         const cmd = parts[0].toLowerCase();
 
         if (cmd === '/start') {
-          await sendMessage(chatId, '🤖 *Twins Telegram Hub*\n\nКоманды:\n`/link <ник>` - привязать аккаунт майнкрафт\n`/status` - статус твоих ботов\n`/stopspam` - остановить спам всех твоих ботов');
+          await sendMessage(chatId, '🤖 *Twins Telegram Hub*\n\nТвой Telegram успешно зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - добавить твинка для привязки\n`/status` - список твоих привязанных ботов\n`/stopspam` - остановить спам всех твоих ботов');
         } 
-        else if (cmd === '/link') {
+        else if (cmd === '/addtwin' || cmd === '/link') {
           const username = parts[1];
           if (!username) {
-            await sendMessage(chatId, '❌ Укажи ник: `/link ИмяБота`');
+            await sendMessage(chatId, '❌ Укажи ник твинка: `/addtwin ИмяБота`');
             continue;
           }
           const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -70,43 +70,15 @@ async function poll() {
           pending[username.toLowerCase()] = { code, chatId };
           writeJSON(PENDING_FILE, pending);
 
-          await sendMessage(chatId, `🔑 Запрос на привязку для *${username} создален.*\n\nКод подтверждения: \`${code}\`\n\nЗапусти бота локально с этим ником — в консоли появится инструкция или код автоматически подтвердится!`);
-        }
-        else if (text.length === 6 && /^\d+$/.test(text)) {
-          // Проверяем, не ввел ли пользователь код подтверждения
-          const pending = readJSON(PENDING_FILE);
-          let foundKey = null;
-          for (const [uname, data] of Object.entries(pending)) {
-            if (data.chatId === chatId && data.code === text) {
-              foundKey = uname;
-              break;
-            }
-          }
-
-          if (foundKey) {
-            const pendingData = pending[foundKey];
-            delete pending[foundKey];
-            writeJSON(PENDING_FILE, pending);
-
-            const approved = readJSON(APPROVED_FILE);
-            if (!approved[chatId]) approved[chatId] = [];
-            if (!approved[chatId].includes(pendingData.username || foundKey)) {
-              approved[chatId].push(foundKey);
-              writeJSON(APPROVED_FILE, approved);
-            }
-
-            await sendMessage(chatId, `✅ Аккаунт *${foundKey}* успешно привязан к твоему Telegram!`);
-          } else {
-            await sendMessage(chatId, '❌ Неверный или устаревший код привязки.');
-          }
+          await sendMessage(chatId, `🔗 Запрос на привязку твинка *${username}* добавлен.\n\nЗапусти этого твинка локально — при входе в игру он автоматически привяжется к твоему Telegram!`);
         }
         else if (cmd === '/status') {
           const approved = readJSON(APPROVED_FILE);
           const userBots = approved[chatId] || [];
           if (userBots.length === 0) {
-            await sendMessage(chatId, '📭 У тебя нет привязанных ботов. Используй `/link <ник>`.');
+            await sendMessage(chatId, '📭 У тебя нет привязанных твинков. Используй `/addtwin <ник>`.');
           } else {
-            await sendMessage(chatId, `📋 Твои боты:\n- ${userBots.join('\n- ')}`);
+            await sendMessage(chatId, `📋 Твои привязанные твинки:\n- ${userBots.join('\n- ')}`);
           }
         }
       }
