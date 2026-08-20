@@ -52,6 +52,7 @@ const STREAMING_FILE = path.join(__dirname, 'chat_streaming.json');
 
 function sendTelegramNotification(username, text) {
   try {
+    require('dotenv').config();
     if (!fs.existsSync(APPROVED_FILE)) return;
     const approved = JSON.parse(fs.readFileSync(APPROVED_FILE, 'utf8')) || {};
     let targetChatId = null;
@@ -73,8 +74,9 @@ function sendTelegramNotification(username, text) {
       return;
     }
 
-    if (process.env.TG_BOT_TOKEN) {
-      fetch(`https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}/sendMessage`, {
+    const token = process.env.TG_CHAT_BOT_TOKEN;
+    if (token) {
+      fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
