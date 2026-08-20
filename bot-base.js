@@ -332,6 +332,10 @@ function startBot(envPath, configOverrides) {
         const cdMs = parseCooldown(message);
         nextRespectTime = Date.now() + cdMs;
         isRespectFailed = true;
+      } else {
+        if (!msg.startsWith('/login') && !msg.startsWith('/register')) {
+          sendTelegramNotification(bot.username, message);
+        }
       }
     });
 
