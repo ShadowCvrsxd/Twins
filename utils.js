@@ -52,7 +52,6 @@ const STREAMING_FILE = path.join(__dirname, 'chat_streaming.json');
 
 function sendTelegramNotification(username, text) {
   try {
-    require('dotenv').config();
     if (!fs.existsSync(APPROVED_FILE)) return;
     const approved = JSON.parse(fs.readFileSync(APPROVED_FILE, 'utf8')) || {};
     let targetChatId = null;
