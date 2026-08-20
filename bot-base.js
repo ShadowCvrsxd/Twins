@@ -244,6 +244,46 @@ function startBot(envPath, configOverrides) {
       clearTimeout(spawnTimeout); // ponytail: вход успешный, watchdog не нужен
       console.log(`[Система] Бот ${bot.username} заспавнился!`);
 
+      // ponytail: проверка и автопривязка к Telegram
+      try {
+        const path = require('path');
+        const pendingFile = path.join(__dirname, 'links_pending.json');
+        const approvedFile = path.join(__dirname, 'links_approved.json');
+        if (fs.existsSync(pendingFile)) {
+          const pending = JSON.parse(fs.readFileSync(pendingFile, 'utf8'));
+          const uname = config.username.toLowerCase();
+          if (pending[uname]) {
+            const { chatId } = pending[uname];
+            delete pending[uname];
+            fs.writeFileSync(pendingFile, JSON.stringify(pending, null, 2));
+
+            let approved = {};
+            if (fs.existsSync(approvedFile)) {
+              approved = JSON.parse(fs.readFileSync(approvedFile, 'utf8')) || {};
+            }
+            if (!approved[chatId]) approved[chatId] = [];
+            if (!approved[chatId].includes(config.username)) {
+              approved[chatId].push(config.username);
+              fs.writeFileSync(approvedFile, JSON.stringify(approved, null, 2));
+            }
+
+            console.log(`[Telegram] Бот ${config.username} успешно привязан к Telegram Chat ID: ${chatId}`);
+
+            if (process.env.TG_BOT_TOKEN) {
+              fetch(`https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  chat_id: chatId,
+                  text: `✅ Бот *${config.username}* успешно запущен и привязан!`,
+                  parse_mode: 'Markdown'
+                })
+              }).catch(() => {});
+            }
+          }
+        }
+      } catch (e) {}
+
       // ponytail: восстановление спама из файла
       spamTasks.forEach(t => clearInterval(t.interval));
       spamTasks = [];
