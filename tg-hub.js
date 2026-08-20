@@ -41,8 +41,20 @@ async function telegramAPI(method, body = {}) {
   }
 }
 
-async function sendMessage(chatId, text) {
-  await telegramAPI('sendMessage', { chat_id: chatId, text, parse_mode: 'Markdown' });
+async function sendMessage(chatId, text, withKeyboard = false) {
+  const reply_markup = withKeyboard ? {
+    keyboard: [
+      [{ text: '/status' }, { text: '/stopspam' }]
+    ],
+    resize_keyboard: true
+  } : undefined;
+
+  await telegramAPI('sendMessage', {
+    chat_id: chatId,
+    text,
+    parse_mode: 'Markdown',
+    reply_markup
+  });
 }
 
 function formatUptime(ms) {
@@ -56,7 +68,7 @@ function formatUptime(ms) {
 function resolveBot(chatId, targetArg) {
   const approved = readJSON(APPROVED_FILE);
   const userBots = approved[chatId] || [];
-  const aliases = readJSON(ALIASES_FILE)[chatId] || {}; // { alias: realUsername }
+  const aliases = readJSON(ALIASES_FILE)[chatId] || {};
   const searchKey = targetArg.toLowerCase();
 
   if (aliases[searchKey]) {
@@ -72,6 +84,21 @@ function resolveBot(chatId, targetArg) {
   return found || null;
 }
 
+async function initBotMenu() {
+  await telegramAPI('setMyCommands', {
+    commands: [
+      { command: 'start', description: 'Главное меню' },
+      { command: 'addtwin', description: 'Привязать твинка (/addtwin <ник>)' },
+      { command: 'deltwin', description: 'Отвязать твинка (/deltwin <ник>)' },
+      { command: 'alias', description: 'Задать алиас (/alias <бот> <алиас>)' },
+      { command: 'unalias', description: 'Удалить алиас (/unalias <алиас>)' },
+      { command: 'status', description: 'Статус привязанных ботов' },
+      { command: 'stopspam', description: 'Остановить весь спам' }
+    ]
+  });
+}
+
+initBotMenu();
 console.log('[Telegram] Хаб запущен и слушает сообщения...');
 
 async function poll() {
@@ -88,7 +115,7 @@ async function poll() {
         const cmd = parts[0].toLowerCase();
 
         if (cmd === '/start') {
-          await sendMessage(chatId, '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - добавить твинка (макс. 2)\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас твинку\n`/unalias <алиас>` - удалить алиас\n`/status` - статус твинков\n`/chat <алиас/ник> <текст>` - написать в чат от имени бота\n`/stopspam` - остановить спам');
+          await sendMessage(chatId, '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nИспользуй кнопки снизу для быстрого доступа или команды:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/status` - список и статус ботов\n`/chat <алиас> <текст>` - написать в чат', true);
         } 
         else if (cmd === '/addtwin' || cmd === '/link') {
           const username = parts[1];
@@ -125,7 +152,6 @@ async function poll() {
               approved[chatId].splice(index, 1);
               writeJSON(APPROVED_FILE, approved);
               
-              // Также удаляем алиасы, связанные с этим ботом
               const aliases = readJSON(ALIASES_FILE);
               if (aliases[chatId]) {
                 for (const [alias, realName] of Object.entries(aliases[chatId])) {
@@ -161,7 +187,6 @@ async function poll() {
           const aliases = readJSON(ALIASES_FILE);
           if (!aliases[chatId]) aliases[chatId] = {};
           
-          // Удаляем старый алиас если этот бот уже имел другой алиас
           for (const [al, rb] of Object.entries(aliases[chatId])) {
             if (rb.toLowerCase() === realBot.toLowerCase()) {
               delete aliases[chatId][al];
@@ -201,11 +226,8 @@ async function poll() {
             let msg = `📋 *Твои привязанные твинки (${userBots.length}/2):*\n\n`;
             userBots.forEach((botName, index) => {
               const st = statuses[botName.toLowerCase()];
-              const userStream = streaming[chatId] || {};
-              const isStreaming = !!userStream[botName.toLowerCase()];
               const alias = `bot${index + 1}`;
               
-              // Ищем кастомные алиасы для этого бота
               const customAliases = Object.entries(aliases)
                 .filter(([al, rb]) => rb.toLowerCase() === botName.toLowerCase())
                 .map(([al]) => al);
@@ -218,7 +240,7 @@ async function poll() {
               }
               msg += `)\n   Статус: ${onlineStr}\n\n`;
             });
-            await sendMessage(chatId, msg);
+            await sendMessage(chatId, msg, true);
           }
         }
         else if (cmd === '/chat') {

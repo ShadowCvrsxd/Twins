@@ -40,8 +40,20 @@ async function telegramAPI(method, body = {}) {
   }
 }
 
-async function sendMessage(chatId, text) {
-  await telegramAPI('sendMessage', { chat_id: chatId, text, parse_mode: 'Markdown' });
+async function sendMessage(chatId, text, withKeyboard = false) {
+  const reply_markup = withKeyboard ? {
+    keyboard: [
+      [{ text: '/status' }]
+    ],
+    resize_keyboard: true
+  } : undefined;
+
+  await telegramAPI('sendMessage', {
+    chat_id: chatId,
+    text,
+    parse_mode: 'Markdown',
+    reply_markup
+  });
 }
 
 function resolveBot(chatId, targetArg) {
@@ -63,6 +75,19 @@ function resolveBot(chatId, targetArg) {
   return found || null;
 }
 
+async function initBotMenu() {
+  await telegramAPI('setMyCommands', {
+    commands: [
+      { command: 'start', description: 'Главное меню чата' },
+      { command: 'streamon', description: 'Включить дублирование чата' },
+      { command: 'streamoff', description: 'Выключить дублирование чата' },
+      { command: 'display', description: 'Режим отображения (/display)' },
+      { command: 'status', description: 'Статус потоков чата' }
+    ]
+  });
+}
+
+initBotMenu();
 console.log('[Telegram Chat Bot] Запущен и слушает чат-потоки...');
 
 async function poll() {
@@ -82,7 +107,7 @@ async function poll() {
         const userBots = approved[chatId] || [];
 
         if (cmd === '/start') {
-          await sendMessage(chatId, `💬 *Twins Chat Stream Bot*\n\nЭтот бот управляет дублированием игрового чата твинков.\n\nТвои привязанные твинки: ${userBots.length > 0 ? userBots.join(', ') : 'нет (привяжи через мейн-бота)'}\n\nКоманды:\n\`/streamon <алиас или ник>\` - включить трансляцию чата\n\`/streamoff <алиас или ник>\` - выключить трансляцию\n\`/display <alias|nick|both>\` - режим отображения ника/алиаса\n\`/status\` - статус потоков`);
+          await sendMessage(chatId, `💬 *Twins Chat Stream Bot*\n\nЭтот бот управляет дублированием игрового чата твинков.\n\nТвои привязанные твинки: ${userBots.length > 0 ? userBots.join(', ') : 'нет (привяжи через мейн-бота)'}\n\nИспользуй кнопку снизу или команды:\n\`/streamon <алиас или ник>\` - вкл. трансляцию\n\`/streamoff <алиас или ник>\` - выкл. трансляцию\n\`/display <alias|nick|both|hidden>\` - режим отображения`, true);
         }
         else if (cmd === '/streamon' || cmd === '/chaton') {
           if (userBots.length === 0) {
@@ -156,7 +181,7 @@ async function poll() {
             const userStream = streaming[chatId] || {};
             const aliases = readJSON(ALIASES_FILE)[chatId] || {};
             const modes = readJSON(DISPLAY_MODE_FILE);
-            const currentMode = modes[chatId] || 'both';
+            const currentMode = modes[chatId] || 'alias';
             
             let msg = `💬 *Статус трансляций чата (режим: ${currentMode}):*\n\n`;
             userBots.forEach((botName, index) => {
@@ -172,7 +197,7 @@ async function poll() {
               }
               msg += `)\n   Трансляция в ТГ: ${isStreaming ? '🟢 ВКЛ' : '🔴 ВЫКЛ'}\n\n`;
             });
-            await sendMessage(chatId, msg);
+            await sendMessage(chatId, msg, true);
           }
         }
       }
