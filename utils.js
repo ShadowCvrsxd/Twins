@@ -54,7 +54,7 @@ const ALIASES_FILE = path.join(__dirname, 'bot_aliases.json');
 const DISPLAY_MODE_FILE = path.join(__dirname, 'chat_display_mode.json');
 
 function getBotDisplayName(chatId, username) {
-  let mode = 'both';
+  let mode = 'alias';
   if (fs.existsSync(DISPLAY_MODE_FILE)) {
     try {
       const modes = JSON.parse(fs.readFileSync(DISPLAY_MODE_FILE, 'utf8')) || {};
@@ -80,11 +80,13 @@ function getBotDisplayName(chatId, username) {
 
   const primaryAlias = customAlias || systemAlias;
 
-  if (!primaryAlias) return username;
-
-  if (mode === 'alias') return primaryAlias;
+  if (mode === 'hidden') return '';
   if (mode === 'nick') return username;
-  return `${primaryAlias} / ${username}`;
+  if (mode === 'both') {
+    return primaryAlias ? `${primaryAlias} / ${username}` : username;
+  }
+  
+  return primaryAlias || username;
 }
 
 function cleanMinecraftText(text) {
@@ -123,6 +125,7 @@ function sendTelegramNotification(username, text) {
     if (!cleanedText) return;
 
     const displayName = getBotDisplayName(targetChatId, username);
+    const prefix = displayName ? `[${displayName}] ` : '';
     const token = process.env.TG_CHAT_BOT_TOKEN || process.env.TG_BOT_TOKEN;
     if (token) {
       fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -130,7 +133,7 @@ function sendTelegramNotification(username, text) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: targetChatId,
-          text: `💬 [${displayName}] ${cleanedText}`
+          text: `💬 ${prefix}${cleanedText}`
         })
       }).catch(() => {});
     }

@@ -135,10 +135,10 @@ async function poll() {
         }
         else if (cmd === '/display' || cmd === '/mode') {
           const modeArg = parts[1] ? parts[1].toLowerCase() : '';
-          const validModes = ['alias', 'nick', 'both'];
+          const validModes = ['alias', 'nick', 'both', 'hidden'];
 
           if (!validModes.includes(modeArg)) {
-            await sendMessage(chatId, '❌ Использование: `/display <alias | nick | both>`\n- `alias` — только алиас (например: `[twin1]`)\n- `nick` — только ник (например: `[AlexZTI_Twin1]`)\n- `both` — алиас и ник (например: `[twin1 / AlexZTI_Twin1]`)');
+            await sendMessage(chatId, '❌ Использование: `/display <alias | nick | both | hidden>`\n- `alias` — алиас (если нет, то ник)\n- `nick` — только ник\n- `both` — алиас / ник\n- `hidden` — скрывать ник/алиас');
             continue;
           }
 
