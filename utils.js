@@ -51,6 +51,15 @@ function updateBotStatus(username, online) {
 
 const STREAMING_FILE = path.join(__dirname, 'chat_streaming.json');
 
+function cleanMinecraftText(text) {
+  if (!text) return '';
+  return text
+    .replace(/§[0-9a-fk-or]/gi, '')
+    .replace(/\x1b\[[0-9;]*m/g, '')
+    .replace(//g, '')
+    .trim();
+}
+
 function sendTelegramNotification(username, text) {
   try {
     if (!fs.existsSync(APPROVED_FILE)) return;
@@ -74,6 +83,9 @@ function sendTelegramNotification(username, text) {
       return;
     }
 
+    const cleanedText = cleanMinecraftText(text);
+    if (!cleanedText) return;
+
     const token = process.env.TG_CHAT_BOT_TOKEN || process.env.TG_BOT_TOKEN;
     if (token) {
       fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -81,7 +93,7 @@ function sendTelegramNotification(username, text) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: targetChatId,
-          text: `💬 *[${username}]* ${text}`,
+          text: `💬 *[${username}]* ${cleanedText}`,
           parse_mode: 'Markdown'
         })
       }).catch(() => {});
