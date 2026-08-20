@@ -93,8 +93,7 @@ function sendTelegramNotification(username, text) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: targetChatId,
-          text: `💬 *[${username}]* ${cleanedText}`,
-          parse_mode: 'Markdown'
+          text: `💬 [${username}] ${cleanedText}`
         })
       }).catch(() => {});
     }
