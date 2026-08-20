@@ -56,7 +56,7 @@ function cleanMinecraftText(text) {
   return text
     .replace(/§[0-9a-fk-or]/gi, '')
     .replace(/\x1b\[[0-9;]*m/g, '')
-    .replace(//g, '')
+    .replace(/\ufffd/g, '')
     .trim();
 }
 
