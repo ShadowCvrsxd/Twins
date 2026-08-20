@@ -13,6 +13,7 @@ const PENDING_FILE = path.join(__dirname, 'links_pending.json');
 const APPROVED_FILE = path.join(__dirname, 'links_approved.json');
 const STATUS_FILE = path.join(__dirname, 'bots_status.json');
 const CMDS_FILE = path.join(__dirname, 'bot_commands.json');
+const STREAMING_FILE = path.join(__dirname, 'chat_streaming.json');
 
 function readJSON(file) {
   if (!fs.existsSync(file)) return {};
@@ -67,7 +68,7 @@ async function poll() {
         const cmd = parts[0].toLowerCase();
 
         if (cmd === '/start') {
-          await sendMessage(chatId, '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - добавить твинка (макс. 2)\n`/deltwin <ник>` - отвязать твинка\n`/status` - статус твинков (онлайн / время)\n`/chat <бот/ник> <текст>` - написать в чат от имени бота\n`/stopspam` - остановить спам');
+          await sendMessage(chatId, '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - добавить твинка (макс. 2)\n`/deltwin <ник>` - отвязать твинка\n`/status` - статус твинков (онлайн / время / чат в ТГ)\n`/chaton <бот>` - включить дублирование чата в ТГ\n`/chatoff <бот>` - выключить дублирование чата\n`/chat <бот/ник> <текст>` - написать в чат от имени бота\n`/stopspam` - остановить спам');
         } 
         else if (cmd === '/addtwin' || cmd === '/link') {
           const username = parts[1];
@@ -118,25 +119,82 @@ async function poll() {
             await sendMessage(chatId, '📭 У тебя нет привязанных твинков. Используй `/addtwin <ник>`.');
           } else {
             const statuses = readJSON(STATUS_FILE);
+            const streaming = readJSON(STREAMING_FILE);
             let msg = `📋 *Твои привязанные твинки (${userBots.length}/2):*\n\n`;
             userBots.forEach((botName, index) => {
               const st = statuses[botName.toLowerCase()];
+              const userStream = streaming[chatId] || {};
+              const isStreaming = !!userStream[botName.toLowerCase()];
               const alias = `bot${index + 1}`;
-              if (st && st.online) {
-                const uptime = st.onlineSince ? formatUptime(Date.now() - st.onlineSince) : 'недавно';
-                msg += `🟢 *${botName}* (алиас: \`${alias}\`)\n   Статус: Онлайн (в сети ${uptime})\n\n`;
-              } else {
-                msg += `🔴 *${botName}* (алиас: \`${alias}\`)\n   Статус: Офлайн\n\n`;
-              }
+              const onlineStr = (st && st.online) ? `🟢 Онлайн (в сети ${st.onlineSince ? formatUptime(Date.now() - st.onlineSince) : 'недавно'})` : `🔴 Офлайн`;
+              const chatStreamStr = isStreaming ? `🟢 ВКЛ` : `🔴 ВЫКЛ`;
+              msg += `• *${botName}* (алиас: \`${alias}\`)\n   Статус: ${onlineStr}\n   Дублирование чата: ${chatStreamStr}\n\n`;
             });
             await sendMessage(chatId, msg);
           }
+        }
+        else if (cmd === '/chaton' || cmd === '/streamon') {
+          const targetArg = parts[1];
+          if (!targetArg) {
+            await sendMessage(chatId, '❌ Укажи бота: `/chaton <bot1/bot2 или ник>`');
+            continue;
+          }
+          const approved = readJSON(APPROVED_FILE);
+          const userBots = approved[chatId] || [];
+          let targetBot = null;
+          if (targetArg.toLowerCase() === 'bot1' && userBots[0]) targetBot = userBots[0];
+          else if (targetArg.toLowerCase() === 'bot2' && userBots[1]) targetBot = userBots[1];
+          else {
+            const found = userBots.find(b => b.toLowerCase() === targetArg.toLowerCase());
+            if (found) targetBot = found;
+          }
+
+          if (!targetBot) {
+            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден среди твоих привязанных ботов.`);
+            continue;
+          }
+
+          const streaming = readJSON(STREAMING_FILE);
+          if (!streaming[chatId]) streaming[chatId] = {};
+          streaming[chatId][targetBot.toLowerCase()] = true;
+          writeJSON(STREAMING_FILE, streaming);
+
+          await sendMessage(chatId, `🟢 Дублирование чата для *${targetBot}* включено.`);
+        }
+        else if (cmd === '/chatoff' || cmd === '/streamoff') {
+          const targetArg = parts[1];
+          if (!targetArg) {
+            await sendMessage(chatId, '❌ Укажи бота: `/chatoff <bot1/bot2 или ник>`');
+            continue;
+          }
+          const approved = readJSON(APPROVED_FILE);
+          const userBots = approved[chatId] || [];
+          let targetBot = null;
+          if (targetArg.toLowerCase() === 'bot1' && userBots[0]) targetBot = userBots[0];
+          else if (targetArg.toLowerCase() === 'bot2' && userBots[1]) targetBot = userBots[1];
+          else {
+            const found = userBots.find(b => b.toLowerCase() === targetArg.toLowerCase());
+            if (found) targetBot = found;
+          }
+
+          if (!targetBot) {
+            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден среди твоих привязанных ботов.`);
+            continue;
+          }
+
+          const streaming = readJSON(STREAMING_FILE);
+          if (streaming[chatId]) {
+            streaming[chatId][targetBot.toLowerCase()] = false;
+            writeJSON(STREAMING_FILE, streaming);
+          }
+
+          await sendMessage(chatId, `🔴 Дублирование чата для *${targetBot}* выключено.`);
         }
         else if (cmd === '/chat') {
           const targetArg = parts[1];
           const messageText = parts.slice(2).join(' ');
           if (!targetArg || !messageText) {
-            await sendMessage(chatId, '❌ Использование: `/chat <бот1/бот2 или ник> <текст>`');
+            await sendMessage(chatId, '❌ Использование: `/chat <bot1/bot2 или ник> <текст>`');
             continue;
           }
 
@@ -158,7 +216,6 @@ async function poll() {
 
           const cmds = readJSON(CMDS_FILE);
           if (!Array.isArray(cmds)) {
-            // reset if corrupted
             writeJSON(CMDS_FILE, [{ username: targetBot, text: messageText }]);
           } else {
             cmds.push({ username: targetBot, text: messageText });

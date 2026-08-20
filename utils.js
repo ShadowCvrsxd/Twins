@@ -48,6 +48,8 @@ function updateBotStatus(username, online) {
   fs.writeFileSync(STATUS_FILE, JSON.stringify(statuses, null, 2));
 }
 
+const STREAMING_FILE = path.join(__dirname, 'chat_streaming.json');
+
 function sendTelegramNotification(username, text) {
   try {
     if (!fs.existsSync(APPROVED_FILE)) return;
@@ -59,7 +61,19 @@ function sendTelegramNotification(username, text) {
         break;
       }
     }
-    if (targetChatId && process.env.TG_BOT_TOKEN) {
+    if (!targetChatId) return;
+
+    if (fs.existsSync(STREAMING_FILE)) {
+      const streaming = JSON.parse(fs.readFileSync(STREAMING_FILE, 'utf8')) || {};
+      const userStream = streaming[targetChatId];
+      if (!userStream || !userStream[username.toLowerCase()]) {
+        return;
+      }
+    } else {
+      return;
+    }
+
+    if (process.env.TG_BOT_TOKEN) {
       fetch(`https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
