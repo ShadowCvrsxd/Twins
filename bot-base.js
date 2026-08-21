@@ -21,7 +21,7 @@ function startBot(envPath, configOverrides) {
     brand: 'vanilla',
     viewDistance: 'tiny',          // ponytail: самый минимум чанков
     loadInternalChunks: false,     // ponytail: не качаем мир вообще
-    checkTimeoutInterval: 15000, 
+    checkTimeoutInterval: 30000, 
     hideErrors: true,
     disableChatSigning: true,
     // ponytail: оставляем базу для откидывания и инвентаря
