@@ -3,6 +3,13 @@ const readline = require('readline');
 const fs = require('fs');
 const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification } = require('./utils.js');
 
+process.on('uncaughtException', (err) => {
+  console.error('[Uncaught Exception]:', err.message);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[Unhandled Rejection]:', reason);
+});
+
 function startBot(envPath, configOverrides) {
   console.log('--- [DEBUG] Запуск инициализации startBot ---');
   require('dotenv').config();

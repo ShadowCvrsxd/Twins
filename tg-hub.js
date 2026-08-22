@@ -3,6 +3,13 @@ const path = require('path');
 
 require('dotenv').config();
 
+process.on('uncaughtException', (err) => {
+  console.error('[Telegram Hub Uncaught Exception]:', err.message);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[Telegram Hub Unhandled Rejection]:', reason);
+});
+
 const TOKEN = process.env.TG_BOT_TOKEN;
 if (!TOKEN) {
   console.log('[Telegram] TG_BOT_TOKEN не задан в .env. Телеграм-хаб отключен.');
