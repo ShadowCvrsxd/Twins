@@ -21,7 +21,13 @@ function readJSON(file) {
 }
 
 function writeJSON(file, data) {
-  fs.writeFileSync(file, JSON.stringify(data, null, 2));
+  const tempFile = file + '.' + Math.random().toString(36).substring(2) + '.tmp';
+  try {
+    fs.writeFileSync(tempFile, JSON.stringify(data, null, 2));
+    fs.renameSync(tempFile, file);
+  } catch (e) {
+    try { fs.unlinkSync(tempFile); } catch(err){}
+  }
 }
 
 let offset = 0;

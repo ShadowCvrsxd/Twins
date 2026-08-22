@@ -37,6 +37,16 @@ const STATS_FILE = 'traffic_stats.json';
 const STATUS_FILE = path.join(__dirname, 'bots_status.json');
 const APPROVED_FILE = path.join(__dirname, 'links_approved.json');
 
+function writeJSONAtomic(file, data) {
+  const tempFile = file + '.' + Math.random().toString(36).substring(2) + '.tmp';
+  try {
+    fs.writeFileSync(tempFile, JSON.stringify(data, null, 2));
+    fs.renameSync(tempFile, file);
+  } catch (e) {
+    try { fs.unlinkSync(tempFile); } catch(err){}
+  }
+}
+
 function updateBotStatus(username, online) {
   if (!username) return;
   let statuses = {};
@@ -46,7 +56,7 @@ function updateBotStatus(username, online) {
     onlineSince: online ? Date.now() : null,
     username
   };
-  fs.writeFileSync(STATUS_FILE, JSON.stringify(statuses, null, 2));
+  writeJSONAtomic(STATUS_FILE, statuses);
 }
 
 const STREAMING_FILE = path.join(__dirname, 'chat_streaming.json');
@@ -144,7 +154,7 @@ function updateTraffic(username, bytes) {
     let stats = {};
     try { stats = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8')) || {}; } catch (e) {}
     stats[username] = (stats[username] || 0) + bytes;
-    fs.writeFileSync(STATS_FILE, JSON.stringify(stats));
+    writeJSONAtomic(STATS_FILE, stats);
 }
 
 function getTraffic() {
