@@ -18,7 +18,7 @@ function startBot(envPath, configOverrides) {
     port: 25809,
     username: process.env.USERNAME,
     version: '1.21.1',
-    brand: 'vanilla',
+    brand: 'Гися няшка 󰂑',
     viewDistance: 'tiny',          // ponytail: самый минимум чанков
     loadInternalChunks: false,     // ponytail: не качаем мир вообще
     checkTimeoutInterval: 30000, 
