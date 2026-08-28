@@ -5,11 +5,16 @@ check_and_start() {
     local screen_name="$1"
     local cmd="$2"
     
-    # Очищаем мертвые сокеты screen, чтобы не зависать на статусе (Remote or dead)
+    # Очищаем мертвые сокеты
     screen -wipe >/dev/null 2>&1
     
-    if ! screen -list 2>/dev/null | grep -q "\.$screen_name"; then
-        echo "[$(date)] Screen '$screen_name' не найден. Запуск..."
+    # Проверяем, есть ли живой screen с таким именем (исключая (Remote or dead))
+    local active_screen
+    active_screen=$(screen -list 2>/dev/null | grep "\.$screen_name" | grep -v "Remote or dead" || true)
+    
+    if [ -z "$active_screen" ]; then
+        echo "[$(date)] Screen '$screen_name' мертв или отсутствует. Запуск..."
+        screen -wipe >/dev/null 2>&1
         screen -S "$screen_name" -dm bash -c "$cmd; exec bash"
     fi
 }
