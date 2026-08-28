@@ -1,6 +1,5 @@
 #!/bin/bash
 DIR="$(cd "$(dirname "$0")" && pwd)"
-NODE_PATH="$(which node)"
 
 check_and_start() {
     local screen_name="$1"
@@ -16,7 +15,7 @@ check_and_start() {
     if [ -z "$active_screen" ]; then
         echo "[$(date)] Screen '$screen_name' не найден. Запуск..."
         screen -wipe >/dev/null 2>&1
-        screen -S "$screen_name" -dm bash -c "cd '$DIR' && '$NODE_PATH' '$script_name'; exec bash"
+        screen -S "$screen_name" -dm bash -c "cd $DIR && node $script_name; exec bash"
     fi
 }
 
