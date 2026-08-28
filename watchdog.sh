@@ -1,9 +1,10 @@
 #!/bin/bash
-cd "$(dirname "$0")"
+DIR="$(cd "$(dirname "$0")" && pwd)"
+NODE_PATH="$(which node)"
 
 check_and_start() {
     local screen_name="$1"
-    local cmd="$2"
+    local script_name="$2"
     
     # Очищаем мертвые сокеты
     screen -wipe >/dev/null 2>&1
@@ -13,19 +14,19 @@ check_and_start() {
     active_screen=$(screen -list 2>/dev/null | grep "\.$screen_name" | grep -v "Remote or dead" || true)
     
     if [ -z "$active_screen" ]; then
-        echo "[$(date)] Screen '$screen_name' мертв или отсутствует. Запуск..."
+        echo "[$(date)] Screen '$screen_name' не найден. Запуск..."
         screen -wipe >/dev/null 2>&1
-        screen -S "$screen_name" -dm bash -c "$cmd; exec bash"
+        screen -S "$screen_name" -dm bash -c "cd '$DIR' && '$NODE_PATH' '$script_name'; exec bash"
     fi
 }
 
 echo "=== Watchdog запущен. Мониторинг ботов и ТГ-хабов каждые 30 секунд ==="
 
 while true; do
-    check_and_start "twin1" "node bot.js"
-    check_and_start "twin2" "node bot-2.js"
-    check_and_start "tghub" "node tg-hub.js"
-    check_and_start "tgchat" "node tg-chat-bot.js"
+    check_and_start "twin1" "bot.js"
+    check_and_start "twin2" "bot-2.js"
+    check_and_start "tghub" "tg-hub.js"
+    check_and_start "tgchat" "tg-chat-bot.js"
     
     sleep 30
 done
