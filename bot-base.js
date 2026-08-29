@@ -5,21 +5,15 @@ const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResource
 
 function checkMeow(bot, message, sender) {
   const msg = message.toLowerCase();
-  // ponytail: реагируем только на обычное "мяу", игнорируем команду "!мяу"
-  if (!msg.includes('мяу') || msg.trim().startsWith('!')) return;
+  if (!msg.includes('мяу')) return;
 
   let settings = {};
   try { settings = JSON.parse(fs.readFileSync('meow_settings.json', 'utf-8') || '{}'); } catch(e) {}
   
-  // ponytail: debug-логирование для отладки
-  console.log(`[Meow] Триггер на сообщение: "${message}". Bot: "${bot.username}". Настройки:`, settings[bot.username]);
-
   const botSettings = settings[bot.username] || { enabled: false, lastMeowed: 0 };
   if (!botSettings.enabled) return;
   const timeSinceLast = Date.now() - botSettings.lastMeowed;
   if (timeSinceLast < 15 * 60 * 1000) {
-    const remaining = Math.ceil((15 * 60 * 1000 - timeSinceLast) / 1000);
-    console.log(`[Meow] КД для ${bot.username}, осталось: ${remaining} сек.`);
     return;
   }
 
@@ -27,10 +21,7 @@ function checkMeow(bot, message, sender) {
   settings[bot.username] = botSettings;
   fs.writeFileSync('meow_settings.json', JSON.stringify(settings));
 
-  setTimeout(() => {
-    console.log(`[Meow] Пытаюсь отправить "!мяу" в чат от ${bot.username}`);
-    bot.chat('!мяу');
-  }, Math.random() * 2000 + 500);
+  setTimeout(() => bot.chat('!мяу'), Math.random() * 2000 + 500);
 }
 
 process.on('uncaughtException', (err) => {
