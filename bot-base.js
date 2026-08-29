@@ -26,7 +26,10 @@ function checkMeow(bot, message, sender) {
   settings[bot.username] = botSettings;
   fs.writeFileSync('meow_settings.json', JSON.stringify(settings));
 
-  setTimeout(() => bot.chat('!мяу'), Math.random() * 2000 + 500);
+  setTimeout(() => {
+    console.log(`[Meow] Пытаюсь отправить "!мяу" в чат от ${bot.username}`);
+    bot.chat('!мяу');
+  }, Math.random() * 2000 + 500);
 }
 
 process.on('uncaughtException', (err) => {
