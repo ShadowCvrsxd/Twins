@@ -10,7 +10,6 @@ function checkMeow(bot, message, sender) {
 
   const msg = message.toLowerCase();
   if (!msg.includes('мяу')) return;
-  if (msg.trim().startsWith('!')) return;
 
   let settings = {};
   try { settings = JSON.parse(fs.readFileSync('meow_settings.json', 'utf-8') || '{}'); } catch(e) {}
