@@ -5,7 +5,7 @@ check_and_start() {
     local screen_name="$1"
     local script_name="$2"
     
-    # Очищаем мертвые сокеты screen
+    # Очищаем зависшие сокеты screen
     screen -wipe >/dev/null 2>&1
     
     # Проверяем, есть ли живой screen с таким точным именем
@@ -18,6 +18,9 @@ check_and_start() {
 echo "=== Watchdog запущен. Мониторинг ботов и ТГ-хабов каждые 30 секунд ==="
 
 while true; do
+    # Очистка мертвых сессий по совету
+    screen -wipe >/dev/null 2>&1
+    
     check_and_start "twin1" "bot.js"
     check_and_start "twin2" "bot-2.js"
     check_and_start "tghub" "tg-hub.js"
