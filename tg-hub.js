@@ -58,8 +58,13 @@ async function telegramAPI(method, body = {}) {
       body: JSON.stringify(body)
     });
     const data = await res.json();
-    return data.ok ? data.result : null;
+    if (!data.ok) {
+      console.error(`[Telegram API Error] Method ${method}:`, data.description);
+      return null;
+    }
+    return data.result;
   } catch (e) {
+    console.error(`[Telegram Network Error] Method ${method}:`, e.message);
     return null;
   }
 }
