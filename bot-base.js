@@ -3,6 +3,21 @@ const readline = require('readline');
 const fs = require('fs');
 const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification } = require('./utils.js');
 
+function checkMeow(bot, message) {
+  if (!message.toLowerCase().includes('мяу')) return;
+  let settings = {};
+  try { settings = JSON.parse(fs.readFileSync('meow_settings.json', 'utf-8') || '{}'); } catch(e) {}
+  const botSettings = settings[bot.username] || { enabled: false, lastMeowed: 0 };
+  if (!botSettings.enabled) return;
+  if (Date.now() - botSettings.lastMeowed < 15 * 60 * 1000) return;
+
+  botSettings.lastMeowed = Date.now();
+  settings[bot.username] = botSettings;
+  fs.writeFileSync('meow_settings.json', JSON.stringify(settings));
+
+  setTimeout(() => bot.chat('!мяу'), Math.random() * 2000 + 500);
+}
+
 process.on('uncaughtException', (err) => {
   console.error('[Uncaught Exception]:', err.message);
 });
@@ -397,6 +412,7 @@ function startBot(envPath, configOverrides) {
     });
 
     bot.on('messagestr', (message) => {
+      checkMeow(bot, message);
       const msg = message.trim().toLowerCase();
       if (msg.includes('/login') || msg.includes('авторизуйтесь')) bot.chat(`/login ${PASSWORD}`);
       else if (msg.includes('/register') || msg.includes('зарегистрируйтесь')) bot.chat(`/register ${PASSWORD} ${PASSWORD}`);

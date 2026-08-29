@@ -92,7 +92,9 @@ async function initBotMenu() {
       { command: 'streamon', description: 'Включить дублирование чата' },
       { command: 'streamoff', description: 'Выключить дублирование чата' },
       { command: 'display', description: 'Режим отображения (/display)' },
-      { command: 'status', description: 'Статус потоков чата' }
+      { command: 'status', description: 'Статус потоков чата' },
+      { command: 'meowon', description: 'Вкл. режим мяуканья' },
+      { command: 'meowoff', description: 'Выкл. режим мяуканья' }
     ]
   });
 }
@@ -117,7 +119,7 @@ async function poll() {
         const userBots = approved[chatId] || [];
 
         if (cmd === '/start') {
-          await sendMessage(chatId, `💬 *Twins Chat Stream Bot*\n\nЭтот бот управляет дублированием игрового чата твинков.\n\nТвои привязанные твинки: ${userBots.length > 0 ? userBots.join(', ') : 'нет (привяжи через мейн-бота)'}\n\nКоманды:\n\`/streamon <алиас или ник>\` - вкл. трансляцию\n\`/streamoff <алиас или ник>\` - выкл. трансляцию\n\`/display <alias|nick|both|hidden>\` - режим отображения`);
+          await sendMessage(chatId, `💬 *Twins Chat Stream Bot*\n\nЭтот бот управляет дублированием игрового чата твинков.\n\nТвои привязанные твинки: ${userBots.length > 0 ? userBots.join(', ') : 'нет (привяжи через мейн-бота)'}\n\nКоманды:\n\`/streamon <алиас или ник>\` - вкл. трансляцию\n\`/streamoff <алиас или ник>\` - выкл. трансляцию\n\`/display <alias|nick|both|hidden>\` - режим отображения\n\`/meowon <алиас или ник>\` - вкл. мяуканье\n\`/meowoff <алиас или ник>\` - выкл. мяуканье`);
         }
         else if (cmd === '/streamon' || cmd === '/chaton') {
           if (userBots.length === 0) {
@@ -182,6 +184,32 @@ async function poll() {
           writeJSON(DISPLAY_MODE_FILE, modes);
 
           await sendMessage(chatId, `✅ Режим отображения имен в чате установлен на: *${modeArg}*`);
+        }
+        else if (cmd === '/meowon' || cmd === '/meowoff') {
+          if (userBots.length === 0) {
+            await sendMessage(chatId, '❌ У тебя нет привязанных твинков.');
+            continue;
+          }
+          const targetArg = parts[1];
+          if (!targetArg) {
+            await sendMessage(chatId, `❌ Укажи твинка: \`${cmd} <алиас или ник>\`\nДоступные: ${userBots.join(', ')}`);
+            continue;
+          }
+
+          const targetBot = resolveBot(chatId, targetArg);
+          if (!targetBot) {
+            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден.`);
+            continue;
+          }
+
+          const enabled = cmd === '/meowon';
+          let settings = {};
+          try { settings = JSON.parse(fs.readFileSync('meow_settings.json', 'utf-8') || '{}'); } catch(e) {}
+          
+          settings[targetBot] = { ...settings[targetBot], enabled: enabled };
+          fs.writeFileSync('meow_settings.json', JSON.stringify(settings));
+
+          await sendMessage(chatId, `✅ Режим "мяу" для твинка *${targetBot}* ${enabled ? 'ВКЛ' : 'ВЫКЛ'}.`);
         }
         else if (cmd === '/status' || cmd === '/list') {
           if (userBots.length === 0) {
