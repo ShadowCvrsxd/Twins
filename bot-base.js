@@ -4,17 +4,19 @@ const fs = require('fs');
 const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification } = require('./utils.js');
 
 function checkMeow(bot, message, sender) {
-  // ponytail: убрали проверку отправителя, теперь триггеримся на всё, включая свои сообщения
   const msg = message.toLowerCase();
   if (!msg.includes('мяу')) return;
 
   let settings = {};
   try { settings = JSON.parse(fs.readFileSync('meow_settings.json', 'utf-8') || '{}'); } catch(e) {}
+  
+  // ponytail: debug-логирование для отладки
+  console.log(`[Meow] Триггер на сообщение: "${message}". Bot: "${bot.username}". Настройки:`, settings[bot.username]);
+
   const botSettings = settings[bot.username] || { enabled: false, lastMeowed: 0 };
   if (!botSettings.enabled) return;
   const timeSinceLast = Date.now() - botSettings.lastMeowed;
   if (timeSinceLast < 15 * 60 * 1000) {
-    // ponytail: логируем остаток КД в консоль
     const remaining = Math.ceil((15 * 60 * 1000 - timeSinceLast) / 1000);
     console.log(`[Meow] КД для ${bot.username}, осталось: ${remaining} сек.`);
     return;
