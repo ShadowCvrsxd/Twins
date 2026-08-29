@@ -199,9 +199,10 @@ function startBot(envPath, configOverrides) {
       }
     } catch(e){}
   }, 1000);
-  function handleCommand(botInstance, input) {
+  function handleCommand(botInstance, input, replyTarget = null) {
     const parts = input.split(' ');
     const command = parts[0].toLowerCase();
+    const replyCmd = replyTarget ? `/m ${replyTarget}` : '/r';
     if (command === 'debugquit') { isManualQuit = true; botInstance.quit(); botInstance = null; return true; }
     if (command === 'dropall') {
       try {
@@ -244,7 +245,7 @@ function startBot(envPath, configOverrides) {
           timeText = `Footer: ${lastTabFooter}`;
         }
       }
-      botInstance.chat(`/r ${timeText}`);
+      botInstance.chat(`${replyCmd} ${timeText}`);
       return true;
     }
     if (command === 'spamlist') {
@@ -255,8 +256,8 @@ function startBot(envPath, configOverrides) {
             textToSend = `Спам: ${list}`;
         }
         
-        console.log(`[DEBUG] Пытаюсь ответить мейну через /r: ${textToSend}`);
-        botInstance.chat(`/r ${textToSend}`);
+        console.log(`[DEBUG] Пытаюсь ответить через ${replyCmd}: ${textToSend}`);
+        botInstance.chat(`${replyCmd} ${textToSend}`);
         return true;
     }
     if (command === 'traffic') {
@@ -367,6 +368,11 @@ function startBot(envPath, configOverrides) {
 
     bot.on('login', () => {
         console.log('[Система] Успешный логин.');
+    });
+
+    bot.on('whisper', (username, message) => {
+        console.log(`[ЛС от ${username}]: ${message}`);
+        handleCommand(bot, message, username);
     });
 
     bot.on('tabHeader', (header, footer) => {
