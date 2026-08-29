@@ -3,6 +3,27 @@ const readline = require('readline');
 const fs = require('fs');
 const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification } = require('./utils.js');
 
+function formatTabComponent(comp) {
+  if (!comp) return '';
+  if (typeof comp === 'string') return comp;
+  if (typeof comp.toString === 'function') {
+    const str = comp.toString();
+    if (str && str !== '[object Object]') return str;
+  }
+  if (comp.text) {
+    let res = comp.text;
+    if (Array.isArray(comp.extra)) {
+      res += comp.extra.map(e => (typeof e === 'string' ? e : (e.text || ''))).join('');
+    }
+    return res;
+  }
+  try {
+    return JSON.stringify(comp);
+  } catch(e) {
+    return String(comp);
+  }
+}
+
 function checkMeow(bot, message, sender) {
   const msg = message.toLowerCase();
   if (!msg.includes('мяу')) return;
@@ -329,8 +350,8 @@ function startBot(envPath, configOverrides) {
 
     bot.on('tabHeader', (header, footer) => {
       try {
-        lastTabHeader = header ? header.toString() : null;
-        lastTabFooter = footer ? footer.toString() : null;
+        lastTabHeader = header ? formatTabComponent(header) : null;
+        lastTabFooter = footer ? formatTabComponent(footer) : null;
       } catch(e){}
     });
 
