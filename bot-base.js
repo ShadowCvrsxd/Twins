@@ -7,17 +7,24 @@ function checkMeow(bot, message, sender) {
   const msg = message.toLowerCase();
   if (!msg.includes('мяу')) return;
 
+  const now = Date.now();
+  if (bot._lastMeowMsg === message && now - (bot._lastMeowTime || 0) < 3000) {
+    return;
+  }
+  bot._lastMeowMsg = message;
+  bot._lastMeowTime = now;
+
   let settings = {};
   try { settings = JSON.parse(fs.readFileSync('meow_settings.json', 'utf-8') || '{}'); } catch(e) {}
   
   const botSettings = settings[bot.username] || { enabled: false, lastMeowed: 0 };
   if (!botSettings.enabled) return;
-  const timeSinceLast = Date.now() - botSettings.lastMeowed;
+  const timeSinceLast = now - botSettings.lastMeowed;
   if (timeSinceLast < 15 * 60 * 1000) {
     return;
   }
 
-  botSettings.lastMeowed = Date.now();
+  botSettings.lastMeowed = now;
   settings[bot.username] = botSettings;
   fs.writeFileSync('meow_settings.json', JSON.stringify(settings));
 
