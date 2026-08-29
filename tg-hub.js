@@ -150,12 +150,39 @@ async function poll() {
         const cmd = parts[0].toLowerCase();
 
         if (cmd === '/start') {
-          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/status` - список и статус ботов\n`/chat <алиас> <текст>` - написать в чат';
+          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/status` - список и статус ботов\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас или ник>` - вкл. режим мяуканья\n`/meowoff <алиас или ник>` - выкл. режим мяуканья';
           if (isAdmin(chatId)) {
             msg += '\n\n👑 *Админ-панель:*\nСтатус регистрации: ' + (isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта') + '\n`/lock` - заблокировать\n`/unlock` - разблокировать\n`/users` - список юзеров\n`/testserver` - на тестовый\n`/mainserver` - на основной';
           }
           await sendMessage(chatId, msg);
-        } 
+        }
+        else if (cmd === '/meowon' || cmd === '/meowoff') {
+          const userBots = (readJSON(APPROVED_FILE)[chatId] || []);
+          if (userBots.length === 0) {
+            await sendMessage(chatId, '❌ У тебя нет привязанных твинков.');
+            continue;
+          }
+          const targetArg = parts[1];
+          if (!targetArg) {
+            await sendMessage(chatId, `❌ Укажи твинка: \`${cmd} <алиас или ник>\`\nДоступные: ${userBots.join(', ')}`);
+            continue;
+          }
+
+          const targetBot = resolveBot(chatId, targetArg);
+          if (!targetBot) {
+            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден.`);
+            continue;
+          }
+
+          const enabled = cmd === '/meowon';
+          let settings = {};
+          try { settings = JSON.parse(fs.readFileSync('meow_settings.json', 'utf-8') || '{}'); } catch(e) {}
+          
+          settings[targetBot] = { ...settings[targetBot], enabled: enabled };
+          fs.writeFileSync('meow_settings.json', JSON.stringify(settings));
+
+          await sendMessage(chatId, `✅ Режим "мяу" для твинка *${targetBot}* ${enabled ? 'ВКЛ' : 'ВЫКЛ'}.`);
+        }
         else if (cmd === '/lock' || cmd === '/adminlock') {
           if (!isAdmin(chatId)) {
             await sendMessage(chatId, '❌ У вас нет прав администратора.');
