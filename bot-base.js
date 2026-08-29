@@ -462,18 +462,8 @@ function startBot(envPath, configOverrides) {
       console.log(`[Debug] Raw message: ${text}`);
       if (text.includes(' › ')) {
         const parts = text.split(' › ');
-        const fullMessage = parts.slice(1).join(' › ');
-        console.log(`[Debug] Чат: ${fullMessage}`);
-        checkMeow(bot, fullMessage, parts[0].trim());
+        checkMeow(bot, parts.slice(1).join(' › '), parts[0].trim());
         if (parts.length >= 3 && parts[1].trim() === bot.username) {
-      } else if (text.includes(': ')) {
-        // ponytail: поддержка формата "Имя: Сообщение"
-        const parts = text.split(': ');
-        const sender = parts[0].trim();
-        const content = parts.slice(1).join(': ');
-        console.log(`[Debug] Чат (format 2): ${content} от ${sender}`);
-        checkMeow(bot, content, sender);
-      }
           const senderFull = parts[0].trim();
           const content = parts[2].trim();
           const isFromMain = senderFull.includes(getMainAccount());
@@ -481,6 +471,12 @@ function startBot(envPath, configOverrides) {
           if (content.toLowerCase().includes('respect') && (isFromMain || isFromTwin)) tryRespect();
           else if (isFromMain) handleCommand(bot, content);
         }
+      } else if (text.includes(': ')) {
+        // ponytail: поддержка формата "Имя: Сообщение"
+        const parts = text.split(': ');
+        const sender = parts[0].trim();
+        const content = parts.slice(1).join(': ');
+        checkMeow(bot, content, sender);
       }
     });
   }
