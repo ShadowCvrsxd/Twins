@@ -461,7 +461,9 @@ function startBot(envPath, configOverrides) {
 
       if (text.includes(' › ')) {
         const parts = text.split(' › ');
-        checkMeow(bot, parts.slice(1).join(' › '), parts[0].trim());
+        const fullMessage = parts.slice(1).join(' › ');
+        console.log(`[Debug] Чат: ${fullMessage}`);
+        checkMeow(bot, fullMessage, parts[0].trim());
         if (parts.length >= 3 && parts[1].trim() === bot.username) {
           const senderFull = parts[0].trim();
           const content = parts[2].trim();
