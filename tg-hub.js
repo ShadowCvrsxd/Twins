@@ -3,13 +3,6 @@ const path = require('path');
 
 require('dotenv').config();
 
-process.on('uncaughtException', (err) => {
-  console.error('[Telegram Hub Uncaught Exception]:', err.message);
-});
-process.on('unhandledRejection', (reason) => {
-  console.error('[Telegram Hub Unhandled Rejection]:', reason);
-});
-
 const TOKEN = process.env.TG_BOT_TOKEN;
 if (!TOKEN) {
   console.log('[Telegram] TG_BOT_TOKEN не задан в .env. Телеграм-хаб отключен.');
@@ -22,6 +15,23 @@ const STATUS_FILE = path.join(__dirname, 'bots_status.json');
 const CMDS_FILE = path.join(__dirname, 'bot_commands.json');
 const STREAMING_FILE = path.join(__dirname, 'chat_streaming.json');
 const ALIASES_FILE = path.join(__dirname, 'bot_aliases.json');
+const LOCK_FILE = path.join(__dirname, 'registration_lock.json');
+
+const ADMIN_ID = process.env.ADMIN_TG_ID ? process.env.ADMIN_TG_ID.trim() : '';
+
+function isAdmin(chatId) {
+  return ADMIN_ID && chatId.toString() === ADMIN_ID;
+}
+
+function isRegistrationLocked() {
+  if (!fs.existsSync(LOCK_FILE)) return false;
+  try {
+    const data = JSON.parse(fs.readFileSync(LOCK_FILE, 'utf8'));
+    return !!data.locked;
+  } catch (e) {
+    return false;
+  }
+}
 
 function readJSON(file) {
   if (!fs.existsSync(file)) return {};
@@ -122,9 +132,51 @@ async function poll() {
         const cmd = parts[0].toLowerCase();
 
         if (cmd === '/start') {
-          await sendMessage(chatId, '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/status` - список и статус ботов\n`/chat <алиас> <текст>` - написать в чат');
+          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/status` - список и статус ботов\n`/chat <алиас> <текст>` - написать в чат';
+          if (isAdmin(chatId)) {
+            msg += `\n\n👑 *Админ-панель:*\nСтатус регистрации: ${isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта'}\n`/lock` - заблокировать добавление твинков\n`/unlock` - разблокировать\n`/users` - список всех пользователей`;
+          }
+          await sendMessage(chatId, msg);
         } 
+        else if (cmd === '/lock' || cmd === '/adminlock') {
+          if (!isAdmin(chatId)) {
+            await sendMessage(chatId, '❌ У вас нет прав администратора.');
+            continue;
+          }
+          writeJSON(LOCK_FILE, { locked: true });
+          await sendMessage(chatId, '🔒 Регистрация новых твинков заблокирована для пользователей.');
+        }
+        else if (cmd === '/unlock' || cmd === '/adminunlock') {
+          if (!isAdmin(chatId)) {
+            await sendMessage(chatId, '❌ У вас нет прав администратора.');
+            continue;
+          }
+          writeJSON(LOCK_FILE, { locked: false });
+          await sendMessage(chatId, '🔓 Регистрация новых твинков разблокирована.');
+        }
+        else if (cmd === '/adminusers' || cmd === '/users') {
+          if (!isAdmin(chatId)) {
+            await sendMessage(chatId, '❌ У вас нет прав администратора.');
+            continue;
+          }
+          const approved = readJSON(APPROVED_FILE);
+          const entries = Object.entries(approved);
+          if (entries.length === 0) {
+            await sendMessage(chatId, '📭 Нет зарегистрированных пользователей с привязанными твинками.');
+          } else {
+            let msg = `👑 *Админ-панель: Список пользователей*\n\n`;
+            entries.forEach(([uid, bots]) => {
+              msg += `• Чат ID: \`${uid}\`\n  Твинки: ${bots.join(', ')}\n\n`;
+            });
+            await sendMessage(chatId, msg);
+          }
+        }
         else if (cmd === '/addtwin' || cmd === '/link') {
+          if (isRegistrationLocked() && !isAdmin(chatId)) {
+            await sendMessage(chatId, '❌ Регистрация новых твинков временно заблокирована администратором.');
+            continue;
+          }
+
           const username = parts[1];
           if (!username) {
             await sendMessage(chatId, '❌ Укажи ник твинка: `/addtwin ИмяБота`');
@@ -234,36 +286,6 @@ async function poll() {
             await sendMessage(chatId, `❌ Алиас \`${aliasArg}\` не найден.`);
           }
         }
-        else if (cmd === '/status' || cmd === '/list') {
-          const approved = readJSON(APPROVED_FILE);
-          const userBots = approved[chatId] || [];
-          if (userBots.length === 0) {
-            await sendMessage(chatId, '📭 У тебя нет привязанных твинков. Используй `/addtwin <ник>`.');
-          } else {
-            const statuses = readJSON(STATUS_FILE);
-            const streaming = readJSON(STREAMING_FILE);
-            const aliases = readJSON(ALIASES_FILE)[chatId] || {};
-            
-            let msg = `📋 *Твои привязанные твинки (${userBots.length}/2):*\n\n`;
-            userBots.forEach((botName, index) => {
-              const st = statuses[botName.toLowerCase()];
-              const alias = `bot${index + 1}`;
-              
-              const customAliases = Object.entries(aliases)
-                .filter(([al, rb]) => rb.toLowerCase() === botName.toLowerCase())
-                .map(([al]) => al);
-
-              const onlineStr = (st && st.online) ? `🟢 Онлайн (в сети ${st.onlineSince ? formatUptime(Date.now() - st.onlineSince) : 'недавно'})` : `🔴 Офлайн`;
-              
-              msg += `• *${botName}* (системный: \`${alias}\``;
-              if (customAliases.length > 0) {
-                msg += `, алиасы: \`${customAliases.join(', ')}\``;
-              }
-              msg += `)\n   Статус: ${onlineStr}\n\n`;
-            });
-            await sendMessage(chatId, msg);
-          }
-        }
         else if (cmd === '/starttwin' || cmd === '/on') {
           const targetArg = parts[1];
           if (!targetArg) {
@@ -302,6 +324,36 @@ async function poll() {
             sendMessage(chatId, `🔴 Твинк *${targetBot}* остановлен.`);
           });
         }
+        else if (cmd === '/status' || cmd === '/list') {
+          const approved = readJSON(APPROVED_FILE);
+          const userBots = approved[chatId] || [];
+          if (userBots.length === 0) {
+            await sendMessage(chatId, '📭 У тебя нет привязанных твинков. Используй `/addtwin <ник>`.');
+          } else {
+            const statuses = readJSON(STATUS_FILE);
+            const streaming = readJSON(STREAMING_FILE);
+            const aliases = readJSON(ALIASES_FILE)[chatId] || {};
+            
+            let msg = `📋 *Твои привязанные твинки (${userBots.length}/2):*\n\n`;
+            userBots.forEach((botName, index) => {
+              const st = statuses[botName.toLowerCase()];
+              const alias = `bot${index + 1}`;
+              
+              const customAliases = Object.entries(aliases)
+                .filter(([al, rb]) => rb.toLowerCase() === botName.toLowerCase())
+                .map(([al]) => al);
+
+              const onlineStr = (st && st.online) ? `🟢 Онлайн (в сети ${st.onlineSince ? formatUptime(Date.now() - st.onlineSince) : 'недавно'})` : `🔴 Офлайн`;
+              
+              msg += `• *${botName}* (системный: \`${alias}\``;
+              if (customAliases.length > 0) {
+                msg += `, алиасы: \`${customAliases.join(', ')}\``;
+              }
+              msg += `)\n   Статус: ${onlineStr}\n\n`;
+            });
+            await sendMessage(chatId, msg);
+          }
+        }
         else if (cmd === '/chat') {
           const targetArg = parts[1];
           const messageText = parts.slice(2).join(' ');
@@ -312,7 +364,7 @@ async function poll() {
 
           const targetBot = resolveBot(chatId, targetArg);
           if (!targetBot) {
-            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден среди твоих привязанных ботов.`);
+            await sendMessage(chatId, '❌ Твинк \'' + targetArg + '\' не найден среди твоих привязанных ботов.');
             continue;
           }
 
@@ -323,8 +375,6 @@ async function poll() {
             cmds.push({ username: targetBot, text: messageText });
             writeJSON(CMDS_FILE, cmds);
           }
-
-          await sendMessage(chatId, `📤 Команда отправлена в чат для *${targetBot}*: \`${messageText}\``);
         }
       }
     }
