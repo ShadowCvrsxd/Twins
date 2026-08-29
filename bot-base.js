@@ -3,10 +3,13 @@ const readline = require('readline');
 const fs = require('fs');
 const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification } = require('./utils.js');
 
-function checkMeow(bot, message) {
+function checkMeow(bot, message, sender) {
+  if (!sender) return; // ponytail: сообщение без отправителя - игнор
+  const twinks = getTwinks();
+  if (twinks.includes(sender)) return; // ponytail: игнорируем соо от твинков
+
   const msg = message.toLowerCase();
   if (!msg.includes('мяу')) return;
-  // ponytail: игнорируем свои же команды, начинающиеся с !
   if (msg.trim().startsWith('!')) return;
 
   let settings = {};
@@ -416,7 +419,6 @@ function startBot(envPath, configOverrides) {
     });
 
     bot.on('messagestr', (message) => {
-      checkMeow(bot, message);
       const msg = message.trim().toLowerCase();
       if (msg.includes('/login') || msg.includes('авторизуйтесь')) bot.chat(`/login ${PASSWORD}`);
       else if (msg.includes('/register') || msg.includes('зарегистрируйтесь')) bot.chat(`/register ${PASSWORD} ${PASSWORD}`);
@@ -457,6 +459,7 @@ function startBot(envPath, configOverrides) {
 
       if (text.includes(' › ')) {
         const parts = text.split(' › ');
+        checkMeow(bot, parts.slice(1).join(' › '), parts[0].trim());
         if (parts.length >= 3 && parts[1].trim() === bot.username) {
           const senderFull = parts[0].trim();
           const content = parts[2].trim();
