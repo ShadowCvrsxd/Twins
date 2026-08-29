@@ -459,6 +459,7 @@ function startBot(envPath, configOverrides) {
       const text = jsonMsg.toString();
       if (!text.trim()) return;
 
+      console.log(`[Debug] Raw message: ${text}`);
       if (text.includes(' › ')) {
         const parts = text.split(' › ');
         const fullMessage = parts.slice(1).join(' › ');
