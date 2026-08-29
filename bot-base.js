@@ -233,6 +233,20 @@ function startBot(envPath, configOverrides) {
       console.log(`[Команда] Успешно выполнено: ${command} с задержкой ${parts[1]}с`);
       return true;
     }
+    if (command === 'time') {
+      let timeText = "Время в игре не найдено";
+      if (lastTabFooter) {
+        // ponytail: ищем строку вида "наигᴘᴀʜᴏ: Xч." или извлекаем наигранные часы
+        const match = lastTabFooter.match(/ʜᴀигᴘᴀʜᴏ:\s*([^\s|]+)/i) || lastTabFooter.match(/наиграно:\s*([^\s|]+)/i) || lastTabFooter.match(/([0-9]+\s*ч\.[^|]*)/i);
+        if (match) {
+          timeText = `Наиграно: ${match[1].trim()}`;
+        } else {
+          timeText = `Footer: ${lastTabFooter}`;
+        }
+      }
+      botInstance.chat(`/r ${timeText}`);
+      return true;
+    }
     if (command === 'spamlist') {
         let textToSend = "Спам не запущен.";
         if (spamTasks.length > 0) {
