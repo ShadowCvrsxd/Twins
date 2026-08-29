@@ -478,6 +478,7 @@ function startBot(envPath, configOverrides) {
         const parts = text.split(': ');
         const sender = parts[0].trim();
         const content = parts.slice(1).join(': ');
+        console.log(`[Debug] Trying Meow with sender: "${sender}", content: "${content}"`);
         checkMeow(bot, content, sender);
       }
     });
