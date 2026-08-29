@@ -472,7 +472,7 @@ function startBot(envPath, configOverrides) {
           else if (isFromMain) handleCommand(bot, content);
         }
       } else if (text.includes(': ')) {
-        // ponytail: поддержка формата "Имя: Сообщение"
+        // ponytail: поддержка формата "Имя: Сообщение", если формат с "›" не подошел
         const parts = text.split(': ');
         const sender = parts[0].trim();
         const content = parts.slice(1).join(': ');
