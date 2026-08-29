@@ -97,6 +97,31 @@ function startBot(envPath, configOverrides) {
       }
     } catch(e){}
   }, 1000);
+
+  // ponytail: проверка запросов (например /players) из Telegram-хаба
+  const reqFile = path.join(__dirname, 'bot_requests.json');
+  setInterval(() => {
+    if (!bot) return;
+    try {
+      if (fs.existsSync(reqFile)) {
+        let reqs = JSON.parse(fs.readFileSync(reqFile, 'utf8')) || [];
+        const myReqs = reqs.filter(r => r.username.toLowerCase() === config.username.toLowerCase());
+        if (myReqs.length > 0) {
+          myReqs.forEach(r => {
+            if (r.action === 'players') {
+              const players = Object.keys(bot.players || {});
+              const text = `👥 Игроки онлайн (${players.length}): ${players.join(', ')}`;
+              sendTelegramNotification(bot.username, text);
+            }
+          });
+          reqs = reqs.filter(r => r.username.toLowerCase() !== config.username.toLowerCase());
+          const tempFile = reqFile + '.' + Math.random().toString(36).substring(2) + '.tmp';
+          fs.writeFileSync(tempFile, JSON.stringify(reqs, null, 2));
+          fs.renameSync(tempFile, reqFile);
+        }
+      }
+    } catch(e){}
+  }, 1000);
   function handleCommand(botInstance, input) {
     const parts = input.split(' ');
     const command = parts[0].toLowerCase();

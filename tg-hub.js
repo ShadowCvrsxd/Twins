@@ -110,6 +110,7 @@ async function initBotMenu() {
       { command: 'starttwin', description: 'Запустить твинка (/starttwin <алиас>)' },
       { command: 'stoptwin', description: 'Остановить твинка (/stoptwin <алиас>)' },
       { command: 'status', description: 'Статус привязанных ботов' },
+      { command: 'players', description: 'Список игроков онлайн (/players <бот>)' },
       { command: 'stopspam', description: 'Остановить весь спам' }
     ]
   });
@@ -375,6 +376,25 @@ async function poll() {
             cmds.push({ username: targetBot, text: messageText });
             writeJSON(CMDS_FILE, cmds);
           }
+        }
+        else if (cmd === '/players' || cmd === '/tab') {
+          const targetArg = parts[1] || 'bot1';
+          const targetBot = resolveBot(chatId, targetArg);
+          if (!targetBot) {
+            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден.`);
+            continue;
+          }
+
+          const reqFile = path.join(__dirname, 'bot_requests.json');
+          const reqs = readJSON(reqFile);
+          if (!Array.isArray(reqs)) {
+            writeJSON(reqFile, [{ username: targetBot, action: 'players' }]);
+          } else {
+            reqs.push({ username: targetBot, action: 'players' });
+            writeJSON(reqFile, reqs);
+          }
+
+          await sendMessage(chatId, `🔍 Запрос списка игроков отправлен для *${targetBot}*... Ожидайте ответ в чате трансляций.`);
         }
       }
     }
