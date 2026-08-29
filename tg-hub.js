@@ -38,6 +38,16 @@ function readJSON(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { return {}; }
 }
 
+function readJSONArray(file) {
+  if (!fs.existsSync(file)) return [];
+  try {
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    return [];
+  }
+}
+
 function writeJSON(file, data) {
   const tempFile = file + '.' + Math.random().toString(36).substring(2) + '.tmp';
   try {
@@ -192,7 +202,7 @@ async function poll() {
           }
 
           const reqFile = path.join(__dirname, 'bot_requests.json');
-          const reqs = readJSON(reqFile);
+          const reqs = readJSONArray(reqFile);
           const approved = readJSON(APPROVED_FILE);
           let allBots = [];
           for (const bots of Object.values(approved)) {
@@ -220,7 +230,7 @@ async function poll() {
           const port = 25809;
 
           const reqFile = path.join(__dirname, 'bot_requests.json');
-          const reqs = readJSON(reqFile);
+          const reqs = readJSONArray(reqFile);
           const approved = readJSON(APPROVED_FILE);
           let allBots = [];
           for (const bots of Object.values(approved)) {
@@ -436,7 +446,7 @@ async function poll() {
             continue;
           }
 
-          const cmds = readJSON(CMDS_FILE);
+          const cmds = readJSONArray(CMDS_FILE);
           if (!Array.isArray(cmds)) {
             writeJSON(CMDS_FILE, [{ username: targetBot, text: messageText }]);
           } else {
@@ -453,7 +463,7 @@ async function poll() {
           }
 
           const reqFile = path.join(__dirname, 'bot_requests.json');
-          const reqs = readJSON(reqFile);
+          const reqs = readJSONArray(reqFile);
           if (!Array.isArray(reqs)) {
             writeJSON(reqFile, [{ username: targetBot, action: 'players' }]);
           } else {
