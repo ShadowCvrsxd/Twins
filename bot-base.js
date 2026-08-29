@@ -6,22 +6,29 @@ const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResource
 function formatTabComponent(comp) {
   if (!comp) return '';
   if (typeof comp === 'string') return comp;
+  // ponytail: если это Mineflayer ChatMessage или обертка с toString()
   if (typeof comp.toString === 'function') {
     const str = comp.toString();
     if (str && str !== '[object Object]') return str;
   }
+  // ponytail: рекурсивно собираем весь текст из NBT/JSON структуры компонентов Minecraft
+  let text = '';
   if (comp.text) {
-    let res = comp.text;
-    if (Array.isArray(comp.extra)) {
-      res += comp.extra.map(e => (typeof e === 'string' ? e : (e.text || ''))).join('');
+    text += typeof comp.text === 'object' ? (comp.text.value || '') : comp.text;
+  }
+  if (comp.extra) {
+    const extraList = Array.isArray(comp.extra) ? comp.extra : (comp.extra.value ? (comp.extra.value.value || comp.extra.value) : []);
+    if (Array.isArray(extraList)) {
+      extraList.forEach(child => {
+        text += formatTabComponent(child);
+      });
     }
-    return res;
   }
-  try {
-    return JSON.stringify(comp);
-  } catch(e) {
-    return String(comp);
+  if (!text && comp.value) {
+    if (typeof comp.value === 'string') return comp.value;
+    if (typeof comp.value === 'object') return formatTabComponent(comp.value);
   }
+  return text;
 }
 
 function checkMeow(bot, message, sender) {
