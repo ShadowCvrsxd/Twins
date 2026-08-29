@@ -410,8 +410,14 @@ async function poll() {
             continue;
           }
 
+          const approved = readJSON(APPROVED_FILE);
+          const userBots = approved[chatId] || [];
+          const index = userBots.findIndex(b => b.toLowerCase() === targetBot.toLowerCase());
+          const screenName = index === 1 ? 'twin2' : 'twin1';
+          const scriptName = index === 1 ? 'bot-2.js' : 'bot.js';
+
           const { exec } = require('child_process');
-          exec(`screen -S ${targetBot} -dm node -e "require('./bot-base.js').startBot('.env', { username: '${targetBot}' })"`, (err) => {
+          exec(`screen -S ${screenName} -dm bash -c "cd ${__dirname} && node ${scriptName}; exec bash"`, (err) => {
             if (err) {
               sendMessage(chatId, `❌ Ошибка запуска твинка *${targetBot}*.`);
             } else {
@@ -431,8 +437,13 @@ async function poll() {
             continue;
           }
 
+          const approved = readJSON(APPROVED_FILE);
+          const userBots = approved[chatId] || [];
+          const index = userBots.findIndex(b => b.toLowerCase() === targetBot.toLowerCase());
+          const screenName = index === 1 ? 'twin2' : 'twin1';
+
           const { exec } = require('child_process');
-          exec(`screen -S ${targetBot} -X quit`, (err) => {
+          exec(`screen -S ${screenName} -X quit`, (err) => {
             sendMessage(chatId, `🔴 Твинк *${targetBot}* остановлен.`);
           });
         }
