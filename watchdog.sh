@@ -10,7 +10,7 @@ check_and_start() {
         echo "[$(date)] Процесс для '$script_name' не найден. Запуск в screen '$screen_name'..."
         screen -wipe >/dev/null 2>&1
         # Убиваем старый зависший screen с таким именем на всякий случай
-        screen -S "$screen_name" -X quit 2>/dev/null || true
+        screen -S "$screen_name" -X quit >/dev/null 2>&1 || true
         screen -S "$screen_name" -dm bash -c "cd $DIR && node $script_name; exec bash"
     fi
 }
