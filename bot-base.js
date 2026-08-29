@@ -16,7 +16,13 @@ function checkMeow(bot, message, sender) {
   try { settings = JSON.parse(fs.readFileSync('meow_settings.json', 'utf-8') || '{}'); } catch(e) {}
   const botSettings = settings[bot.username] || { enabled: false, lastMeowed: 0 };
   if (!botSettings.enabled) return;
-  if (Date.now() - botSettings.lastMeowed < 15 * 60 * 1000) return;
+  const timeSinceLast = Date.now() - botSettings.lastMeowed;
+  if (timeSinceLast < 15 * 60 * 1000) {
+    // ponytail: логируем остаток КД в консоль
+    const remaining = Math.ceil((15 * 60 * 1000 - timeSinceLast) / 1000);
+    console.log(`[Meow] КД для ${bot.username}, осталось: ${remaining} сек.`);
+    return;
+  }
 
   botSettings.lastMeowed = Date.now();
   settings[bot.username] = botSettings;
