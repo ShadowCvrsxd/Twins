@@ -152,7 +152,7 @@ async function poll() {
         if (cmd === '/start') {
           let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/status` - список и статус ботов\n`/chat <алиас> <текст>` - написать в чат';
           if (isAdmin(chatId)) {
-            msg += `\n\n👑 *Админ-панель:*\nСтатус регистрации: ${isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта'}\n\`/lock\` - заблокировать\n\`/unlock\` - разблокировать\n\`/users\` - список юзеров\n\`/testserver\` - на тестовый\n\`/mainserver` - на основной`;
+            msg += '\n\n👑 *Админ-панель:*\nСтатус регистрации: ' + (isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта') + '\n`/lock` - заблокировать\n`/unlock` - разблокировать\n`/users` - список юзеров\n`/testserver` - на тестовый\n`/mainserver` - на основной';
           }
           await sendMessage(chatId, msg);
         } 
