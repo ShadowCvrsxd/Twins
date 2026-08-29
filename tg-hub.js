@@ -112,6 +112,7 @@ async function initBotMenu() {
       { command: 'status', description: 'Статус привязанных ботов' },
       { command: 'players', description: 'Список игроков онлайн (/players <бот>)' },
       { command: 'testserver', description: 'Переключить ботов на тестовый сервер (админ)' },
+      { command: 'mainserver', description: 'Вернуть ботов на основной сервер (админ)' },
       { command: 'stopspam', description: 'Остановить весь спам' }
     ]
   });
@@ -136,7 +137,7 @@ async function poll() {
         if (cmd === '/start') {
           let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/status` - список и статус ботов\n`/chat <алиас> <текст>` - написать в чат';
           if (isAdmin(chatId)) {
-            msg += `\n\n👑 *Админ-панель:*\nСтатус регистрации: ${isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта'}\n`/lock` - заблокировать добавление\n`/unlock` - разблокировать\n`/users` - список пользователей\n`/testserver` - переключить ботов на тестовый сервер`;
+            msg += `\n\n👑 *Админ-панель:*\nСтатус регистрации: ${isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта'}\n`/lock` - заблокировать добавление\n`/unlock` - разблокировать\n`/users` - список пользователей\n`/testserver` - на тестовый сервер\n`/mainserver` - на основной сервер`;
           }
           await sendMessage(chatId, msg);
         } 
@@ -204,6 +205,34 @@ async function poll() {
           writeJSON(reqFile, reqs);
 
           await sendMessage(chatId, `🚀 Команда переключения на тестовый сервер (${host}:${port}) отправлена для всех ботов!`);
+        }
+        else if (cmd === '/mainserver' || cmd === '/prodserver') {
+          if (!isAdmin(chatId)) {
+            await sendMessage(chatId, '❌ У вас нет прав администратора.');
+            continue;
+          }
+          const host = '5.83.140.251';
+          const port = 25809;
+
+          const reqFile = path.join(__dirname, 'bot_requests.json');
+          const reqs = readJSON(reqFile);
+          const approved = readJSON(APPROVED_FILE);
+          let allBots = [];
+          for (const bots of Object.values(approved)) {
+            allBots.push(...bots);
+          }
+
+          if (allBots.length === 0) {
+            await sendMessage(chatId, '📭 Нет активных привязанных ботов для переключения.');
+            continue;
+          }
+
+          allBots.forEach(botName => {
+            reqs.push({ username: botName, action: 'switchServer', host, port });
+          });
+          writeJSON(reqFile, reqs);
+
+          await sendMessage(chatId, `🚀 Команда переключения на основной сервер (${host}:${port}) отправлена для всех ботов!`);
         }
         else if (cmd === '/addtwin' || cmd === '/link') {
           if (isRegistrationLocked() && !isAdmin(chatId)) {
