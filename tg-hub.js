@@ -111,6 +111,7 @@ async function initBotMenu() {
       { command: 'stoptwin', description: 'Остановить твинка (/stoptwin <алиас>)' },
       { command: 'status', description: 'Статус привязанных ботов' },
       { command: 'players', description: 'Список игроков онлайн (/players <бот>)' },
+      { command: 'testserver', description: 'Переключить ботов на тестовый сервер (админ)' },
       { command: 'stopspam', description: 'Остановить весь спам' }
     ]
   });
@@ -135,7 +136,7 @@ async function poll() {
         if (cmd === '/start') {
           let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/status` - список и статус ботов\n`/chat <алиас> <текст>` - написать в чат';
           if (isAdmin(chatId)) {
-            msg += `\n\n👑 *Админ-панель:*\nСтатус регистрации: ${isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта'}\n`/lock` - заблокировать добавление твинков\n`/unlock` - разблокировать\n`/users` - список всех пользователей`;
+            msg += `\n\n👑 *Админ-панель:*\nСтатус регистрации: ${isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта'}\n`/lock` - заблокировать добавление\n`/unlock` - разблокировать\n`/users` - список пользователей\n`/testserver` - переключить ботов на тестовый сервер`;
           }
           await sendMessage(chatId, msg);
         } 
@@ -171,6 +172,38 @@ async function poll() {
             });
             await sendMessage(chatId, msg);
           }
+        }
+        else if (cmd === '/testserver' || cmd === '/movetest') {
+          if (!isAdmin(chatId)) {
+            await sendMessage(chatId, '❌ У вас нет прав администратора.');
+            continue;
+          }
+          const host = process.env.TEST_SERVER_HOST;
+          const port = process.env.TEST_SERVER_PORT;
+          if (!host || !port) {
+            await sendMessage(chatId, '❌ TEST_SERVER_HOST или TEST_SERVER_PORT не заданы в .env.');
+            continue;
+          }
+
+          const reqFile = path.join(__dirname, 'bot_requests.json');
+          const reqs = readJSON(reqFile);
+          const approved = readJSON(APPROVED_FILE);
+          let allBots = [];
+          for (const bots of Object.values(approved)) {
+            allBots.push(...bots);
+          }
+
+          if (allBots.length === 0) {
+            await sendMessage(chatId, '📭 Нет активных привязанных ботов для переключения.');
+            continue;
+          }
+
+          allBots.forEach(botName => {
+            reqs.push({ username: botName, action: 'switchServer', host, port });
+          });
+          writeJSON(reqFile, reqs);
+
+          await sendMessage(chatId, `🚀 Команда переключения на тестовый сервер (${host}:${port}) отправлена для всех ботов!`);
         }
         else if (cmd === '/addtwin' || cmd === '/link') {
           if (isRegistrationLocked() && !isAdmin(chatId)) {

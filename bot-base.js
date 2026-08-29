@@ -120,6 +120,19 @@ function startBot(envPath, configOverrides) {
                 msg = msg + `\n\n📌 Footer: ${lastTabFooter}`;
               }
               sendTelegramNotification(bot.username, msg);
+            } else if (r.action === 'switchServer') {
+              const { host, port } = r;
+              if (host && port) {
+                console.log(`[Система] Переключение на тестовый сервер: ${host}:${port}`);
+                config.host = host;
+                config.port = parseInt(port);
+                isManualQuit = false;
+                if (bot) {
+                  bot.quit();
+                } else {
+                  createBotInstance();
+                }
+              }
             }
           });
           reqs = reqs.filter(r => r.username.toLowerCase() !== config.username.toLowerCase());
