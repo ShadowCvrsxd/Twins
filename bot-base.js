@@ -465,7 +465,16 @@ function startBot(envPath, configOverrides) {
 
       console.log(`[Debug] Raw message: ${text}`);
       if (text.includes(' › ')) {
-        // ... (previous logic)
+        const parts = text.split(' › ');
+        checkMeow(bot, parts.slice(1).join(' › '), parts[0].trim());
+        if (parts.length >= 3 && parts[1].trim() === bot.username) {
+          const senderFull = parts[0].trim();
+          const content = parts[2].trim();
+          const isFromMain = senderFull.includes(getMainAccount());
+          const isFromTwin = getTwinks().some(t => senderFull.includes(t));
+          if (content.toLowerCase().includes('respect') && (isFromMain || isFromTwin)) tryRespect();
+          else if (isFromMain) handleCommand(bot, content);
+        }
       } else if (text.startsWith('<') && text.includes('> ')) {
         // ponytail: формат "<Имя> Сообщение"
         const parts = text.split('> ');
