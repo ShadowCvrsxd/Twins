@@ -90,7 +90,7 @@ function startBot(envPath, configOverrides) {
         book: false,
         experience: false,
         genericPVP: false,
-        tablist: false
+        tablist: true
     },
     ...configOverrides
   };
