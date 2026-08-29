@@ -359,7 +359,6 @@ function startBot(envPath, configOverrides) {
       try {
         lastTabHeader = header ? formatTabComponent(header) : null;
         lastTabFooter = footer ? formatTabComponent(footer) : null;
-        console.log(`[TAB Debug] Header: "${lastTabHeader}", Footer: "${lastTabFooter}"`);
       } catch(e){}
     });
 
@@ -367,7 +366,6 @@ function startBot(envPath, configOverrides) {
       try {
         if (packet.header) lastTabHeader = formatTabComponent(packet.header);
         if (packet.footer) lastTabFooter = formatTabComponent(packet.footer);
-        console.log(`[TAB Debug client] Header: "${lastTabHeader}", Footer: "${lastTabFooter}"`);
       } catch(e){}
     });
 
