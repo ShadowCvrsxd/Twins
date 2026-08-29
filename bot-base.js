@@ -72,6 +72,8 @@ function startBot(envPath, configOverrides) {
   }
   let nextRespectTime = 0;
   let isRespectFailed = false;
+  let lastTabHeader = null;
+  let lastTabFooter = null;
   let sessionBytes = 0; // ponytail: счетчик сессии
 
   const RESOURCE_PACK_RESPONSE_NAMES = ['resource_pack_receive', 'resource_pack_response', 'resource_pack_status'];
@@ -110,8 +112,14 @@ function startBot(envPath, configOverrides) {
           myReqs.forEach(r => {
             if (r.action === 'players') {
               const players = Object.keys(bot.players || {});
-              const text = `👥 Игроки онлайн (${players.length}): ${players.join(', ')}`;
-              sendTelegramNotification(bot.username, text);
+              let msg = `👥 Игроки онлайн (${players.length}): ${players.join(', ')}`;
+              if (lastTabHeader) {
+                msg = `📌 Header: ${lastTabHeader}\n\n` + msg;
+              }
+              if (lastTabFooter) {
+                msg = msg + `\n\n📌 Footer: ${lastTabFooter}`;
+              }
+              sendTelegramNotification(bot.username, msg);
             }
           });
           reqs = reqs.filter(r => r.username.toLowerCase() !== config.username.toLowerCase());
@@ -276,6 +284,13 @@ function startBot(envPath, configOverrides) {
 
     bot.on('login', () => {
         console.log('[Система] Успешный логин.');
+    });
+
+    bot.on('tabHeader', (header, footer) => {
+      try {
+        lastTabHeader = header ? header.toString() : null;
+        lastTabFooter = footer ? footer.toString() : null;
+      } catch(e){}
     });
 
     bot._client.on('add_resource_pack', (packet) => {
