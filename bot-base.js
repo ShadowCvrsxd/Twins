@@ -4,10 +4,7 @@ const fs = require('fs');
 const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification } = require('./utils.js');
 
 function checkMeow(bot, message, sender) {
-  if (!sender) return; // ponytail: сообщение без отправителя - игнор
-  const twinks = getTwinks();
-  if (twinks.includes(sender)) return; // ponytail: игнорируем соо от твинков
-
+  // ponytail: убрали проверку отправителя, теперь триггеримся на всё, включая свои сообщения
   const msg = message.toLowerCase();
   if (!msg.includes('мяу')) return;
 
