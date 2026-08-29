@@ -4,7 +4,11 @@ const fs = require('fs');
 const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification } = require('./utils.js');
 
 function checkMeow(bot, message) {
-  if (!message.toLowerCase().includes('мяу')) return;
+  const msg = message.toLowerCase();
+  if (!msg.includes('мяу')) return;
+  // ponytail: игнорируем свои же команды, начинающиеся с !
+  if (msg.trim().startsWith('!')) return;
+
   let settings = {};
   try { settings = JSON.parse(fs.readFileSync('meow_settings.json', 'utf-8') || '{}'); } catch(e) {}
   const botSettings = settings[bot.username] || { enabled: false, lastMeowed: 0 };
