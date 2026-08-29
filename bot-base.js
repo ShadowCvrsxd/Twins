@@ -6,6 +6,8 @@ const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResource
 function checkMeow(bot, message, sender) {
   const msg = message.toLowerCase();
   if (!msg.includes('мяу')) return;
+  // ponytail: игнорируем свои же сообщения
+  if (msg === '!мяу') return;
 
   let settings = {};
   try { settings = JSON.parse(fs.readFileSync('meow_settings.json', 'utf-8') || '{}'); } catch(e) {}
