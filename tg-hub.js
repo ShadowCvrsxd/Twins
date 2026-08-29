@@ -152,7 +152,7 @@ async function poll() {
         if (cmd === '/start') {
           let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/status` - список и статус ботов\n`/chat <алиас> <текст>` - написать в чат';
           if (isAdmin(chatId)) {
-            msg += `\n\n👑 *Админ-панель:*\nСтатус регистрации: ${isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта'}\n`/lock` - заблокировать добавление\n`/unlock` - разблокировать\n`/users` - список пользователей\n`/testserver` - на тестовый сервер\n`/mainserver` - на основной сервер`;
+            msg += `\n\n👑 *Админ-панель:*\nСтатус регистрации: ${isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта'}\n\`/lock\` - заблокировать\n\`/unlock\` - разблокировать\n\`/users\` - список юзеров\n\`/testserver\` - на тестовый\n\`/mainserver` - на основной`;
           }
           await sendMessage(chatId, msg);
         } 
@@ -226,8 +226,8 @@ async function poll() {
             await sendMessage(chatId, '❌ У вас нет прав администратора.');
             continue;
           }
-          const host = '5.83.140.251';
-          const port = 25809;
+          const host = process.env.MAIN_SERVER_HOST || '5.83.140.251';
+          const port = process.env.MAIN_SERVER_PORT || 25809;
 
           const reqFile = path.join(__dirname, 'bot_requests.json');
           const reqs = readJSONArray(reqFile);
