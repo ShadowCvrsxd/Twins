@@ -97,6 +97,8 @@ async function initBotMenu() {
       { command: 'deltwin', description: 'Отвязать твинка (/deltwin <ник>)' },
       { command: 'alias', description: 'Задать алиас (/alias <бот> <алиас>)' },
       { command: 'unalias', description: 'Удалить алиас (/unalias <алиас>)' },
+      { command: 'starttwin', description: 'Запустить твинка (/starttwin <алиас>)' },
+      { command: 'stoptwin', description: 'Остановить твинка (/stoptwin <алиас>)' },
       { command: 'status', description: 'Статус привязанных ботов' },
       { command: 'stopspam', description: 'Остановить весь спам' }
     ]
@@ -261,6 +263,44 @@ async function poll() {
             });
             await sendMessage(chatId, msg);
           }
+        }
+        else if (cmd === '/starttwin' || cmd === '/on') {
+          const targetArg = parts[1];
+          if (!targetArg) {
+            await sendMessage(chatId, '❌ Укажи твинка: `/starttwin <алиас или ник>`');
+            continue;
+          }
+          const targetBot = resolveBot(chatId, targetArg);
+          if (!targetBot) {
+            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден среди твоих привязанных ботов.`);
+            continue;
+          }
+
+          const { exec } = require('child_process');
+          exec(`screen -S ${targetBot} -dm node -e "require('./bot-base.js').startBot('.env', { username: '${targetBot}' })"`, (err) => {
+            if (err) {
+              sendMessage(chatId, `❌ Ошибка запуска твинка *${targetBot}*.`);
+            } else {
+              sendMessage(chatId, `🟢 Твинк *${targetBot}* запущен.`);
+            }
+          });
+        }
+        else if (cmd === '/stoptwin' || cmd === '/off') {
+          const targetArg = parts[1];
+          if (!targetArg) {
+            await sendMessage(chatId, '❌ Укажи твинка: `/stoptwin <алиас или ник>`');
+            continue;
+          }
+          const targetBot = resolveBot(chatId, targetArg);
+          if (!targetBot) {
+            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден.`);
+            continue;
+          }
+
+          const { exec } = require('child_process');
+          exec(`screen -S ${targetBot} -X quit`, (err) => {
+            sendMessage(chatId, `🔴 Твинк *${targetBot}* остановлен.`);
+          });
         }
         else if (cmd === '/chat') {
           const targetArg = parts[1];
