@@ -124,11 +124,18 @@ async function initBotMenu() {
       { command: 'unalias', description: 'Удалить алиас (/unalias <алиас>)' },
       { command: 'starttwin', description: 'Запустить твинка (/starttwin <алиас>)' },
       { command: 'stoptwin', description: 'Остановить твинка (/stoptwin <алиас>)' },
+      { command: 'chat', description: 'Написать в чат (/chat <алиас> <текст>)' },
+      { command: 'meowon', description: 'Вкл. мяуканье (/meowon <алиас>)' },
+      { command: 'meowoff', description: 'Выкл. мяуканье (/meowoff <алиас>)' },
       { command: 'status', description: 'Статус привязанных ботов' },
       { command: 'players', description: 'Список игроков онлайн (/players <бот>)' },
-      { command: 'testserver', description: 'Переключить ботов на тестовый сервер (админ)' },
-      { command: 'mainserver', description: 'Вернуть ботов на основной сервер (админ)' },
-      { command: 'stopspam', description: 'Остановить весь спам' }
+      { command: 'stopspam', description: 'Остановить весь спам' },
+      { command: 'lock', description: 'Заблокировать регистрацию (админ)' },
+      { command: 'unlock', description: 'Разблокировать регистрацию (админ)' },
+      { command: 'users', description: 'Список пользователей (админ)' },
+      { command: 'testserver', description: 'На тестовый сервер (админ)' },
+      { command: 'mainserver', description: 'На основной сервер (админ)' },
+      { command: 'setserver', description: 'Сменить сервер (админ) (/setserver <ip> <port>)' }
     ]
   });
 }
@@ -150,9 +157,9 @@ async function poll() {
         const cmd = parts[0].toLowerCase();
 
         if (cmd === '/start') {
-          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/status` - список и статус ботов\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас или ник>` - вкл. режим мяуканья\n`/meowoff <алиас или ник>` - выкл. режим мяуканья';
+          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/stopspam` - остановить спам';
           if (isAdmin(chatId)) {
-            msg += '\n\n👑 *Админ-панель:*\nСтатус регистрации: ' + (isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта') + '\n`/lock` - заблокировать\n`/unlock` - разблокировать\n`/users` - список юзеров\n`/testserver` - на тестовый\n`/mainserver` - на основной';
+            msg += '\n\n👑 *Админ-панель:*\nСтатус регистрации: ' + (isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта') + '\n`/lock` - заблокировать\n`/unlock` - разблокировать\n`/users` - список юзеров\n`/testserver` - на тестовый\n`/mainserver` - на основной\n`/setserver <ip> <port>` - сменить сервер';
           }
           await sendMessage(chatId, msg);
         }

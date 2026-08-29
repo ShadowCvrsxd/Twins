@@ -89,9 +89,9 @@ async function initBotMenu() {
   await telegramAPI('setMyCommands', {
     commands: [
       { command: 'start', description: 'Главное меню чата' },
-      { command: 'streamon', description: 'Включить дублирование чата' },
-      { command: 'streamoff', description: 'Выключить дублирование чата' },
-      { command: 'display', description: 'Режим отображения (/display)' },
+      { command: 'streamon', description: 'Включить дублирование чата (/streamon <бот>)' },
+      { command: 'streamoff', description: 'Выключить дублирование чата (/streamoff <бот>)' },
+      { command: 'display', description: 'Режим отображения имен (/display <mode>)' },
       { command: 'status', description: 'Статус потоков чата' }
     ]
   });
