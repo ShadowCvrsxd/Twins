@@ -48,7 +48,8 @@ function checkMeow(bot, message, sender) {
   const botSettings = settings[bot.username] || { enabled: false, lastMeowed: 0 };
   if (!botSettings.enabled) return;
   const timeSinceLast = now - botSettings.lastMeowed;
-  if (timeSinceLast < 15 * 60 * 1000) {
+  const cooldownMs = 5 * 60 * 1000; // ponytail: КД 5 минут
+  if (timeSinceLast < cooldownMs) {
     return;
   }
 
