@@ -127,6 +127,8 @@ async function initBotMenu() {
       { command: 'chat', description: 'Написать в чат (/chat <алиас> <текст>)' },
       { command: 'meowon', description: 'Вкл. мяуканье (/meowon <алиас>)' },
       { command: 'meowoff', description: 'Выкл. мяуканье (/meowoff <алиас>)' },
+      { command: 'autorepon', description: 'Вкл. авто-респекты (/autorepon <алиас>)' },
+      { command: 'autorepoff', description: 'Выкл. авто-респекты (/autorepoff <алиас>)' },
       { command: 'status', description: 'Статус привязанных ботов' },
       { command: 'players', description: 'Список игроков онлайн (/players <бот>)' },
       { command: 'stopspam', description: 'Остановить весь спам' },
@@ -157,11 +159,38 @@ async function poll() {
         const cmd = parts[0].toLowerCase();
 
         if (cmd === '/start') {
-          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/stopspam` - остановить спам';
+          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/autorepon <алиас>` - вкл. авто-респекты\n`/autorepoff <алиас>` - выкл. авто-респекты\n`/stopspam` - остановить спам';
           if (isAdmin(chatId)) {
             msg += '\n\n👑 *Админ-панель:*\nСтатус регистрации: ' + (isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта') + '\n`/lock` - заблокировать\n`/unlock` - разблокировать\n`/users` - список юзеров\n`/testserver` - на тестовый\n`/mainserver` - на основной\n`/setserver <ip> <port>` - сменить сервер';
           }
           await sendMessage(chatId, msg);
+        }
+        else if (cmd === '/autorepon' || cmd === '/autorepoff') {
+          const userBots = (readJSON(APPROVED_FILE)[chatId] || []);
+          if (userBots.length === 0) {
+            await sendMessage(chatId, '❌ У тебя нет привязанных твинков.');
+            continue;
+          }
+          const targetArg = parts[1];
+          if (!targetArg) {
+            await sendMessage(chatId, `❌ Укажи твинка: \`${cmd} <алиас или ник>\`\nДоступные: ${userBots.join(', ')}`);
+            continue;
+          }
+
+          const targetBot = resolveBot(chatId, targetArg);
+          if (!targetBot) {
+            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден.`);
+            continue;
+          }
+
+          const enabled = cmd === '/autorepon';
+          let settings = {};
+          try { settings = JSON.parse(fs.readFileSync('autorespect_settings.json', 'utf-8') || '{}'); } catch(e) {}
+          
+          settings[targetBot] = { ...settings[targetBot], enabled: enabled };
+          fs.writeFileSync('autorespect_settings.json', JSON.stringify(settings));
+
+          await sendMessage(chatId, `✅ Авто-выдача респектов для твинка *${targetBot}* ${enabled ? 'ВКЛ' : 'ВЫКЛ'}.`);
         }
         else if (cmd === '/meowon' || cmd === '/meowoff') {
           const userBots = (readJSON(APPROVED_FILE)[chatId] || []);

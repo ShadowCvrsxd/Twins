@@ -200,6 +200,20 @@ function startBot(envPath, configOverrides) {
       }
     } catch(e){}
   }, 1000);
+
+  // ponytail: проверка авто-респекта каждые 30 секунд
+  setInterval(() => {
+    if (!bot) return;
+    try {
+      let autoSettings = {};
+      try { autoSettings = JSON.parse(fs.readFileSync('autorespect_settings.json', 'utf-8') || '{}'); } catch(e) {}
+      const isAuto = autoSettings[config.username]?.enabled || false;
+      if (isAuto && Date.now() >= nextRespectTime) {
+        tryRespect(getMainAccount(), true);
+      }
+    } catch(e){}
+  }, 30000);
+
   function handleCommand(botInstance, input, replyTarget = null) {
     const parts = input.split(' ');
     const command = parts[0].toLowerCase();
@@ -289,11 +303,15 @@ function startBot(envPath, configOverrides) {
         bot.chat(`/respect ${username}`);
         setTimeout(() => {
           if (bot && !isRespectFailed) {
-            bot.chat(`!успешно выдан респект игроку:${username}`);
+            if (!isAuto) {
+              bot.chat(`!успешно выдан респект игроку:${username}`);
+            }
             nextRespectTime = Date.now() + RESPECT_COOLDOWN;
-            getTwinks().forEach(name => { if (bot && name !== bot.username) bot.chat(`/msg ${name} respect`); });
+            if (!isAuto) {
+              getTwinks().forEach(name => { if (bot && name !== bot.username) bot.chat(`/msg ${name} respect`); });
+            }
           }
-        }, 3000); 
+        }, 3500); 
       } catch (err) { bot.chat(`/msg ${getMainAccount()} Ошибка при авто-респекте: ${err.message}`); }
     }
   }
@@ -486,10 +504,16 @@ function startBot(envPath, configOverrides) {
       else if (msg.includes('/register') || msg.includes('зарегистрируйтесь')) bot.chat(`/register ${PASSWORD} ${PASSWORD}`);
       else if (
         msg === 'вы сможете отправить следующий /respect' ||
-        /^через \d+/.test(msg)
+        /^через \d+/.test(msg) ||
+        msg.includes('уже') ||
+        msg.includes('подождите') ||
+        msg.includes('нельзя') ||
+        msg.includes('ошибка') ||
+        msg.includes('не найден') ||
+        msg.includes('оффлайн')
       ) {
         const cdMs = parseCooldown(message);
-        nextRespectTime = Date.now() + cdMs;
+        nextRespectTime = Date.now() + (cdMs || RESPECT_COOLDOWN);
         isRespectFailed = true;
       } else {
         if (!msg.startsWith('/login') && !msg.startsWith('/register')) {
