@@ -299,28 +299,29 @@ function startBot(envPath, configOverrides) {
 
   function tryRespect(username = getMainAccount(), isAuto = false) {
     const now = Date.now();
-    isRespectFailed = false;
     if (now < nextRespectTime) {
       if (!isAuto) {
         const remaining = Math.ceil((nextRespectTime - now) / 1000 / 60);
         bot.chat(`/r КД на респект: ${remaining} мин.`);
       }
-    } else {
-      try {
-        bot.chat(`/respect ${username}`);
-        setTimeout(() => {
-          if (bot && !isRespectFailed) {
-            if (!isAuto) {
-              bot.chat(`!успешно выдан респект игроку:${username}`);
-            }
-            nextRespectTime = Date.now() + RESPECT_COOLDOWN;
-            if (!isAuto) {
-              getTwinks().forEach(name => { if (bot && name !== bot.username) bot.chat(`/msg ${name} respect`); });
-            }
-          }
-        }, 3500); 
-      } catch (err) { bot.chat(`/msg ${getMainAccount()} Ошибка при авто-респекте: ${err.message}`); }
+      return;
     }
+
+    isRespectFailed = false;
+    try {
+      bot.chat(`/respect ${username}`);
+      setTimeout(() => {
+        if (bot && !isRespectFailed && Date.now() >= nextRespectTime) {
+          if (!isAuto) {
+            bot.chat(`!успешно выдан респект игроку:${username}`);
+          }
+          nextRespectTime = Date.now() + RESPECT_COOLDOWN;
+          if (!isAuto) {
+            getTwinks().forEach(name => { if (bot && name !== bot.username) bot.chat(`/msg ${name} respect`); });
+          }
+        }
+      }, 3500); 
+    } catch (err) { bot.chat(`/msg ${getMainAccount()} Ошибка при авто-респекте: ${err.message}`); }
   }
 
   // ponytail: точный планировщик перезагрузки по МСК
