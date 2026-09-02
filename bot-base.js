@@ -201,18 +201,25 @@ function startBot(envPath, configOverrides) {
     } catch(e){}
   }, 1000);
 
-  // ponytail: проверка авто-респекта каждые 30 секунд
-  setInterval(() => {
-    if (!bot) return;
-    try {
-      let autoSettings = {};
-      try { autoSettings = JSON.parse(fs.readFileSync('autorespect_settings.json', 'utf-8') || '{}'); } catch(e) {}
-      const isAuto = autoSettings[config.username]?.enabled || false;
-      if (isAuto && Date.now() >= nextRespectTime) {
-        tryRespect(getMainAccount(), true);
+  // ponytail: проверка авто-респекта с рандомным интервалом от 5 до 10 минут
+  function scheduleAutoRespectCheck() {
+    const randomMinutes = 5 + Math.random() * 5;
+    const delayMs = randomMinutes * 60 * 1000;
+    setTimeout(() => {
+      if (bot) {
+        try {
+          let autoSettings = {};
+          try { autoSettings = JSON.parse(fs.readFileSync('autorespect_settings.json', 'utf-8') || '{}'); } catch(e) {}
+          const isAuto = autoSettings[config.username]?.enabled || false;
+          if (isAuto && Date.now() >= nextRespectTime) {
+            tryRespect(getMainAccount(), true);
+          }
+        } catch(e){}
       }
-    } catch(e){}
-  }, 30000);
+      scheduleAutoRespectCheck();
+    }, delayMs);
+  }
+  scheduleAutoRespectCheck();
 
   function handleCommand(botInstance, input, replyTarget = null) {
     const parts = input.split(' ');
