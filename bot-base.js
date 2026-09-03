@@ -509,7 +509,9 @@ function startBot(envPath, configOverrides) {
       const updateFlag = path.join(__dirname, '.just_updated');
       if (fs.existsSync(updateFlag)) {
           setTimeout(() => {
-              bot.chat(`/msg ${getMainAccount()} Я обновился!`);
+              if (bot.username.toLowerCase() !== getMainAccount().toLowerCase()) {
+                  bot.chat(`/msg ${getMainAccount()} Я обновился!`);
+              }
               try { fs.unlinkSync(updateFlag); } catch(e) {}
           }, 5000);
       }
