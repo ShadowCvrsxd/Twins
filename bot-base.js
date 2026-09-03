@@ -128,6 +128,7 @@ function startBot(envPath, configOverrides) {
     } catch (e) {}
   }
   let nextRespectTime = 0;
+  let respectTarget = null;
   let isRespectFailed = false;
   let lastTabHeader = null;
   let lastTabFooter = null;
@@ -310,21 +311,13 @@ function startBot(envPath, configOverrides) {
       return;
     }
 
-    isRespectFailed = false;
     try {
+      respectTarget = { username, isAuto };
       bot.chat(`/respect ${username}`);
-      setTimeout(() => {
-        if (bot && !isRespectFailed && Date.now() >= nextRespectTime) {
-          if (!isAuto) {
-            bot.chat(`!успешно выдан респект игроку:${username}`);
-          }
-          nextRespectTime = Date.now() + RESPECT_COOLDOWN;
-          if (!isAuto) {
-            getTwinks().forEach(name => { if (bot && name !== bot.username) bot.chat(`/msg ${name} respect`); });
-          }
-        }
-      }, 3500); 
-    } catch (err) { bot.chat(`/msg ${getMainAccount()} Ошибка при авто-респекте: ${err.message}`); }
+    } catch (err) { 
+      bot.chat(`/msg ${getMainAccount()} Ошибка при отправке респекта: ${err.message}`); 
+      respectTarget = null;
+    }
   }
 
   // ponytail: точный планировщик перезагрузки по МСК
@@ -511,11 +504,23 @@ function startBot(envPath, configOverrides) {
 
     bot.on('messagestr', (message) => {
       const msg = message.trim().toLowerCase();
-      if (msg.includes('/login') || msg.includes('авторизуйтесь')) bot.chat(`/login ${PASSWORD}`);
-      else if (msg.includes('/register') || msg.includes('зарегистрируйтесь')) bot.chat(`/register ${PASSWORD} ${PASSWORD}`);
-      else if (
-        msg === 'вы сможете отправить следующий /respect' ||
-        /^через \d+/.test(msg) ||
+      if (msg.includes('/login') || msg.includes('авторизуйтесь')) {
+        bot.chat(`/login ${PASSWORD}`);
+      } else if (msg.includes('/register') || msg.includes('зарегистрируйтесь')) {
+        bot.chat(`/register ${PASSWORD} ${PASSWORD}`);
+      } else if (msg.includes('отлично! вы отправили респект') || msg.includes('вы успешно повысили')) {
+        if (respectTarget) {
+          const { username, isAuto } = respectTarget;
+          if (!isAuto) {
+            bot.chat(`!успешно выдан респект игроку:${username}`);
+            getTwinks().forEach(name => { if (bot && name !== bot.username) bot.chat(`/msg ${name} respect`); });
+          }
+          respectTarget = null;
+        }
+        nextRespectTime = Date.now() + RESPECT_COOLDOWN;
+      } else if (
+        msg.includes('вы сможете отправить следующий /respect') ||
+        msg.includes('через') ||
         msg.includes('уже') ||
         msg.includes('подождите') ||
         msg.includes('нельзя') ||
@@ -525,7 +530,7 @@ function startBot(envPath, configOverrides) {
       ) {
         const cdMs = parseCooldown(message);
         nextRespectTime = Date.now() + (cdMs || RESPECT_COOLDOWN);
-        isRespectFailed = true;
+        respectTarget = null;
       } else {
         if (!msg.startsWith('/login') && !msg.startsWith('/register')) {
           sendTelegramNotification(bot.username, message);
