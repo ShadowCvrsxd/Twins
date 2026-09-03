@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
+require('dotenv').config();
+
 const MEOW_FILE = path.join(__dirname, 'meow_settings.json');
 const AUTORESPECT_FILE = path.join(__dirname, 'autorespect_settings.json');
 
