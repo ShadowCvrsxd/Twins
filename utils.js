@@ -20,9 +20,12 @@ function getMainAccount() {
 const RESPECT_COOLDOWN = 60 * 60 * 1000;
 
 function parseCooldown(msg) {
-  const match = msg.match(/(\d+)\s*(?:minutes|минут|мин)/i);
-  if (match) return parseInt(match[1]) * 60 * 1000;
-  return RESPECT_COOLDOWN;
+  const minMatch = msg.match(/(\d+)\s*(?:minutes|минут|мин)/i);
+  const secMatch = msg.match(/(\d+(?:\.\d+)?)\s*(?:seconds|секунд|сек)/i);
+  let totalMs = 0;
+  if (minMatch) totalMs += parseInt(minMatch[1]) * 60 * 1000;
+  if (secMatch) totalMs += Math.ceil(parseFloat(secMatch[1])) * 1000;
+  return totalMs > 0 ? totalMs : RESPECT_COOLDOWN;
 }
 
 function sendResourcePackAck(client, uuid, RESOURCE_PACK_RESPONSE_NAMES, RESULT_SUCCESS) {

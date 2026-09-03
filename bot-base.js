@@ -508,7 +508,7 @@ function startBot(envPath, configOverrides) {
         bot.chat(`/login ${PASSWORD}`);
       } else if (msg.includes('/register') || msg.includes('зарегистрируйтесь')) {
         bot.chat(`/register ${PASSWORD} ${PASSWORD}`);
-      } else if (msg.includes('отлично! вы отправили респект') || msg.includes('вы успешно повысили')) {
+      } else if (msg.includes('ʀ | отлично! вы отправили респект')) {
         if (respectTarget) {
           const { username, isAuto } = respectTarget;
           if (!isAuto) {
@@ -519,14 +519,8 @@ function startBot(envPath, configOverrides) {
         }
         nextRespectTime = Date.now() + RESPECT_COOLDOWN;
       } else if (
-        msg.includes('вы сможете отправить следующий /respect') ||
-        msg.includes('через') ||
-        msg.includes('уже') ||
-        msg.includes('подождите') ||
-        msg.includes('нельзя') ||
-        msg.includes('ошибка') ||
-        msg.includes('не найден') ||
-        msg.includes('оффлайн')
+        msg.includes('ʀ | вы сможете отправить следующий /respect') ||
+        msg.includes('ʀ | через')
       ) {
         const cdMs = parseCooldown(message);
         nextRespectTime = Date.now() + (cdMs || RESPECT_COOLDOWN);
