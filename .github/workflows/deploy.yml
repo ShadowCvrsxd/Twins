@@ -20,5 +20,6 @@ jobs:
             git pull origin main
             touch .just_updated
             sudo systemctl restart twins-bot1 twins-bot2 twins-tghub twins-tgchat
+          command_timeout: 4m
 
             echo "Deployment successful!"
