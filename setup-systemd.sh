@@ -47,12 +47,13 @@ EOF
 
 create_service "twins-bot1" "bot.js" "Twins Bot 1"
 create_service "twins-bot2" "bot-2.js" "Twins Bot 2"
+create_service "twins-main" "bot-main.js" "Twins Main Bot"
 create_service "twins-tghub" "tg-hub.js" "Twins Telegram Hub"
 create_service "twins-tgchat" "tg-chat-bot.js" "Twins Telegram Chat Bot"
 
 $SYSTEMCTL_CMD daemon-reload
-$SYSTEMCTL_CMD enable twins-bot1 twins-bot2 twins-tghub twins-tgchat
-$SYSTEMCTL_CMD start twins-bot1 twins-bot2 twins-tghub twins-tgchat
+$SYSTEMCTL_CMD enable twins-bot1 twins-bot2 twins-main twins-tghub twins-tgchat
+$SYSTEMCTL_CMD start twins-bot1 twins-bot2 twins-main twins-tghub twins-tgchat
 
 echo "=== Готово! Сервисы systemd настроены и запущены ==="
 if [ "$IS_ROOT" = true ]; then

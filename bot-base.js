@@ -1,7 +1,11 @@
 const mineflayer = require('mineflayer');
 const readline = require('readline');
 const fs = require('fs');
+const path = require('path');
+const MEOW_FILE = path.join(__dirname, 'meow_settings.json');
+const AUTORESPECT_FILE = path.join(__dirname, 'autorespect_settings.json');
 const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification } = require('./utils.js');
+
 
 function formatTabComponent(comp) {
   if (!comp) return '';
@@ -43,9 +47,9 @@ function checkMeow(bot, message, sender) {
   bot._lastMeowTime = now;
 
   let settings = {};
-  try { settings = JSON.parse(fs.readFileSync('meow_settings.json', 'utf-8') || '{}'); } catch(e) {}
+  try { settings = JSON.parse(fs.readFileSync(MEOW_FILE, 'utf-8') || '{}'); } catch(e) {}
   
-  const botSettings = settings[bot.username] || { enabled: false, lastMeowed: 0 };
+  const botSettings = settings[bot.username.toLowerCase()] || { enabled: false, lastMeowed: 0 };
   if (!botSettings.enabled) return;
   const timeSinceLast = now - botSettings.lastMeowed;
   const cooldownMs = 5 * 60 * 1000; // ponytail: КД 5 минут
@@ -54,8 +58,8 @@ function checkMeow(bot, message, sender) {
   }
 
   botSettings.lastMeowed = now;
-  settings[bot.username] = botSettings;
-  fs.writeFileSync('meow_settings.json', JSON.stringify(settings));
+  settings[bot.username.toLowerCase()] = botSettings;
+  fs.writeFileSync(MEOW_FILE, JSON.stringify(settings));
 
   setTimeout(() => bot.chat('!мяу'), Math.random() * 2000 + 500);
 }

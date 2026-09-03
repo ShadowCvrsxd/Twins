@@ -1,7 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
-require('dotenv').config();
+const MEOW_FILE = path.join(__dirname, 'meow_settings.json');
+const AUTORESPECT_FILE = path.join(__dirname, 'autorespect_settings.json');
 
 const TOKEN = process.env.TG_BOT_TOKEN;
 if (!TOKEN) {
@@ -212,14 +213,15 @@ async function poll() {
             continue;
           }
 
-          const enabled = cmd === '/meowon';
-          let settings = {};
-          try { settings = JSON.parse(fs.readFileSync('meow_settings.json', 'utf-8') || '{}'); } catch(e) {}
-          
-          settings[targetBot] = { ...settings[targetBot], enabled: enabled };
-          fs.writeFileSync('meow_settings.json', JSON.stringify(settings));
+           const enabled = cmd === '/meowon';
+           let settings = {};
+           try { settings = JSON.parse(fs.readFileSync(MEOW_FILE, 'utf-8') || '{}'); } catch(e) {}
+           
+           settings[targetBot.toLowerCase()] = { ...settings[targetBot.toLowerCase()], enabled: enabled };
+           fs.writeFileSync(MEOW_FILE, JSON.stringify(settings));
 
-          await sendMessage(chatId, `✅ Режим "мяу" для твинка *${targetBot}* ${enabled ? 'ВКЛ' : 'ВЫКЛ'}.`);
+           await sendMessage(chatId, `✅ Режим "мяу" для твинка *${targetBot}* ${enabled ? 'ВКЛ' : 'ВЫКЛ'}.`);
+
         }
         else if (cmd === '/lock' || cmd === '/adminlock') {
           if (!isAdmin(chatId)) {
