@@ -22,15 +22,6 @@ create_service() {
     local name="$1"
     local script="$2"
     local desc="$3"
-    local extra_user=""
-    
-    if [ "$IS_ROOT" = true ]; then
-        local run_user="${SUDO_USER:-$(whoami)}"
-        if [ "$run_user" == "root" ]; then
-            run_user="nobody"
-        fi
-        extra_user="User=$run_user"
-    fi
     
     cat << EOF > "$SERVICE_DIR/$name.service"
 [Unit]
@@ -42,7 +33,6 @@ WorkingDirectory=$DIR
 ExecStart=$NODE_PATH $DIR/$script
 Restart=always
 RestartSec=10
-$extra_user
 StandardOutput=journal
 StandardError=journal
 
