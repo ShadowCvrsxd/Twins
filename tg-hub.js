@@ -124,6 +124,8 @@ async function initBotMenu() {
       { command: 'unalias', description: 'Удалить алиас (/unalias <алиас>)' },
       { command: 'starttwin', description: 'Запустить твинка (/starttwin <алиас>)' },
       { command: 'stoptwin', description: 'Остановить твинка (/stoptwin <алиас>)' },
+      { command: 'startmain', description: 'Запустить мейн-бота (/startmain)' },
+      { command: 'stopmain', description: 'Остановить мейн-бота (/stopmain)' },
       { command: 'chat', description: 'Написать в чат (/chat <алиас> <текст>)' },
       { command: 'meowon', description: 'Вкл. мяуканье (/meowon <алиас>)' },
       { command: 'meowoff', description: 'Выкл. мяуканье (/meowoff <алиас>)' },
@@ -159,7 +161,7 @@ async function poll() {
         const cmd = parts[0].toLowerCase();
 
         if (cmd === '/start') {
-          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/autorepon <алиас>` - вкл. авто-респекты\n`/autorepoff <алиас>` - выкл. авто-респекты\n`/stopspam` - остановить спам';
+          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/startmain` - запустить мейн-бота\n`/stopmain` - остановить мейн-бота\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/autorepon <алиас>` - вкл. авто-респекты\n`/autorepoff <алиас>` - выкл. авто-респекты\n`/stopspam` - остановить спам';
           if (isAdmin(chatId)) {
             msg += '\n\n👑 *Админ-панель:*\nСтатус регистрации: ' + (isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта') + '\n`/lock` - заблокировать\n`/unlock` - разблокировать\n`/users` - список юзеров\n`/testserver` - на тестовый\n`/mainserver` - на основной\n`/setserver <ip> <port>` - сменить сервер';
           }
@@ -474,6 +476,18 @@ async function poll() {
           const { exec } = require('child_process');
           exec(`screen -S ${screenName} -X quit`, (err) => {
             sendMessage(chatId, `🔴 Твинк *${targetBot}* остановлен.`);
+          });
+        }
+        else if (cmd === '/startmain' || cmd === '/mainon') {
+          if (!isAdmin(chatId)) { await sendMessage(chatId, '❌ Нет прав.'); continue; }
+          require('child_process').exec('sudo systemctl start twins-main', (err) => {
+            sendMessage(chatId, err ? '❌ Ошибка запуска мейн-бота.' : '🟢 Мейн-бот запущен.');
+          });
+        }
+        else if (cmd === '/stopmain' || cmd === '/mainoff') {
+          if (!isAdmin(chatId)) { await sendMessage(chatId, '❌ Нет прав.'); continue; }
+          require('child_process').exec('sudo systemctl stop twins-main', (err) => {
+            sendMessage(chatId, err ? '❌ Ошибка остановки мейн-бота.' : '🔴 Мейн-бот остановлен.');
           });
         }
         else if (cmd === '/status' || cmd === '/list') {
