@@ -19,6 +19,5 @@ jobs:
             cd /root/Twins || cd ~/Twins
             git pull origin main
             touch .just_updated
-            npm install
             sudo systemctl restart twins-bot1 twins-bot2 twins-main twins-tghub twins-tgchat
             echo "Deployment successful!"
