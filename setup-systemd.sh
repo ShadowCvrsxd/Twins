@@ -7,6 +7,9 @@ if [ "$1" == "--root" ] || [ "$EUID" -eq 0 ]; then
     IS_ROOT=true
 fi
 
+echo "=== Установка зависимостей (npm install) ==="
+cd "$DIR" && npm install
+
 if [ "$IS_ROOT" = true ]; then
     SERVICE_DIR="/etc/systemd/system"
     SYSTEMCTL_CMD="systemctl"
