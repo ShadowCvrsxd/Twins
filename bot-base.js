@@ -504,6 +504,15 @@ function startBot(envPath, configOverrides) {
       if (savedTasks.length > 0) {
         console.log(`[Спам] Восстановлено активных задач: ${savedTasks.length}`);
       }
+
+      // ponytail: уведомление об обновлении
+      const updateFlag = path.join(__dirname, '.just_updated');
+      if (fs.existsSync(updateFlag)) {
+          setTimeout(() => {
+              bot.chat(`/msg ${getMainAccount()} Я обновился!`);
+              try { fs.unlinkSync(updateFlag); } catch(e) {}
+          }, 5000);
+      }
     });
 
     bot.on('messagestr', (message) => {
