@@ -203,8 +203,7 @@ function startBot(envPath, configOverrides) {
 
   // ponytail: проверка авто-респекта с рандомным интервалом от 5 до 10 минут
   function scheduleAutoRespectCheck() {
-    const randomMinutes = 5 + Math.random() * 5;
-    const delayMs = randomMinutes * 60 * 1000;
+    const delayMs = 5 * 60 * 1000; // фиксированные 5 минут
     setTimeout(() => {
       if (bot) {
         try {
@@ -225,6 +224,10 @@ function startBot(envPath, configOverrides) {
     const parts = input.split(' ');
     const command = parts[0].toLowerCase();
     const replyCmd = replyTarget ? `/m ${replyTarget}` : '/r';
+    if (command === 'respect') {
+      tryRespect(getMainAccount(), false);
+      return true;
+    }
     if (command === 'debugquit') { isManualQuit = true; botInstance.quit(); botInstance = null; return true; }
     if (command === 'dropall') {
       try {
