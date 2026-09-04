@@ -91,8 +91,8 @@ function startBot(envPath, configOverrides) {
     username: configOverrides.username || process.env.USERNAME,
     version: '1.21.1',
     brand: 'Гися няшка 󰂑',
-    viewDistance: 'tiny',          // ponytail: самый минимум чанков
-    loadInternalChunks: false,     // ponytail: не качаем мир вообще
+    viewDistance: 'far',          // ponytail: увеличиваем для реалистичности
+    loadInternalChunks: true,    // ponytail: разрешаем загрузку чанков
     checkTimeoutInterval: 30000, 
     hideErrors: true,
     disableChatSigning: true,
