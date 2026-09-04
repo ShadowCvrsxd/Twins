@@ -16,11 +16,11 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           command_timeout: 4m
+          timeout: 120s
+          retry_count: 3
           script: |
             cd /root/Twins || cd ~/Twins
             git pull origin main
             touch .just_updated
             sudo systemctl restart twins-bot1 twins-bot2 twins-tghub twins-tgchat
-            echo "Deployment successful!"
-
             echo "Deployment successful!"
