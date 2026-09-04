@@ -88,7 +88,7 @@ function startBot(envPath, configOverrides) {
   const config = {
     host: '5.83.140.251',
     port: 25809,
-    username: process.env.USERNAME,
+    username: configOverrides.username || process.env.USERNAME,
     version: '1.21.1',
     brand: 'Гися няшка 󰂑',
     viewDistance: 'tiny',          // ponytail: самый минимум чанков
