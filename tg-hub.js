@@ -484,14 +484,16 @@ async function poll() {
         }
         else if (cmd === '/startmain' || cmd === '/mainon') {
           if (!isAdmin(chatId)) { await sendMessage(chatId, '❌ Нет прав.'); continue; }
-          require('child_process').exec('sudo systemctl start twins-main', (err) => {
-            sendMessage(chatId, err ? '❌ Ошибка запуска мейн-бота.' : '🟢 Мейн-бот запущен.');
+          const cmdStr = process.env.USER_SYSTEMD === 'true' ? 'systemctl --user start twins-main' : 'sudo systemctl start twins-main';
+          require('child_process').exec(cmdStr, (err) => {
+            sendMessage(chatId, err ? `❌ Ошибка запуска мейн-бота: ${err.message}` : '🟢 Мейн-бот запущен.');
           });
         }
         else if (cmd === '/stopmain' || cmd === '/mainoff') {
           if (!isAdmin(chatId)) { await sendMessage(chatId, '❌ Нет прав.'); continue; }
-          require('child_process').exec('sudo systemctl stop twins-main', (err) => {
-            sendMessage(chatId, err ? '❌ Ошибка остановки мейн-бота.' : '🔴 Мейн-бот остановлен.');
+          const cmdStr = process.env.USER_SYSTEMD === 'true' ? 'systemctl --user stop twins-main' : 'sudo systemctl stop twins-main';
+          require('child_process').exec(cmdStr, (err) => {
+            sendMessage(chatId, err ? `❌ Ошибка остановки мейн-бота: ${err.message}` : '🔴 Мейн-бот остановлен.');
           });
         }
         else if (cmd === '/status' || cmd === '/list') {

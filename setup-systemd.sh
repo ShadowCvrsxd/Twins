@@ -13,10 +13,12 @@ cd "$DIR" && npm install
 if [ "$IS_ROOT" = true ]; then
     SERVICE_DIR="/etc/systemd/system"
     SYSTEMCTL_CMD="systemctl"
+    echo "USER_SYSTEMD=false" >> .env
     echo "=== Настройка systemd для Twins (ROOT / Системный режим) ==="
 else
     SERVICE_DIR="$HOME/.config/systemd/user"
     SYSTEMCTL_CMD="systemctl --user"
+    echo "USER_SYSTEMD=true" >> .env
     echo "=== Настройка systemd для Twins (Пользовательский режим) ==="
     mkdir -p "$SERVICE_DIR"
 fi
