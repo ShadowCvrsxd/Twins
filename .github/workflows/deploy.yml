@@ -17,7 +17,6 @@ jobs:
           port: ${{ secrets.VPS_PORT || 22 }}
           command_timeout: 4m
           timeout: 120s
-          retry_count: 3
           script: |
             cd /root/Twins || cd ~/Twins
             git pull origin main
