@@ -37,7 +37,9 @@ function formatTabComponent(comp) {
 
 function checkMeow(bot, message, sender) {
   const msg = message.toLowerCase();
+  console.log(`[DEBUG MEOW] Checking message: "${msg}" from "${sender}"`);
   if (!msg.includes('мяу')) return;
+  console.log(`[DEBUG MEOW] "мяу" detected!`);
 
   const now = Date.now();
   if (bot._lastMeowMsg === message && now - (bot._lastMeowTime || 0) < 3000) {
@@ -47,19 +49,29 @@ function checkMeow(bot, message, sender) {
   bot._lastMeowTime = now;
 
   let settings = {};
-  try { settings = JSON.parse(fs.readFileSync(MEOW_FILE, 'utf-8') || '{}'); } catch(e) {}
+  try { settings = JSON.parse(fs.readFileSync(MEOW_FILE, 'utf-8') || '{}'); } catch(e) { console.log(`[DEBUG MEOW] Error reading settings: ${e.message}`); }
   
-  const botSettings = settings[bot.username.toLowerCase()] || { enabled: false, lastMeowed: 0 };
-  if (!botSettings.enabled) return;
+  const botNameLower = bot.username.toLowerCase();
+  console.log(`[DEBUG MEOW] Bot name: ${botNameLower}, Settings: ${JSON.stringify(settings)}`);
+  
+  const botSettings = settings[botNameLower] || { enabled: false, lastMeowed: 0 };
+  console.log(`[DEBUG MEOW] Bot settings: ${JSON.stringify(botSettings)}`);
+  
+  if (!botSettings.enabled) {
+    console.log(`[DEBUG MEOW] Meow is disabled for this bot!`);
+    return;
+  }
   const timeSinceLast = now - botSettings.lastMeowed;
   const cooldownMs = 5 * 60 * 1000; // ponytail: КД 5 минут
   if (timeSinceLast < cooldownMs) {
+    console.log(`[DEBUG MEOW] Cooldown active! ${timeSinceLast} < ${cooldownMs}`);
     return;
   }
 
   botSettings.lastMeowed = now;
-  settings[bot.username.toLowerCase()] = botSettings;
+  settings[botNameLower] = botSettings;
   fs.writeFileSync(MEOW_FILE, JSON.stringify(settings));
+  console.log(`[DEBUG MEOW] Meow triggered!`);
 
   setTimeout(() => bot.chat('!мяу'), Math.random() * 2000 + 500);
 }
