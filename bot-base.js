@@ -86,8 +86,8 @@ function startBot(envPath, configOverrides) {
   }
 
   const config = {
-    host: '5.83.140.251',
-    port: 25809,
+    host: process.env.MINECRAFT_HOST || process.env.MAIN_SERVER_HOST || '5.83.140.251',
+    port: parseInt(process.env.MINECRAFT_PORT || process.env.MAIN_SERVER_PORT || 25809),
     username: configOverrides.username || process.env.USERNAME,
     version: '1.21.1',
     brand: 'Гися няшка 󰂑',
@@ -509,15 +509,21 @@ function startBot(envPath, configOverrides) {
         console.log(`[Спам] Восстановлено активных задач: ${savedTasks.length}`);
       }
 
-      // ponytail: уведомление об обновлении
+      // ponytail: уведомление об обновлении (если файл обновлен менее 2 минут назад)
       const updateFlag = path.join(__dirname, '.just_updated');
       if (fs.existsSync(updateFlag)) {
-          setTimeout(() => {
-              if (!config.isMain) {
-                  bot.chat(`/msg ${getMainAccount()} Я обновился!`);
+          try {
+              const stats = fs.statSync(updateFlag);
+              const fileAge = Date.now() - stats.mtimeMs;
+              if (fileAge < 120000 && !bot._hasNotifiedUpdate) {
+                  bot._hasNotifiedUpdate = true;
+                  setTimeout(() => {
+                      if (!config.isMain) {
+                          bot.chat(`/msg ${getMainAccount()} Я обновился!`);
+                      }
+                  }, 5000);
               }
-              try { fs.unlinkSync(updateFlag); } catch(e) {}
-          }, 5000);
+          } catch(e) {}
       }
     });
 
