@@ -88,8 +88,8 @@ function startBot(envPath, configOverrides) {
     username: configOverrides.username || process.env.USERNAME,
     version: '1.21.1',
     brand: 'Гися няшка 󰂑',
-    viewDistance: 'far',          // ponytail: увеличиваем для реалистичности
-    loadInternalChunks: true,    // ponytail: разрешаем загрузку чанков
+    viewDistance: 'tiny',          // ponytail: самый минимум чанков (избегаем таймаутов в лобби)
+    loadInternalChunks: false,     // ponytail: не качаем мир вообще (избегаем таймаутов)
     checkTimeoutInterval: 30000, 
     hideErrors: true,
     disableChatSigning: true,
@@ -114,6 +114,7 @@ function startBot(envPath, configOverrides) {
   let isManualQuit = false;
   let isScheduledOffline = false; // ponytail: флаг планового отключения
   let schedulerInterval;
+  let spamTasks = [];
   const spamKey = `spam_tasks_${config.username.toLowerCase()}`;
 
   function loadSpamTasks() {
