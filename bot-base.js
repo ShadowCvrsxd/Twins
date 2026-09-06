@@ -114,22 +114,16 @@ function startBot(envPath, configOverrides) {
   let isManualQuit = false;
   let isScheduledOffline = false; // ponytail: флаг планового отключения
   let schedulerInterval;
-  let spamTasks = [];
-  const spamFile = `spam_tasks_${config.username}.json`;
+  const spamKey = `spam_tasks_${config.username.toLowerCase()}`;
 
   function loadSpamTasks() {
-    if (!fs.existsSync(spamFile)) return [];
-    try {
-      return JSON.parse(fs.readFileSync(spamFile, 'utf8')) || [];
-    } catch (e) {
-      return [];
-    }
+    return get(spamKey, []);
   }
 
   function saveSpamTasks(tasks) {
     try {
       const data = tasks.map(t => ({ msg: t.msg, delay: t.delay }));
-      fs.writeFileSync(spamFile, JSON.stringify(data));
+      set(spamKey, data);
     } catch (e) {}
   }
   let nextRespectTime = 0;
