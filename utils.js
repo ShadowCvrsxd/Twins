@@ -1,3 +1,4 @@
+const { get, set } = require('./db.js');
 
 async function dropAll(bot) {
   const items = bot.inventory.items();
@@ -34,48 +35,23 @@ function sendResourcePackAck(client, uuid, RESOURCE_PACK_RESPONSE_NAMES, RESULT_
   });
 }
 
-const fs = require('fs');
-const path = require('path');
-const STATS_FILE = 'traffic_stats.json';
-const STATUS_FILE = path.join(__dirname, 'bots_status.json');
-const APPROVED_FILE = path.join(__dirname, 'links_approved.json');
-
-function writeJSONAtomic(file, data) {
-  const tempFile = file + '.' + Math.random().toString(36).substring(2) + '.tmp';
-  try {
-    fs.writeFileSync(tempFile, JSON.stringify(data, null, 2));
-    fs.renameSync(tempFile, file);
-  } catch (e) {
-    try { fs.unlinkSync(tempFile); } catch(err){}
-  }
-}
-
 function updateBotStatus(username, online) {
   if (!username) return;
-  let statuses = {};
-  try { statuses = JSON.parse(fs.readFileSync(STATUS_FILE, 'utf8')) || {}; } catch(e){}
+  const statuses = get('bots_status', {});
   statuses[username.toLowerCase()] = {
     online,
     onlineSince: online ? Date.now() : null,
     username
   };
-  writeJSONAtomic(STATUS_FILE, statuses);
+  set('bots_status', statuses);
 }
-
-const STREAMING_FILE = path.join(__dirname, 'chat_streaming.json');
-const ALIASES_FILE = path.join(__dirname, 'bot_aliases.json');
-const DISPLAY_MODE_FILE = path.join(__dirname, 'chat_display_mode.json');
 
 function getBotDisplayName(chatId, username) {
   let mode = 'alias';
-  if (fs.existsSync(DISPLAY_MODE_FILE)) {
-    try {
-      const modes = JSON.parse(fs.readFileSync(DISPLAY_MODE_FILE, 'utf8')) || {};
-      if (modes[chatId]) mode = modes[chatId];
-    } catch(e){}
-  }
+  const modes = get('chat_display_mode', {});
+  if (modes[chatId]) mode = modes[chatId];
 
-  const aliases = fs.existsSync(ALIASES_FILE) ? JSON.parse(fs.readFileSync(ALIASES_FILE, 'utf8')) || {} : {};
+  const aliases = get('bot_aliases', {});
   const userAliases = aliases[chatId] || {};
   
   let customAlias = null;
@@ -86,7 +62,7 @@ function getBotDisplayName(chatId, username) {
     }
   }
 
-  const approved = fs.existsSync(APPROVED_FILE) ? JSON.parse(fs.readFileSync(APPROVED_FILE, 'utf8')) || {} : {};
+  const approved = get('links_approved', {});
   const userBots = approved[chatId] || [];
   const index = userBots.findIndex(b => b.toLowerCase() === username.toLowerCase());
   const systemAlias = index !== -1 ? `bot${index + 1}` : null;
@@ -113,8 +89,7 @@ function cleanMinecraftText(text) {
 
 function sendTelegramNotification(username, text) {
   try {
-    if (!fs.existsSync(APPROVED_FILE)) return;
-    const approved = JSON.parse(fs.readFileSync(APPROVED_FILE, 'utf8')) || {};
+    const approved = get('links_approved', {});
     let targetChatId = null;
     for (const [chatId, bots] of Object.entries(approved)) {
       if (bots.some(b => b.toLowerCase() === username.toLowerCase())) {
@@ -124,13 +99,9 @@ function sendTelegramNotification(username, text) {
     }
     if (!targetChatId) return;
 
-    if (fs.existsSync(STREAMING_FILE)) {
-      const streaming = JSON.parse(fs.readFileSync(STREAMING_FILE, 'utf8')) || {};
-      const userStream = streaming[targetChatId];
-      if (!userStream || !userStream[username.toLowerCase()]) {
-        return;
-      }
-    } else {
+    const streaming = get('chat_streaming', {});
+    const userStream = streaming[targetChatId];
+    if (!userStream || !userStream[username.toLowerCase()]) {
       return;
     }
 
@@ -154,17 +125,13 @@ function sendTelegramNotification(username, text) {
 }
 
 function updateTraffic(username, bytes) {
-    let stats = {};
-    try { stats = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8')) || {}; } catch (e) {}
+    const stats = get('traffic_stats', {});
     stats[username] = (stats[username] || 0) + bytes;
-    writeJSONAtomic(STATS_FILE, stats);
+    set('traffic_stats', stats);
 }
 
 function getTraffic() {
-    if (!fs.existsSync(STATS_FILE)) return {};
-    try {
-        return JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
-    } catch (e) { return {}; }
+    return get('traffic_stats', {});
 }
 
 module.exports = { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification };

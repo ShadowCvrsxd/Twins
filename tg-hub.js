@@ -1,10 +1,8 @@
 const fs = require('fs');
 const path = require('path');
+const { get, set } = require('./db.js');
 
 require('dotenv').config();
-
-const MEOW_FILE = path.join(__dirname, 'meow_settings.json');
-const AUTORESPECT_FILE = path.join(__dirname, 'autorespect_settings.json');
 
 const TOKEN = process.env.TG_BOT_TOKEN;
 if (!TOKEN) {
@@ -12,13 +10,16 @@ if (!TOKEN) {
   process.exit(0);
 }
 
-const PENDING_FILE = path.join(__dirname, 'links_pending.json');
-const APPROVED_FILE = path.join(__dirname, 'links_approved.json');
-const STATUS_FILE = path.join(__dirname, 'bots_status.json');
-const CMDS_FILE = path.join(__dirname, 'bot_commands.json');
-const STREAMING_FILE = path.join(__dirname, 'chat_streaming.json');
-const ALIASES_FILE = path.join(__dirname, 'bot_aliases.json');
-const LOCK_FILE = path.join(__dirname, 'registration_lock.json');
+const PENDING_FILE = 'links_pending';
+const APPROVED_FILE = 'links_approved';
+const STATUS_FILE = 'bots_status';
+const CMDS_FILE = 'bot_commands';
+const STREAMING_FILE = 'chat_streaming';
+const ALIASES_FILE = 'bot_aliases';
+const LOCK_FILE = 'registration_lock';
+const MEOW_FILE = 'meow_settings';
+const AUTORESPECT_FILE = 'autorespect_settings';
+const reqFile = 'bot_requests';
 
 const ADMIN_ID = process.env.ADMIN_TG_ID ? process.env.ADMIN_TG_ID.trim() : '';
 
@@ -27,38 +28,21 @@ function isAdmin(chatId) {
 }
 
 function isRegistrationLocked() {
-  if (!fs.existsSync(LOCK_FILE)) return false;
-  try {
-    const data = JSON.parse(fs.readFileSync(LOCK_FILE, 'utf8'));
-    return !!data.locked;
-  } catch (e) {
-    return false;
-  }
+  const data = get(LOCK_FILE, { locked: false });
+  return !!data.locked;
 }
 
-function readJSON(file) {
-  if (!fs.existsSync(file)) return {};
-  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { return {}; }
+function readJSON(key) {
+  return get(key, {});
 }
 
-function readJSONArray(file) {
-  if (!fs.existsSync(file)) return [];
-  try {
-    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-    return Array.isArray(data) ? data : [];
-  } catch (e) {
-    return [];
-  }
+function readJSONArray(key) {
+  const data = get(key, []);
+  return Array.isArray(data) ? data : [];
 }
 
-function writeJSON(file, data) {
-  const tempFile = file + '.' + Math.random().toString(36).substring(2) + '.tmp';
-  try {
-    fs.writeFileSync(tempFile, JSON.stringify(data, null, 2));
-    fs.renameSync(tempFile, file);
-  } catch (e) {
-    try { fs.unlinkSync(tempFile); } catch(err){}
-  }
+function writeJSON(key, data) {
+  set(key, data);
 }
 
 let offset = 0;
@@ -188,14 +172,13 @@ async function poll() {
             continue;
           }
 
-          const enabled = cmd === '/autorepon';
-          let settings = {};
-          try { settings = JSON.parse(fs.readFileSync('autorespect_settings.json', 'utf-8') || '{}'); } catch(e) {}
-          
-          settings[targetBot] = { ...settings[targetBot], enabled: enabled };
-          fs.writeFileSync('autorespect_settings.json', JSON.stringify(settings));
+           const enabled = cmd === '/autorepon';
+           let settings = readJSON(AUTORESPECT_FILE);
+           
+           settings[targetBot] = { ...settings[targetBot], enabled: enabled };
+           writeJSON(AUTORESPECT_FILE, settings);
 
-          await sendMessage(chatId, `✅ Авто-выдача респектов для твинка *${targetBot}* ${enabled ? 'ВКЛ' : 'ВЫКЛ'}.`);
+           await sendMessage(chatId, `✅ Авто-выдача респектов для твинка *${targetBot}* ${enabled ? 'ВКЛ' : 'ВЫКЛ'}.`);
         }
         else if (cmd === '/meowon' || cmd === '/meowoff') {
           const userBots = (readJSON(APPROVED_FILE)[chatId] || []);
@@ -216,13 +199,13 @@ async function poll() {
           }
 
            const enabled = cmd === '/meowon';
-           let settings = {};
-           try { settings = JSON.parse(fs.readFileSync(MEOW_FILE, 'utf-8') || '{}'); } catch(e) {}
+           let settings = readJSON(MEOW_FILE);
            
            settings[targetBot.toLowerCase()] = { ...settings[targetBot.toLowerCase()], enabled: enabled };
-           fs.writeFileSync(MEOW_FILE, JSON.stringify(settings));
+           writeJSON(MEOW_FILE, settings);
 
            await sendMessage(chatId, `✅ Режим "мяу" для твинка *${targetBot}* ${enabled ? 'ВКЛ' : 'ВЫКЛ'}.`);
+
 
         }
         else if (cmd === '/lock' || cmd === '/adminlock') {

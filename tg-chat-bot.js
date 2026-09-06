@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { get, set } = require('./db.js');
 
 require('dotenv').config();
 
@@ -16,25 +17,18 @@ if (!TOKEN) {
   process.exit(0);
 }
 
-const APPROVED_FILE = path.join(__dirname, 'links_approved.json');
-const STATUS_FILE = path.join(__dirname, 'bots_status.json');
-const STREAMING_FILE = path.join(__dirname, 'chat_streaming.json');
-const ALIASES_FILE = path.join(__dirname, 'bot_aliases.json');
-const DISPLAY_MODE_FILE = path.join(__dirname, 'chat_display_mode.json');
+const APPROVED_FILE = 'links_approved';
+const STATUS_FILE = 'bots_status';
+const STREAMING_FILE = 'chat_streaming';
+const ALIASES_FILE = 'bot_aliases';
+const DISPLAY_MODE_FILE = 'chat_display_mode';
 
-function readJSON(file) {
-  if (!fs.existsSync(file)) return {};
-  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { return {}; }
+function readJSON(key) {
+  return get(key, {});
 }
 
-function writeJSON(file, data) {
-  const tempFile = file + '.' + Math.random().toString(36).substring(2) + '.tmp';
-  try {
-    fs.writeFileSync(tempFile, JSON.stringify(data, null, 2));
-    fs.renameSync(tempFile, file);
-  } catch (e) {
-    try { fs.unlinkSync(tempFile); } catch(err){}
-  }
+function writeJSON(key, data) {
+  set(key, data);
 }
 
 let offset = 0;

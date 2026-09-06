@@ -2,8 +2,7 @@ const mineflayer = require('mineflayer');
 const readline = require('readline');
 const fs = require('fs');
 const path = require('path');
-const MEOW_FILE = path.join(__dirname, 'meow_settings.json');
-const AUTORESPECT_FILE = path.join(__dirname, 'autorespect_settings.json');
+const { get, set } = require('./db.js');
 const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification } = require('./utils.js');
 
 
@@ -46,9 +45,7 @@ function checkMeow(bot, message, sender) {
   bot._lastMeowMsg = message;
   bot._lastMeowTime = now;
 
-  let settings = {};
-  try { settings = JSON.parse(fs.readFileSync(MEOW_FILE, 'utf-8') || '{}'); } catch(e) {}
-  
+  const settings = get('meow_settings', {});
   const botNameLower = bot.username.toLowerCase();
   const botSettings = settings[botNameLower] || { enabled: false, lastMeowed: 0 };
   
@@ -63,7 +60,7 @@ function checkMeow(bot, message, sender) {
 
   botSettings.lastMeowed = now;
   settings[botNameLower] = botSettings;
-  fs.writeFileSync(MEOW_FILE, JSON.stringify(settings));
+  set('meow_settings', settings);
 
   setTimeout(() => bot.chat('!мяу'), Math.random() * 2000 + 500);
 }
@@ -145,67 +142,58 @@ function startBot(envPath, configOverrides) {
   const RESOURCE_PACK_RESPONSE_NAMES = ['resource_pack_receive', 'resource_pack_response', 'resource_pack_status'];
   const RESULT_SUCCESS = 0;
 
-  // ponytail: раз в 1 секунду проверяем команды чата из Telegram-хаба
-  const path = require('path');
-  const cmdFile = path.join(__dirname, 'bot_commands.json');
+  // ponytail: раз в 1 секунду проверяем команды чата из Telegram-хаба через БД
   setInterval(() => {
     if (!bot) return;
     try {
-      if (fs.existsSync(cmdFile)) {
-        let cmds = JSON.parse(fs.readFileSync(cmdFile, 'utf8')) || [];
-        const myCmds = cmds.filter(c => c.username.toLowerCase() === config.username.toLowerCase());
-        if (myCmds.length > 0) {
-          myCmds.forEach(c => {
-            bot.chat(c.text);
-            console.log(`[Telegram Chat] Отправлено в игру: "${c.text}"`);
-          });
-          cmds = cmds.filter(c => c.username.toLowerCase() !== config.username.toLowerCase());
-          fs.writeFileSync(cmdFile, JSON.stringify(cmds, null, 2));
-        }
+      let cmds = get('bot_commands', []);
+      const myCmds = cmds.filter(c => c.username.toLowerCase() === config.username.toLowerCase());
+      if (myCmds.length > 0) {
+        myCmds.forEach(c => {
+          bot.chat(c.text);
+          console.log(`[Telegram Chat] Отправлено в игру: "${c.text}"`);
+        });
+        cmds = cmds.filter(c => c.username.toLowerCase() !== config.username.toLowerCase());
+        set('bot_commands', cmds);
       }
     } catch(e){}
   }, 1000);
 
-  // ponytail: проверка запросов (например /players) из Telegram-хаба
-  const reqFile = path.join(__dirname, 'bot_requests.json');
+  // ponytail: проверка запросов (например /players) из Telegram-хаба через БД
   setInterval(() => {
     if (!bot) return;
     try {
-      if (fs.existsSync(reqFile)) {
-        let reqs = JSON.parse(fs.readFileSync(reqFile, 'utf8')) || [];
-        const myReqs = reqs.filter(r => r.username.toLowerCase() === config.username.toLowerCase());
-        if (myReqs.length > 0) {
-          myReqs.forEach(r => {
-            if (r.action === 'players') {
-              const players = Object.keys(bot.players || {});
-              let msg = `👥 Игроки онлайн (${players.length}): ${players.join(', ')}`;
-              if (lastTabHeader) {
-                msg = `📌 Header: ${lastTabHeader}\n\n` + msg;
-              }
-              if (lastTabFooter) {
-                msg = msg + `\n\n📌 Footer: ${lastTabFooter}`;
-              }
-              sendTelegramNotification(bot.username, msg);
-            } else if (r.action === 'switchServer') {
-              const { host, port } = r;
-              if (host && port) {
-                console.log(`[Система] Переключение на тестовый сервер: ${host}:${port}`);
-                config.host = host;
-                config.port = parseInt(port);
-                isManualQuit = false;
-                if (bot) {
-                  bot.quit();
-                } else {
-                  createBotInstance();
-                }
+      let reqs = get('bot_requests', []);
+      const myReqs = reqs.filter(r => r.username.toLowerCase() === config.username.toLowerCase());
+      if (myReqs.length > 0) {
+        myReqs.forEach(r => {
+          if (r.action === 'players') {
+            const players = Object.keys(bot.players || {});
+            let msg = `👥 Игроки онлайн (${players.length}): ${players.join(', ')}`;
+            if (lastTabHeader) {
+              msg = `📌 Header: ${lastTabHeader}\n\n` + msg;
+            }
+            if (lastTabFooter) {
+              msg = msg + `\n\n📌 Footer: ${lastTabFooter}`;
+            }
+            sendTelegramNotification(bot.username, msg);
+          } else if (r.action === 'switchServer') {
+            const { host, port } = r;
+            if (host && port) {
+              console.log(`[Система] Переключение на тестовый сервер: ${host}:${port}`);
+              config.host = host;
+              config.port = parseInt(port);
+              isManualQuit = false;
+              if (bot) {
+                bot.quit();
+              } else {
+                createBotInstance();
               }
             }
-          });
-          reqs = reqs.filter(r => r.username.toLowerCase() !== config.username.toLowerCase());
-          const tempFile = reqFile + '.' + Math.random().toString(36).substring(2) + '.tmp';
-          fs.writeFileSync(tempFile, JSON.stringify(reqs, null, 2));
-          fs.renameSync(tempFile, reqFile);
-        }
+          }
+        });
+        reqs = reqs.filter(r => r.username.toLowerCase() !== config.username.toLowerCase());
+        set('bot_requests', reqs);
       }
     } catch(e){}
   }, 1000);
@@ -216,8 +204,7 @@ function startBot(envPath, configOverrides) {
     setTimeout(() => {
       if (bot) {
         try {
-          let autoSettings = {};
-          try { autoSettings = JSON.parse(fs.readFileSync('autorespect_settings.json', 'utf-8') || '{}'); } catch(e) {}
+          const autoSettings = get('autorespect_settings', {});
           const isAuto = autoSettings[config.username]?.enabled || false;
           if (isAuto && Date.now() >= nextRespectTime) {
             tryRespect(getMainAccount(), true);
@@ -433,61 +420,53 @@ function startBot(envPath, configOverrides) {
       console.log(`[Система] Бот ${bot.username} заспавнился!`);
       updateBotStatus(config.username, true);
 
-      // ponytail: проверка и автопривязка к Telegram
+      // ponytail: проверка и автопривязка к Telegram через БД
       try {
-        const path = require('path');
-        const pendingFile = path.join(__dirname, 'links_pending.json');
-        const approvedFile = path.join(__dirname, 'links_approved.json');
-        if (fs.existsSync(pendingFile)) {
-          const pending = JSON.parse(fs.readFileSync(pendingFile, 'utf8'));
-          const uname = config.username.toLowerCase();
-          if (pending[uname]) {
-            const { chatId } = pending[uname];
-            delete pending[uname];
-            fs.writeFileSync(pendingFile, JSON.stringify(pending, null, 2));
+        const pending = get('links_pending', {});
+        const uname = config.username.toLowerCase();
+        if (pending[uname]) {
+          const { chatId } = pending[uname];
+          delete pending[uname];
+          set('links_pending', pending);
 
-            let approved = {};
-            if (fs.existsSync(approvedFile)) {
-              approved = JSON.parse(fs.readFileSync(approvedFile, 'utf8')) || {};
-            }
+          const approved = get('links_approved', {});
 
-            let isOwnedElsewhere = false;
-            for (const [ownerChatId, bots] of Object.entries(approved)) {
-              if (bots.some(b => b.toLowerCase() === config.username.toLowerCase()) && ownerChatId !== chatId.toString()) {
-                isOwnedElsewhere = true;
-                break;
-              }
+          let isOwnedElsewhere = false;
+          for (const [ownerChatId, bots] of Object.entries(approved)) {
+            if (bots.some(b => b.toLowerCase() === config.username.toLowerCase()) && ownerChatId !== chatId.toString()) {
+              isOwnedElsewhere = true;
+              break;
             }
+          }
 
-            if (isOwnedElsewhere) {
-              console.log(`[Telegram] Бот ${config.username} уже привязан к другому Telegram аккаунту. Привязка отклонена.`);
-              return;
-            }
+          if (isOwnedElsewhere) {
+            console.log(`[Telegram] Бот ${config.username} уже привязан к другому Telegram аккаунту. Привязка отклонена.`);
+            return;
+          }
 
-            if (!approved[chatId]) approved[chatId] = [];
-            const alreadyLinked = approved[chatId].some(b => b.toLowerCase() === config.username.toLowerCase());
-            if (!alreadyLinked && approved[chatId].length >= 2) {
-              console.log(`[Telegram] Лимит (2 твинка) исчерпан для чата ${chatId}. Привязка отклонена.`);
-              return;
-            }
-            if (!alreadyLinked) {
-              approved[chatId].push(config.username);
-              fs.writeFileSync(approvedFile, JSON.stringify(approved, null, 2));
-            }
+          if (!approved[chatId]) approved[chatId] = [];
+          const alreadyLinked = approved[chatId].some(b => b.toLowerCase() === config.username.toLowerCase());
+          if (!alreadyLinked && approved[chatId].length >= 2) {
+            console.log(`[Telegram] Лимит (2 твинка) исчерпан для чата ${chatId}. Привязка отклонена.`);
+            return;
+          }
+          if (!alreadyLinked) {
+            approved[chatId].push(config.username);
+            set('links_approved', approved);
+          }
 
-            console.log(`[Telegram] Бот ${config.username} успешно привязан к Telegram Chat ID: ${chatId}`);
+          console.log(`[Telegram] Бот ${config.username} успешно привязан к Telegram Chat ID: ${chatId}`);
 
-            if (process.env.TG_BOT_TOKEN) {
-              fetch(`https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}/sendMessage`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  chat_id: chatId,
-                  text: `✅ Бот *${config.username}* успешно запущен и привязан!`,
-                  parse_mode: 'Markdown'
-                })
-              }).catch(() => {});
-            }
+          if (process.env.TG_BOT_TOKEN) {
+            fetch(`https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: chatId,
+                text: `✅ Бот *${config.username}* успешно запущен и привязан!`,
+                parse_mode: 'Markdown'
+              })
+            }).catch(() => {});
           }
         }
       } catch (e) {}
