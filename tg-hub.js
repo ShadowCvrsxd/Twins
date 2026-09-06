@@ -448,13 +448,12 @@ async function poll() {
           const approved = readJSON(APPROVED_FILE);
           const userBots = approved[chatId] || [];
           const index = userBots.findIndex(b => b.toLowerCase() === targetBot.toLowerCase());
-          const screenName = index === 1 ? 'twin2' : 'twin1';
-          const scriptName = index === 1 ? 'bot-2.js' : 'bot.js';
+          const serviceName = index === 1 ? 'twins-bot2' : 'twins-bot1';
 
-          const { exec } = require('child_process');
-          exec(`screen -S ${screenName} -dm bash -c "cd ${__dirname} && node ${scriptName}; exec bash"`, (err) => {
+          const cmdStr = process.env.USER_SYSTEMD === 'true' ? `systemctl --user start ${serviceName}` : `sudo systemctl start ${serviceName}`;
+          require('child_process').exec(cmdStr, (err) => {
             if (err) {
-              sendMessage(chatId, `❌ Ошибка запуска твинка *${targetBot}*.`);
+              sendMessage(chatId, `❌ Ошибка запуска твинка *${targetBot}*: ${err.message}`);
             } else {
               sendMessage(chatId, `🟢 Твинк *${targetBot}* запущен.`);
             }
@@ -475,11 +474,15 @@ async function poll() {
           const approved = readJSON(APPROVED_FILE);
           const userBots = approved[chatId] || [];
           const index = userBots.findIndex(b => b.toLowerCase() === targetBot.toLowerCase());
-          const screenName = index === 1 ? 'twin2' : 'twin1';
+          const serviceName = index === 1 ? 'twins-bot2' : 'twins-bot1';
 
-          const { exec } = require('child_process');
-          exec(`screen -S ${screenName} -X quit`, (err) => {
-            sendMessage(chatId, `🔴 Твинк *${targetBot}* остановлен.`);
+          const cmdStr = process.env.USER_SYSTEMD === 'true' ? `systemctl --user stop ${serviceName}` : `sudo systemctl stop ${serviceName}`;
+          require('child_process').exec(cmdStr, (err) => {
+            if (err) {
+              sendMessage(chatId, `❌ Ошибка остановки твинка *${targetBot}*: ${err.message}`);
+            } else {
+              sendMessage(chatId, `🔴 Твинк *${targetBot}* остановлен.`);
+            }
           });
         }
         else if (cmd === '/startmain' || cmd === '/mainon') {
