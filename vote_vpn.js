@@ -26,14 +26,24 @@ function disconnectVpn() {
 
 function connectVpn(ovpnPath) {
   console.log(`[VPN Vote] Подключаюсь к VPN: ${path.basename(ovpnPath)}...`);
-  const authFile = process.env.OPENVPN_AUTH_FILE;
-  const authArg = authFile && fs.existsSync(authFile) ? `--auth-user-pass "${authFile}"` : '';
+  let authArg = '';
+  const tmpAuthFile = path.join(__dirname, '.ovpn_auth_tmp');
+
+  if (process.env.OPENVPN_USER && process.env.OPENVPN_PASS) {
+    fs.writeFileSync(tmpAuthFile, `${process.env.OPENVPN_USER}\n${process.env.OPENVPN_PASS}\n`);
+    authArg = `--auth-user-pass "${tmpAuthFile}"`;
+  } else if (process.env.OPENVPN_AUTH_FILE && fs.existsSync(process.env.OPENVPN_AUTH_FILE)) {
+    authArg = `--auth-user-pass "${process.env.OPENVPN_AUTH_FILE}"`;
+  }
 
   try {
     execSync(`sudo openvpn --config "${ovpnPath}" ${authArg} --daemon vpn_instance`, { stdio: 'inherit' });
   } catch (e) {
     console.error('[VPN Vote] Ошибка запуска openvpn:', e.message);
+    if (fs.existsSync(tmpAuthFile)) try { fs.unlinkSync(tmpAuthFile); } catch(err){}
     return false;
+  } finally {
+    if (fs.existsSync(tmpAuthFile)) try { fs.unlinkSync(tmpAuthFile); } catch(err){}
   }
   
   console.log('[VPN Vote] Жду установления соединения (10 сек)...');
