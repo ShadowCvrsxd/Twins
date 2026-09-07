@@ -126,7 +126,8 @@ async function initBotMenu() {
       { command: 'users', description: 'Список пользователей (админ)' },
       { command: 'testserver', description: 'На тестовый сервер (админ)' },
       { command: 'mainserver', description: 'На основной сервер (админ)' },
-      { command: 'setserver', description: 'Сменить сервер (админ) (/setserver <ip> <port>)' }
+      { command: 'setserver', description: 'Сменить сервер (админ) (/setserver <ip> <port>)' },
+      { command: 'vote', description: 'Запустить автоголосование (админ)' }
     ]
   });
 }
@@ -150,7 +151,7 @@ async function poll() {
         if (cmd === '/start') {
           let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/startmain` - запустить мейн-бота\n`/stopmain` - остановить мейн-бота\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/autorepon <алиас>` - вкл. авто-респекты\n`/autorepoff <алиас>` - выкл. авто-респекты\n`/stopspam` - остановить спам';
           if (isAdmin(chatId)) {
-            msg += '\n\n👑 *Админ-панель:*\nСтатус регистрации: ' + (isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта') + '\n`/lock` - заблокировать\n`/unlock` - разблокировать\n`/users` - список юзеров\n`/testserver` - на тестовый\n`/mainserver` - на основной\n`/setserver <ip> <port>` - сменить сервер';
+            msg += '\n\n👑 *Админ-панель:*\nСтатус регистрации: ' + (isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта') + '\n`/lock` - заблокировать\n`/unlock` - разблокировать\n`/users` - список юзеров\n`/testserver` - на тестовый\n`/mainserver` - на основной\n`/setserver <ip> <port>` - сменить сервер\n`/vote` - автоголосование';
           }
           await sendMessage(chatId, msg);
         }
@@ -300,6 +301,21 @@ async function poll() {
           writeJSON(reqFile, reqs);
 
           await sendMessage(chatId, `🚀 Команда переключения на основной сервер (${host}:${port}) отправлена для всех ботов!`);
+        }
+        else if (cmd === '/vote') {
+          if (!isAdmin(chatId)) {
+            await sendMessage(chatId, '❌ У вас нет прав администратора.');
+            continue;
+          }
+          await sendMessage(chatId, '🚀 Запускаю автоголосование для всех аккаунтов через VPN...');
+          const { exec } = require('child_process');
+          exec(`node ${path.join(__dirname, 'vote_vpn.js')}`, (err, stdout, stderr) => {
+            if (err) {
+              sendMessage(chatId, `❌ Ошибка голосования: ${err.message}`);
+            } else {
+              sendMessage(chatId, `✅ Автоголосование завершено!\n\`\`\`\n${stdout.slice(-1000)}\n\`\`\``);
+            }
+          });
         }
         else if (cmd === '/addtwin' || cmd === '/link') {
           if (isRegistrationLocked() && !isAdmin(chatId)) {
