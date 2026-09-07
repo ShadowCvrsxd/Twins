@@ -1,22 +1,13 @@
 require('dotenv').config();
-const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 const { getMainAccount, getTwinks } = require('./utils.js');
 
 const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) {
   console.error('[AutoVote] ❌ GEMINI_API_KEY не задан в .env');
   process.exit(1);
-}
-
-function loadProxies() {
-  const proxyFile = path.join(__dirname, 'proxies.txt');
-  if (!fs.existsSync(proxyFile)) return [];
-  return fs.readFileSync(proxyFile, 'utf8')
-    .split('\n')
-    .map(l => l.trim())
-    .filter(l => l && !l.startsWith('#'));
 }
 
 async function solveCaptcha(imageBuffer) {
@@ -38,118 +29,93 @@ async function solveCaptcha(imageBuffer) {
   return text ? text.trim().replace(/[^0-9]/g, '') : null;
 }
 
-async function voteForAccount(nickname, proxyLine) {
-  console.log(`[AutoVote] 🚀 Голосуем за ник: ${nickname} через прокси: ${proxyLine || 'без прокси (прямой IP / VPN)'}`);
+async function voteForAccount(nickname) {
+  console.log(`[AutoVote] 🚀 Голосуем за ник: ${nickname}`);
 
-  const launchArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-ipv6'];
-  let proxyAuth = null;
+  const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-  if (proxyLine) {
-    const parts = proxyLine.split(':');
-    if (parts.length >= 2) {
-      const hostPort = `${parts[0]}:${parts[1]}`;
-      launchArgs.push(`--proxy-server=${hostPort}`);
-      if (parts.length >= 4) {
-        proxyAuth = { username: parts[2], password: parts[3] };
-      }
-    }
+  // Шаг 1: Запрос страницы для получения JS-челленджа
+  const res1 = await fetch('https://hotmc.ru/vote-240885', {
+    headers: { 'User-Agent': userAgent }
+  });
+  const html1 = await res1.text();
+
+  const match = html1.match(/window\.bp_chl_vars\s*=\s*({[^}]+})/);
+  if (!match) {
+    console.error('[AutoVote] Не удалось найти параметры защиты bp_chl_vars');
+    return false;
   }
 
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: launchArgs
-  });
+  const vars = eval("(" + match[1] + ")");
+  const jsRes = await fetch('https://hotmc.ru/bp_chl.js');
+  const jsCode = await jsRes.text();
+
+  // Эмулируем выполнение JS-челленджа для получения куки
+  let solvedCookie = "";
+  const mockWindow = {
+    bp_chl_vars: vars,
+    location: { href: 'https://hotmc.ru/vote-240885', replace() {} }
+  };
+  const mockDoc = {
+    readyState: 'complete',
+    set cookie(val) { solvedCookie = val; },
+    get cookie() { return solvedCookie; },
+    addEventListener() {}
+  };
+
+  const sandbox = {
+    window: mockWindow,
+    document: mockDoc,
+    location: mockWindow.location,
+    URL: URL,
+    console: { log() {}, error() {}, warn() {} },
+    parseInt: parseInt,
+    Math: Math,
+    String: String,
+    Array: Array,
+    Function: Function,
+    RegExp: RegExp,
+    Boolean: Boolean,
+    decodeURIComponent: decodeURIComponent
+  };
 
   try {
-    const page = await browser.newPage();
-    if (proxyAuth) {
-      await page.authenticate(proxyAuth);
+    vm.runInContext(jsCode, vm.createContext(sandbox));
+  } catch (e) {}
+
+  const cookieVal = solvedCookie ? solvedCookie.split(';')[0] : '';
+  console.log(`[AutoVote] (${nickname}) Получена обходная кука: ${cookieVal}`);
+
+  // Шаг 2: Запрос самой страницы голосования с решенной кукой
+  const res2 = await fetch('https://hotmc.ru/vote-240885', {
+    headers: {
+      'User-Agent': userAgent,
+      'Cookie': cookieVal
     }
+  });
+  const voteHtml = await res2.text();
 
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    
-    console.log('[AutoVote] Переходим на страницу HotMC...');
-    await page.goto('https://hotmc.ru/vote-240885', { waitUntil: 'networkidle2', timeout: 30000 });
-
-    // 1. Вводим ник
-    await page.waitForSelector('input[placeholder="Ник в Майнкрафт"]', { timeout: 10000 });
-    await page.type('input[placeholder="Ник в Майнкрафт"]', nickname);
-
-    // 2. Делаем скриншот капчи
-    const captchaImg = await page.$('.form-group img, img[src*="captcha"], img');
-    if (!captchaImg) {
-      throw new Error('Не удалось найти изображение капчи');
-    }
-    const captchaBuffer = await captchaImg.screenshot();
-
-    // 3. Распознаем через Gemini
-    const code = await solveCaptcha(captchaBuffer);
-    console.log(`[AutoVote] (${nickname}) Распознанный код капчи: ${code}`);
-
-    if (!code || code.length < 3) {
-      throw new Error(`Не удалось распознать капчу: "${code}"`);
-    }
-
-    // 4. Вводим код
-    await page.type('input[placeholder*="Введите код"]', code);
-
-    // Скриншот перед отправкой
-    await page.screenshot({ path: path.join(__dirname, `debug_${nickname}_before_submit.png`) });
-
-    // 5. Кликаем кнопку отправки
-    console.log('[AutoVote] Нажимаю кнопку отправки голоса...');
-    const clicked = await page.evaluate(() => {
-      const elements = Array.from(document.querySelectorAll('button, a, input, div'));
-      const btn = elements.find(el => el.textContent.includes('Отдать серверу голос') || el.value?.includes('Отдать серверу голос'));
-      if (btn) {
-        btn.click();
-        return true;
-      }
-      return false;
-    });
-
-    if (!clicked) {
-      // Попробуем нажать через клик по селектору или submit формы
-      await page.click('button[type="submit"], input[type="submit"], .btn-primary, .btn');
-    }
-
-    // Ждем реакции страницы (навигации или появления сообщения)
-    await new Promise(r => setTimeout(r, 6000));
-
-    // Скриншот после отправки
-    await page.screenshot({ path: path.join(__dirname, `debug_${nickname}_after_submit.png`) });
-
-    // Проверяем текст на странице на наличие ошибок или успеха
-    const pageText = await page.evaluate(() => document.body.innerText);
-    console.log(`[AutoVote] Текст на странице после отправки (первые 300 символов):`, pageText.replace(/\s+/g, ' ').substring(0, 300));
-
-    console.log(`[AutoVote] ✅ Процесс для ${nickname} завершен.`);
-    return true;
-  } catch (err) {
-    console.error(`[AutoVote] ❌ Ошибка для ${nickname}:`, err.message);
+  if (!voteHtml.includes('Ник в Майнкрафт')) {
+    console.error(`[AutoVote] (${nickname}) ❌ Не удалось пройти защиту или загрузить форму голосования.`);
+    fs.writeFileSync(path.join(__dirname, `error_${nickname}.html`), voteHtml);
     return false;
-  } finally {
-    await browser.close();
   }
+
+  console.log(`[AutoVote] (${nickname}) ✅ Защита успешно пройдена, форма доступна!`);
+  fs.writeFileSync(path.join(__dirname, `success_${nickname}.html`), voteHtml);
+  return true;
 }
 
 async function run() {
   const targetNick = process.argv[2];
   if (targetNick) {
-    await voteForAccount(targetNick, null);
+    await voteForAccount(targetNick);
   } else {
     const accounts = [getMainAccount(), ...getTwinks()];
-    const proxies = loadProxies();
-
     console.log(`[AutoVote] Аккаунты для голосования: ${accounts.join(', ')}`);
-    console.log(`[AutoVote] Загружено прокси: ${proxies.length}`);
-
-    for (let i = 0; i < accounts.length; i++) {
-      const nick = accounts[i];
-      const proxy = proxies.length > 0 ? proxies[i % proxies.length] : null;
-      
-      await voteForAccount(nick, proxy);
-      await new Promise(r => setTimeout(r, 3000));
+    for (const nick of accounts) {
+      await voteForAccount(nick);
+      await new Promise(r => setTimeout(r, 2000));
     }
     console.log('[AutoVote] Все голосования завершены.');
   }
