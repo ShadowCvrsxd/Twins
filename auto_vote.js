@@ -68,6 +68,7 @@ async function voteForAccount(nickname, proxyLine) {
 
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     
+    console.log('[AutoVote] Переходим на страницу HotMC...');
     await page.goto('https://hotmc.ru/vote-240885', { waitUntil: 'networkidle2', timeout: 30000 });
 
     // 1. Вводим ник
@@ -92,15 +93,37 @@ async function voteForAccount(nickname, proxyLine) {
     // 4. Вводим код
     await page.type('input[placeholder*="Введите код"]', code);
 
-    // 5. Кликаем кнопку
-    await page.evaluate(() => {
+    // Скриншот перед отправкой
+    await page.screenshot({ path: path.join(__dirname, `debug_${nickname}_before_submit.png`) });
+
+    // 5. Кликаем кнопку отправки
+    console.log('[AutoVote] Нажимаю кнопку отправки голоса...');
+    const clicked = await page.evaluate(() => {
       const elements = Array.from(document.querySelectorAll('button, a, input, div'));
       const btn = elements.find(el => el.textContent.includes('Отдать серверу голос') || el.value?.includes('Отдать серверу голос'));
-      if (btn) btn.click();
+      if (btn) {
+        btn.click();
+        return true;
+      }
+      return false;
     });
 
-    await new Promise(r => setTimeout(r, 5000));
-    console.log(`[AutoVote] ✅ Голос за ${nickname} успешно отправлен!`);
+    if (!clicked) {
+      // Попробуем нажать через клик по селектору или submit формы
+      await page.click('button[type="submit"], input[type="submit"], .btn-primary, .btn');
+    }
+
+    // Ждем реакции страницы (навигации или появления сообщения)
+    await new Promise(r => setTimeout(r, 6000));
+
+    // Скриншот после отправки
+    await page.screenshot({ path: path.join(__dirname, `debug_${nickname}_after_submit.png`) });
+
+    // Проверяем текст на странице на наличие ошибок или успеха
+    const pageText = await page.evaluate(() => document.body.innerText);
+    console.log(`[AutoVote] Текст на странице после отправки (первые 300 символов):`, pageText.replace(/\s+/g, ' ').substring(0, 300));
+
+    console.log(`[AutoVote] ✅ Процесс для ${nickname} завершен.`);
     return true;
   } catch (err) {
     console.error(`[AutoVote] ❌ Ошибка для ${nickname}:`, err.message);
