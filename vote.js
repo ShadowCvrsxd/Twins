@@ -2,7 +2,13 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 
-async function solveCaptcha(imageBuffer, apiKey) {
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+  console.error('[Gemini Captcha] ❌ GEMINI_API_KEY не задан в .env');
+  process.exit(1);
+}
+
+async function solveCaptcha(imageBuffer) {
   const base64Image = imageBuffer.toString('base64');
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
     method: 'POST',
@@ -21,28 +27,34 @@ async function solveCaptcha(imageBuffer, apiKey) {
   return text ? text.trim().replace(/[^0-9]/g, '') : null;
 }
 
-// Пример использования / теста
-async function test() {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.error('❌ Укажи GEMINI_API_KEY в .env');
-    return;
-  }
+console.log('[Gemini Captcha Worker] Запущен и следит за картинками капчи в папке...');
 
-  // Тест на скачанной картинке капчи (если есть локально)
-  const testImagePath = path.join(__dirname, 'captcha_test.png');
-  if (fs.existsSync(testImagePath)) {
-    console.log('🧪 Тестируем распознавание капчи через Gemini...');
-    const buffer = fs.readFileSync(testImagePath);
-    const code = await solveCaptcha(buffer, apiKey);
-    console.log(`✅ Распознанный код капчи: "${code}"`);
-  } else {
-    console.log('ℹ️ Положи картинку капчи как `captcha_test.png` для теста, или используй функцию в своем скрипте голосования.');
-  }
-}
+setInterval(async () => {
+  try {
+    const files = fs.readdirSync(__dirname);
+    for (const file of files) {
+      if (file.toLowerCase().includes('captcha') && /\.(png|jpg|jpeg)$/i.test(file)) {
+        const filePath = path.join(__dirname, file);
+        try {
+          const stats = fs.statSync(filePath);
+          if (Date.now() - stats.mtimeMs < 1000) continue;
+        } catch(e) { continue; }
 
-if (require.main === module) {
-  test();
-}
-
-module.exports = { solveCaptcha };
+        console.log(`[Gemini Captcha Worker] Найдена капча: ${file}. Распознаю...`);
+        try {
+          const buffer = fs.readFileSync(filePath);
+          const code = await solveCaptcha(buffer);
+          if (code) {
+            console.log(`[Gemini Captcha Worker] ✅ Успешно распознано: "${code}" для ${file}`);
+            fs.writeFileSync(filePath + '.txt', code);
+          } else {
+            console.log(`[Gemini Captcha Worker] ⚠️ Не удалось распознать цифры на ${file}`);
+          }
+          fs.renameSync(filePath, filePath + '.done');
+        } catch (err) {
+          console.error(`[Gemini Captcha Worker] ❌ Ошибка обработки ${file}:`, err.message);
+        }
+      }
+    }
+  } catch (e) {}
+}, 2000);
