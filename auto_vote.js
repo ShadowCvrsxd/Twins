@@ -39,7 +39,7 @@ async function solveCaptcha(imageBuffer) {
 }
 
 async function voteForAccount(nickname, proxyLine) {
-  console.log(`[AutoVote] 🚀 Голосуем за ник: ${nickname} через прокси: ${proxyLine || 'без прокси (прямой IP)'}`);
+  console.log(`[AutoVote] 🚀 Голосуем за ник: ${nickname} через прокси: ${proxyLine || 'без прокси (прямой IP / VPN)'}`);
 
   const launchArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'];
   let proxyAuth = null;
@@ -110,21 +110,26 @@ async function voteForAccount(nickname, proxyLine) {
   }
 }
 
-async function runAll() {
-  const accounts = [getMainAccount(), ...getTwinks()];
-  const proxies = loadProxies();
+async function run() {
+  const targetNick = process.argv[2];
+  if (targetNick) {
+    await voteForAccount(targetNick, null);
+  } else {
+    const accounts = [getMainAccount(), ...getTwinks()];
+    const proxies = loadProxies();
 
-  console.log(`[AutoVote] Аккаунты для голосования: ${accounts.join(', ')}`);
-  console.log(`[AutoVote] Загружено прокси: ${proxies.length}`);
+    console.log(`[AutoVote] Аккаунты для голосования: ${accounts.join(', ')}`);
+    console.log(`[AutoVote] Загружено прокси: ${proxies.length}`);
 
-  for (let i = 0; i < accounts.length; i++) {
-    const nick = accounts[i];
-    const proxy = proxies.length > 0 ? proxies[i % proxies.length] : null;
-    
-    await voteForAccount(nick, proxy);
-    await new Promise(r => setTimeout(r, 3000));
+    for (let i = 0; i < accounts.length; i++) {
+      const nick = accounts[i];
+      const proxy = proxies.length > 0 ? proxies[i % proxies.length] : null;
+      
+      await voteForAccount(nick, proxy);
+      await new Promise(r => setTimeout(r, 3000));
+    }
+    console.log('[AutoVote] Все голосования завершены.');
   }
-  console.log('[AutoVote] Все голосования завершены.');
 }
 
-runAll();
+run();
