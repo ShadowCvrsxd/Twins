@@ -41,7 +41,7 @@ async function solveCaptcha(imageBuffer) {
 async function voteForAccount(nickname, proxyLine) {
   console.log(`[AutoVote] 🚀 Голосуем за ник: ${nickname} через прокси: ${proxyLine || 'без прокси (прямой IP / VPN)'}`);
 
-  const launchArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'];
+  const launchArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-ipv6'];
   let proxyAuth = null;
 
   if (proxyLine) {

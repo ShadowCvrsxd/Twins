@@ -70,8 +70,8 @@ function connectVpn(ovpnPath) {
   execSync('sleep 10');
 
   try {
-    const ip = execSync('curl -s --connect-timeout 5 ifconfig.me').toString().trim();
-    console.log(`[VPN Vote] Успешно! Текущий внешний IP: ${ip}`);
+    const ip = execSync('curl -4 -s --connect-timeout 5 ifconfig.me').toString().trim();
+    console.log(`[VPN Vote] Успешно! Текущий внешний IPv4: ${ip}`);
     return true;
   } catch (e) {
     console.error('[VPN Vote] ❌ Не удалось проверить IP после подключения VPN.');
