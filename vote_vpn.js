@@ -4,7 +4,8 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const { getMainAccount, getTwinks } = require('./utils.js');
 
-const ovpnDir = process.env.OPENVPN_DIR || path.join(__dirname, 'ovpn');
+const defaultDir = fs.existsSync(path.join(__dirname, 'vpn')) ? path.join(__dirname, 'vpn') : path.join(__dirname, 'ovpn');
+const ovpnDir = process.env.OPENVPN_DIR || defaultDir;
 
 function getOvpnFiles() {
   if (!fs.existsSync(ovpnDir)) {
