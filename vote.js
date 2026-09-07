@@ -10,7 +10,7 @@ if (!apiKey) {
 
 async function solveCaptcha(imageBuffer) {
   const base64Image = imageBuffer.toString('base64');
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -29,31 +29,44 @@ async function solveCaptcha(imageBuffer) {
 
 console.log('[Gemini Captcha Worker] Запущен и следит за картинками капчи в папке...');
 
+const processing = new Set();
+
 setInterval(async () => {
   try {
     const files = fs.readdirSync(__dirname);
     for (const file of files) {
       if (file.toLowerCase().includes('captcha') && /\.(png|jpg|jpeg)$/i.test(file)) {
         const filePath = path.join(__dirname, file);
+        if (processing.has(filePath)) continue;
+
         try {
           const stats = fs.statSync(filePath);
           if (Date.now() - stats.mtimeMs < 1000) continue;
         } catch(e) { continue; }
 
+        processing.add(filePath);
         console.log(`[Gemini Captcha Worker] Найдена капча: ${file}. Распознаю...`);
-        try {
-          const buffer = fs.readFileSync(filePath);
-          const code = await solveCaptcha(buffer);
-          if (code) {
-            console.log(`[Gemini Captcha Worker] ✅ Успешно распознано: "${code}" для ${file}`);
-            fs.writeFileSync(filePath + '.txt', code);
-          } else {
-            console.log(`[Gemini Captcha Worker] ⚠️ Не удалось распознать цифры на ${file}`);
+
+        // Асинхронно обрабатываем, чтобы не блокировать цикл
+        (async () => {
+          try {
+            const buffer = fs.readFileSync(filePath);
+            const code = await solveCaptcha(buffer);
+            if (code) {
+              console.log(`[Gemini Captcha Worker] ✅ Успешно распознано: "${code}" для ${file}`);
+              fs.writeFileSync(filePath + '.txt', code);
+            } else {
+              console.log(`[Gemini Captcha Worker] ⚠️ Не удалось распознать цифры на ${file}`);
+            }
+            if (fs.existsSync(filePath)) {
+              fs.renameSync(filePath, filePath + '.done');
+            }
+          } catch (err) {
+            console.error(`[Gemini Captcha Worker] ❌ Ошибка обработки ${file}:`, err.message);
+          } finally {
+            processing.delete(filePath);
           }
-          fs.renameSync(filePath, filePath + '.done');
-        } catch (err) {
-          console.error(`[Gemini Captcha Worker] ❌ Ошибка обработки ${file}:`, err.message);
-        }
+        })();
       }
     }
   } catch (e) {}
