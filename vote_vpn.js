@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { getMainAccount, getTwinks } = require('./utils.js');
 
-const ovpnDir = path.join(__dirname, 'ovpn');
+const ovpnDir = process.env.OPENVPN_DIR || path.join(__dirname, 'ovpn');
 
 function getOvpnFiles() {
   if (!fs.existsSync(ovpnDir)) {
@@ -26,8 +26,11 @@ function disconnectVpn() {
 
 function connectVpn(ovpnPath) {
   console.log(`[VPN Vote] Подключаюсь к VPN: ${path.basename(ovpnPath)}...`);
+  const authFile = process.env.OPENVPN_AUTH_FILE;
+  const authArg = authFile && fs.existsSync(authFile) ? `--auth-user-pass "${authFile}"` : '';
+
   try {
-    execSync(`sudo openvpn --config "${ovpnPath}" --daemon vpn_instance`, { stdio: 'inherit' });
+    execSync(`sudo openvpn --config "${ovpnPath}" ${authArg} --daemon vpn_instance`, { stdio: 'inherit' });
   } catch (e) {
     console.error('[VPN Vote] Ошибка запуска openvpn:', e.message);
     return false;
