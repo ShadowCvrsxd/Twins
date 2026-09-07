@@ -1,36 +1,115 @@
-const fs = require('fs');
+const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 
-const dbFile = path.join(__dirname, 'twins_store.json');
+const dbPath = path.join(__dirname, 'twins.db');
+let db;
 
-function loadStore() {
-  if (!fs.existsSync(dbFile)) return {};
-  try {
-    return JSON.parse(fs.readFileSync(dbFile, 'utf8'));
-  } catch (e) {
-    return {};
+try {
+  db = new Database(dbPath);
+} catch (e) {
+  // Если бинарник better-sqlite3 не собрался под текущую версию Node, 
+  // используем встроенное SQLite-подобное хранилище на JSON без падений
+  console.warn('[DB Warning] better-sqlite3 native binding failed, using JSON store fallback.');
+}
+
+if (db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS kv (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+  `);
+}
+
+// Миграция старых JSON файлов
+const migrationFiles = {
+  'meow_settings.json': 'meow_settings',
+  'autorespect_settings.json': 'autorespect_settings',
+  'links_approved.json': 'links_approved',
+  'links_pending.json': 'links_pending',
+  'bots_status.json': 'bots_status',
+  'bot_commands.json': 'bot_commands',
+  'bot_requests.json': 'bot_requests',
+  'chat_streaming.json': 'chat_streaming',
+  'bot_aliases.json': 'bot_aliases',
+  'chat_display_mode.json': 'chat_display_mode',
+  'registration_lock.json': 'registration_lock',
+  'traffic_stats.json': 'traffic_stats'
+};
+
+for (const [file, key] of Object.entries(migrationFiles)) {
+  const filePath = path.join(__dirname, file);
+  if (fs.existsSync(filePath)) {
+    try {
+      const content = fs.readFileSync(filePath, 'utf8');
+      const data = JSON.parse(content);
+      if (db) {
+        const existing = db.prepare('SELECT value FROM kv WHERE key = ?').get(key);
+        if (!existing) {
+          db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run(key, JSON.stringify(data));
+        }
+      }
+      fs.unlinkSync(filePath);
+    } catch (e) {}
   }
 }
 
-function saveStore(store) {
-  const tempFile = dbFile + '.' + Math.random().toString(36).substring(2) + '.tmp';
-  try {
-    fs.writeFileSync(tempFile, JSON.stringify(store, null, 2));
-    fs.renameSync(tempFile, dbFile);
-  } catch (e) {
-    try { fs.unlinkSync(tempFile); } catch(err){}
+try {
+  const files = fs.readdirSync(__dirname);
+  for (const file of files) {
+    if (file.startsWith('spam_tasks_') && file.endsWith('.json')) {
+      const filePath = path.join(__dirname, file);
+      const username = file.replace('spam_tasks_', '').replace('.json', '');
+      const key = `spam_tasks_${username.toLowerCase()}`;
+      const content = fs.readFileSync(filePath, 'utf8');
+      const data = JSON.parse(content);
+      if (db) {
+        const existing = db.prepare('SELECT value FROM kv WHERE key = ?').get(key);
+        if (!existing) {
+          db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run(key, JSON.stringify(data));
+        }
+      }
+      fs.unlinkSync(filePath);
+    }
   }
+} catch (e) {}
+
+// JSON fallback store если C++ бинарник недоступен
+const jsonStoreFile = path.join(__dirname, 'twins_store.json');
+function loadJsonStore() {
+  if (!fs.existsSync(jsonStoreFile)) return {};
+  try { return JSON.parse(fs.readFileSync(jsonStoreFile, 'utf8')); } catch(e) { return {}; }
+}
+function saveJsonStore(store) {
+  try { fs.writeFileSync(jsonStoreFile, JSON.stringify(store, null, 2)); } catch(e) {}
 }
 
 function get(key, defaultValue = {}) {
-  const store = loadStore();
-  return store[key] !== undefined ? store[key] : defaultValue;
+  if (db) {
+    try {
+      const row = db.prepare('SELECT value FROM kv WHERE key = ?').get(key);
+      if (!row) return defaultValue;
+      return JSON.parse(row.value);
+    } catch (e) {
+      return defaultValue;
+    }
+  } else {
+    const store = loadJsonStore();
+    return store[key] !== undefined ? store[key] : defaultValue;
+  }
 }
 
 function set(key, data) {
-  const store = loadStore();
-  store[key] = data;
-  saveStore(store);
+  if (db) {
+    try {
+      db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run(key, JSON.stringify(data));
+    } catch (e) {}
+  } else {
+    const store = loadJsonStore();
+    store[key] = data;
+    saveJsonStore(store);
+  }
 }
 
-module.exports = { get, set };
+module.exports = { db, get, set };
