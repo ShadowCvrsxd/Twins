@@ -1,7 +1,7 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const { execSync } = require('child_process');
 const fs = require('fs');
-const path = require('path');
 const { getMainAccount, getTwinks } = require('./utils.js');
 
 const ovpnDir = process.env.OPENVPN_DIR || path.join(__dirname, 'ovpn');
@@ -9,7 +9,7 @@ const ovpnDir = process.env.OPENVPN_DIR || path.join(__dirname, 'ovpn');
 function getOvpnFiles() {
   if (!fs.existsSync(ovpnDir)) {
     fs.mkdirSync(ovpnDir, { recursive: true });
-    console.log('[VPN Vote] Создана папка ./ovpn. Закинь туда свои .ovpn профили!');
+    console.log(`[VPN Vote] Папка не найдена, создана: ${ovpnDir}. Закинь туда свои .ovpn профили!`);
     return [];
   }
   return fs.readdirSync(ovpnDir)
