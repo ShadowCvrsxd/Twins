@@ -4,18 +4,37 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const { getMainAccount, getTwinks } = require('./utils.js');
 
-const defaultDir = fs.existsSync(path.join(__dirname, 'vpn')) ? path.join(__dirname, 'vpn') : path.join(__dirname, 'ovpn');
-const ovpnDir = process.env.OPENVPN_DIR || defaultDir;
-
 function getOvpnFiles() {
-  if (!fs.existsSync(ovpnDir)) {
-    fs.mkdirSync(ovpnDir, { recursive: true });
-    console.log(`[VPN Vote] Папка не найдена, создана: ${ovpnDir}. Закинь туда свои .ovpn профили!`);
+  let dirs = [
+    process.env.OPENVPN_DIR,
+    path.join(__dirname, 'vpn'),
+    path.join(__dirname, 'ovpn')
+  ].filter(Boolean);
+
+  let targetDir = null;
+  for (const d of dirs) {
+    if (fs.existsSync(d)) {
+      const files = fs.readdirSync(d).filter(f => f.endsWith('.ovpn'));
+      if (files.length > 0) {
+        targetDir = d;
+        break;
+      }
+    }
+  }
+
+  if (!targetDir) {
+    // Если нигде нет, берем первую существующую или создаем vpn
+    targetDir = dirs[0] || path.join(__dirname, 'vpn');
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+    console.log(`[VPN Vote] ❌ В папках (${dirs.join(', ')}) не найдено .ovpn файлов!`);
     return [];
   }
-  return fs.readdirSync(ovpnDir)
+
+  return fs.readdirSync(targetDir)
     .filter(f => f.endsWith('.ovpn'))
-    .map(f => path.join(ovpnDir, f));
+    .map(f => path.join(targetDir, f));
 }
 
 function disconnectVpn() {
@@ -65,7 +84,7 @@ async function run() {
   const ovpnFiles = getOvpnFiles();
 
   if (ovpnFiles.length === 0) {
-    console.log('[VPN Vote] ❌ В папке ./ovpn нет ни одного .ovpn файла!');
+    console.log('[VPN Vote] ❌ Нет .ovpn файлов для запуска голосования.');
     return;
   }
 
