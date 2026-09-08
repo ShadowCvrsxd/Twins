@@ -176,8 +176,14 @@ async function voteForAccount(nickname) {
   fs.writeFileSync(path.join(__dirname, `res_${nickname}.html`), postText);
 
   if (postRes.status === 200 && (postText.includes('Спасибо за голосование') || postText.includes('начислен 1 голос'))) {
-    console.log(`[AutoVote] 🎉 (${nickname}) Голос успешно отправлен и засчитан!`);
+    console.log(`[AutoVote] 🎉 (${nickname}) Голос успешно отправлен и засчитан! Сервер начислил 1 голос.`);
     return true;
+  } else if (postText.includes('Вы уже голосовали недавно')) {
+    console.log(`[AutoVote] ⚠️ (${nickname}) IP уже голосовал сегодня (уже засчитано ранее).`);
+    return false;
+  } else if (postText.includes('has-error') || postText.includes('Неверно')) {
+    console.log(`[AutoVote] ❌ (${nickname}) Ошибка: Неверный код капчи.`);
+    return false;
   } else {
     console.log(`[AutoVote] ⚠️ (${nickname}) Голос НЕ засчитан! Ответ сервера сохранен в res_${nickname}.html.`);
     return false;
