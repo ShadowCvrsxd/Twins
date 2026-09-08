@@ -1,13 +1,15 @@
-# Environment variables
-.env*
-
-# Node modules & dependencies
 node_modules/
-package-lock.json
-
-# Runtime state / JSON databases (keep package.json)
+twins.db
+twins_store.json
+.env*
 *.json
 !package.json
-
-# Misc system files
-.directory
+!package-lock.json
+vpn/
+*.html
+*.jpeg
+*.jpg
+*.done
+*.txt
+test_*.js
+list_models.js

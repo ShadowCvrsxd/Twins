@@ -1,7 +1,6 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const vm = require('vm');
 const { getMainAccount, getTwinks } = require('./utils.js');
 
 const apiKey = process.env.GEMINI_API_KEY;
@@ -19,37 +18,31 @@ async function solveCaptcha(imageBuffer) {
       contents: [{
         parts: [
           { text: "На картинке изображены цифры капчи. Верни только эти цифры слитно, без пробелов и любого лишнего текста." },
-          { inline_data: { mime_type: "image/png", data: base64Image } }
+          { inline_data: { mime_type: "image/jpeg", data: base64Image } }
         ]
       }]
     })
   });
   const data = await res.json();
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  console.log('[AutoVote] 🤖 Gemini сырой ответ:', JSON.stringify(text));
   return text ? text.trim().replace(/[^0-9]/g, '') : null;
 }
 
-// Функция для извлечения и склейки кук из ответов fetch
 function extractCookies(res, existingCookies = '') {
   const cookiesMap = new Map();
-  
-  // Парсим старые куки
   existingCookies.split(';').forEach(c => {
     const [name, ...val] = c.trim().split('=');
-    if (name && val.length) {
-      cookiesMap.set(name, val.join('='));
-    }
+    if (name && val.length) cookiesMap.set(name, val.join('='));
   });
 
-  // Достаем новые из заголовков ответа
   const setCookieHeaders = res.headers.getSetCookie ? res.headers.getSetCookie() : [res.headers.get('set-cookie')].filter(Boolean);
+  console.log('[AutoVote] Полученные Set-Cookie заголовки:', setCookieHeaders);
   setCookieHeaders.forEach(sc => {
     if (!sc) return;
     const cookiePart = sc.split(';')[0];
     const [name, ...val] = cookiePart.trim().split('=');
-    if (name && val.length) {
-      cookiesMap.set(name, val.join('='));
-    }
+    if (name && val.length) cookiesMap.set(name, val.join('='));
   });
 
   return Array.from(cookiesMap.entries()).map(([k, v]) => `${k}=${v}`).join('; ');
@@ -61,8 +54,7 @@ async function voteForAccount(nickname) {
   const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
   let cookieJar = '';
 
-  // Шаг 1: Первичный GET-запрос для инициализации сессии и получения кук
-  console.log(`[AutoVote] (${nickname}) Инициализация сессии...`);
+  console.log(`[AutoVote] (${nickname}) Инициализация сессии (GET)...`);
   const res1 = await fetch('https://hotmc.ru/vote-240885', {
     headers: { 'User-Agent': userAgent },
     signal: AbortSignal.timeout(15000)
@@ -71,57 +63,25 @@ async function voteForAccount(nickname) {
   const html1 = await res1.text();
 
   const match = html1.match(/window\.bp_chl_vars\s*=\s*({[^}]+})/);
-  if (!match) {
-    console.error('[AutoVote] Не найдены параметры защиты bp_chl_vars');
-    return false;
+  if (match) {
+    try {
+      const vars = eval("(" + match[1] + ")");
+      if (vars.sec && vars.name) {
+        cookieJar = extractCookies({ headers: { getSetCookie: () => [`${vars.name}=${vars.sec}; Path=/; Domain=.hotmc.ru`] } }, cookieJar);
+        console.log(`[AutoVote] (${nickname}) ✅ Cloudflare bp_chl кука установлена напрямую: ${vars.name}=${vars.sec}`);
+      }
+    } catch (e) {
+      console.error('[AutoVote] Ошибка парсинга bp_chl_vars:', e.message);
+    }
   }
 
-  const vars = eval("(" + match[1] + ")");
-  const jsRes = await fetch('https://hotmc.ru/bp_chl.js', { signal: AbortSignal.timeout(15000) });
-  const jsCode = await jsRes.text();
+  console.log(`[AutoVote] (${nickname}) Куки после инициализации: ${cookieJar}`);
 
-  let solvedCookie = "";
-  const mockWindow = {
-    bp_chl_vars: vars,
-    location: { href: 'https://hotmc.ru/vote-240885', replace() {} }
-  };
-  const mockDoc = {
-    readyState: 'complete',
-    set cookie(val) { solvedCookie = val; },
-    get cookie() { return solvedCookie; },
-    addEventListener() {}
-  };
-
-  const sandbox = {
-    window: mockWindow,
-    document: mockDoc,
-    location: mockWindow.location,
-    URL: URL,
-    console: { log() {}, error() {}, warn() {} },
-    parseInt: parseInt,
-    Math: Math,
-    String: String,
-    Array: Array,
-    Function: Function,
-    RegExp: RegExp,
-    Boolean: Boolean,
-    decodeURIComponent: decodeURIComponent
-  };
-
-  try {
-    vm.runInContext(jsCode, vm.createContext(sandbox));
-  } catch (e) {}
-
-  if (solvedCookie) {
-    cookieJar = extractCookies({ headers: { getSetCookie: () => [solvedCookie] } }, cookieJar);
-  }
-  console.log(`[AutoVote] (${nickname}) Накопленные куки сессии: ${cookieJar}`);
-
-  // Шаг 2: Запрос страницы голосования с полным набором кук
   const res2 = await fetch('https://hotmc.ru/vote-240885', {
     headers: {
       'User-Agent': userAgent,
-      'Cookie': cookieJar
+      'Cookie': cookieJar,
+      'Referer': 'https://hotmc.ru/vote-240885'
     },
     signal: AbortSignal.timeout(15000)
   });
@@ -130,7 +90,7 @@ async function voteForAccount(nickname) {
   fs.writeFileSync(path.join(__dirname, `form_${nickname}.html`), voteHtml);
 
   if (!voteHtml.includes('Ник в Майнкрафт')) {
-    console.error(`[AutoVote] (${nickname}) ❌ Форма голосования не найдена.`);
+    console.error(`[AutoVote] (${nickname}) ❌ Форма голосования не найдена (проверь form_${nickname}.html).`);
     return false;
   }
 
@@ -139,7 +99,6 @@ async function voteForAccount(nickname) {
     return false;
   }
 
-  // Шаг 3: Скачивание капчи
   const imgMatch = voteHtml.match(/src="([^"]*captcha[^"]*)"/i) || voteHtml.match(/<img[^>]+src="([^"]+)"[^>]*>/i);
   if (!imgMatch) {
     console.error(`[AutoVote] (${nickname}) ❌ Картинка капчи не найдена.`);
@@ -153,6 +112,7 @@ async function voteForAccount(nickname) {
     captchaImgUrl = 'https://hotmc.ru/' + captchaImgUrl;
   }
 
+  console.log(`[AutoVote] (${nickname}) CookieJar перед скачиванием капчи: ${cookieJar}`);
   const imgRes = await fetch(captchaImgUrl, {
     headers: {
       'User-Agent': userAgent,
@@ -161,7 +121,9 @@ async function voteForAccount(nickname) {
     },
     signal: AbortSignal.timeout(15000)
   });
+  cookieJar = extractCookies(imgRes, cookieJar);
   const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+  fs.writeFileSync('captcha_debug.jpeg', imgBuffer);
 
   console.log(`[AutoVote] (${nickname}) Распознаем капчу через Gemini...`);
   const code = await solveCaptcha(imgBuffer);
@@ -172,7 +134,6 @@ async function voteForAccount(nickname) {
     return false;
   }
 
-  // Шаг 4: Формируем POST-запрос с точными куками и токенами
   const params = new URLSearchParams();
   params.append('PlayerCollector[nickname]', nickname);
   params.append('CaptchaCollector[captcha]', code);
@@ -195,6 +156,7 @@ async function voteForAccount(nickname) {
     params.append('_csrf', metaToken[1]);
   }
 
+  console.log(`[AutoVote] (${nickname}) CookieJar перед POST запросом: ${cookieJar}`);
   console.log(`[AutoVote] (${nickname}) Отправка POST запроса...`);
   const postRes = await fetch('https://hotmc.ru/vote-240885', {
     method: 'POST',
@@ -213,11 +175,11 @@ async function voteForAccount(nickname) {
   const postText = await postRes.text();
   fs.writeFileSync(path.join(__dirname, `res_${nickname}.html`), postText);
 
-  if (postRes.status === 200 && !postText.includes('field-captchacollector-captcha has-error') && !postText.includes('Подозрительный запрос')) {
+  if (postRes.status === 200 && (postText.includes('Спасибо за голосование') || postText.includes('начислен 1 голос'))) {
     console.log(`[AutoVote] 🎉 (${nickname}) Голос успешно отправлен и засчитан!`);
     return true;
   } else {
-    console.log(`[AutoVote] ⚠️ (${nickname}) Ответ сервера сохранен в res_${nickname}.html (проверь файл).`);
+    console.log(`[AutoVote] ⚠️ (${nickname}) Голос НЕ засчитан! Ответ сервера сохранен в res_${nickname}.html.`);
     return false;
   }
 }
