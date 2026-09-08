@@ -1,8 +1,8 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { Agent, setGlobalDispatcher } = require('undici');
-setGlobalDispatcher(new Agent({ connect: { timeout: 90000 } }));
+const https = require('https');
+https.globalAgent.options.timeout = 90000;
 const { getMainAccount, getTwinks } = require('./utils.js');
 
 const apiKey = process.env.GEMINI_API_KEY;
