@@ -7,7 +7,7 @@ Distributed Minecraft bot management system built on `mineflayer` and `telegraf`
 - **Hub-and-Spoke:** `tg-hub.js` serves as the control plane (Telegram interaction). Each twin is a separate Node.js process running a variant of `bot-base.js`.
 - **IPC (Inter-Process Communication):** Communication is handled by `db.js` (SQLite via `better-sqlite3`, with automatic fallback to `twins_store.json` for environments where native bindings fail). Replaced all standalone JSON state files.
 - **AFK Main:** A dedicated bot (`bot-main.js`) handles main account presence and AFK tasks independently.
-- **Auto-Voting Pipeline:** `auto_vote.js` handles HotMC voting (Cloudflare `bp_chl` bypass via VM-sandboxed JS execution + Gemini captcha solving). `vote_vpn.js` orchestrates OpenVPN profile rotation for unique IPs per vote.
+- **Auto-Voting Pipeline:** `auto_vote.js` handles HotMC voting (Cloudflare `bp_chl` bypass via direct token extraction + session cookies `PHPSESSID` + `_csrf` + Gemini captcha OCR + response parsing). `vote_vpn.js` orchestrates OpenVPN profile rotation for unique IPs per vote.
 
 ## Key Components
 1. **Control Plane (`tg-hub.js`):** Orchestrates bot lifecycle, server switching, command forwarding. Manages `/vote` command to trigger auto-voting.
@@ -34,5 +34,5 @@ Distributed Minecraft bot management system built on `mineflayer` and `telegraf`
 - **State Files:** `db.js` uses `twins_store.json` as fallback. JSON state files are ignored by Git. Never persist state to repo.
 - **Reliability:** Bots use `watchdog.sh` (as backup) or `systemd` (primary) for `Restart=always` with exponential backoff if necessary.
 - **Communication:** Chat relay and command response use internal `botInstance.chat` methods and Telegram API.
-- **Voting:** Each vote requires a fresh VPN IP. `vote_vpn.sh` must connect to a unique OpenVPN profile before running `auto_vote.js`.
-- **Cloudflare Bypass:** `auto_vote.js` executes `bp_chl.js` in a Node.js VM sandbox to obtain the protection cookie. All subsequent requests must include this cookie in the Cookie jar.
+- **Voting:** Each vote requires a fresh VPN IP. `vote_vpn.sh` must connect to a unique OpenVPN profile before running `auto_vote.js`. Network fetch and connection timeouts are set to 90 seconds (`https.globalAgent.options.timeout`) to accommodate slow VPN latency.
+- **Cloudflare Bypass:** `auto_vote.js` parses `window.bp_chl_vars` from the initial 403 challenge page and injects the `bp_chl` cookie directly into the cookie jar along with `PHPSESSID` and `_csrf`.
