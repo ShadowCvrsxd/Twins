@@ -5,7 +5,7 @@ const vm = require('vm');
 const { getMainAccount, getTwinks } = require('./utils.js');
 
 const apiKey = process.env.GEMINI_API_KEY;
-if (!apiKey && !process.argv.includes('--mock')) {
+if (!apiKey) {
   console.error('[AutoVote] ❌ GEMINI_API_KEY не задан в .env');
   process.exit(1);
 }
@@ -29,33 +29,21 @@ async function solveCaptcha(imageBuffer) {
   return text ? text.trim().replace(/[^0-9]/g, '') : null;
 }
 
-const userAgents = [
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2.1 Safari/605.1.15',
-  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0'
-];
-
 async function voteForAccount(nickname) {
   console.log(`[AutoVote] 🚀 Старт голосования за ник: ${nickname}`);
-  const userAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
 
-  // Шаг 1: Запрос страницы для получения свежего JS-челленджа (с абсолютно чистой сессией)
-  console.log(`[AutoVote] (${nickname}) Запрос свежей сессии...`);
+  const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+  // Шаг 1: Запрос страницы для получения JS-челленджа
   const res1 = await fetch('https://hotmc.ru/vote-240885', {
-    headers: { 
-      'User-Agent': userAgent,
-      'Cache-Control': 'no-cache',
-      'Pragma': 'no-cache'
-    },
+    headers: { 'User-Agent': userAgent },
     signal: AbortSignal.timeout(15000)
   });
   const html1 = await res1.text();
 
   const match = html1.match(/window\.bp_chl_vars\s*=\s*({[^}]+})/);
   if (!match) {
-    console.error('[AutoVote] Не найдены параметры защиты bp_chl_vars. Возможно, IP в бане.');
-    fs.writeFileSync(path.join(__dirname, `blocked_${nickname}.html`), html1);
+    console.error('[AutoVote] Не найдены параметры защиты bp_chl_vars');
     return false;
   }
 
@@ -96,9 +84,9 @@ async function voteForAccount(nickname) {
   } catch (e) {}
 
   const cookieVal = solvedCookie ? solvedCookie.split(';')[0] : '';
-  console.log(`[AutoVote] (${nickname}) Новая обходная кука получена: ${cookieVal}`);
+  console.log(`[AutoVote] (${nickname}) Кука получена: ${cookieVal}`);
 
-  // Шаг 2: Запрос формы голосования с чистой кукой
+  // Шаг 2: Получаем страницу с формой
   const res2 = await fetch('https://hotmc.ru/vote-240885', {
     headers: {
       'User-Agent': userAgent,
@@ -107,23 +95,21 @@ async function voteForAccount(nickname) {
     signal: AbortSignal.timeout(15000)
   });
   const voteHtml = await res2.text();
-  fs.writeFileSync(path.join(__dirname, `form_${nickname}.html`), voteHtml);
 
   if (!voteHtml.includes('Ник в Майнкрафт')) {
-    console.error(`[AutoVote] (${nickname}) ❌ Форма голосования не найдена (возможно, кука не прошла защиту).`);
+    console.error(`[AutoVote] (${nickname}) ❌ Форма голосования не найдена.`);
     return false;
   }
 
-  // Если на странице пишет "Вы уже голосовали недавно"
   if (voteHtml.includes('Вы уже голосовали недавно')) {
-    console.log(`[AutoVote] ⚠️ (${nickname}) IP или сессия уже голосовали. Требуется смена VPN-профиля.`);
+    console.log(`[AutoVote] ⚠️ (${nickname}) IP уже голосовал сегодня. Смените VPN.`);
     return false;
   }
 
-  // Шаг 3: Ищем картинку капчи
+  // Шаг 3: Скачиваем капчу
   const imgMatch = voteHtml.match(/src="([^"]*captcha[^"]*)"/i) || voteHtml.match(/<img[^>]+src="([^"]+)"[^>]*>/i);
   if (!imgMatch) {
-    console.error(`[AutoVote] (${nickname}) ❌ Картинка капчи не найдена в HTML.`);
+    console.error(`[AutoVote] (${nickname}) ❌ Картинка капчи не найдена.`);
     return false;
   }
 
@@ -134,7 +120,6 @@ async function voteForAccount(nickname) {
     captchaImgUrl = 'https://hotmc.ru/' + captchaImgUrl;
   }
 
-  console.log(`[AutoVote] (${nickname}) Скачиваем капчу...`);
   const imgRes = await fetch(captchaImgUrl, {
     headers: {
       'User-Agent': userAgent,
@@ -154,11 +139,14 @@ async function voteForAccount(nickname) {
     return false;
   }
 
-  // Шаг 4: Собираем параметры формы для отправки голоса
+  // Шаг 4: Формируем точный POST-запрос с Yii-полями формы
   const params = new URLSearchParams();
-  params.append('username', nickname);
-  params.append('captcha', code);
+  
+  // Точные имена полей из формы HotMC
+  params.append('PlayerCollector[nickname]', nickname);
+  params.append('CaptchaCollector[captcha]', code);
 
+  // Собираем CSRF и прочие скрытые поля формы
   const inputs = voteHtml.match(/<input[^>]+>/g) || [];
   inputs.forEach(input => {
     const nameMatch = input.match(/name="([^"]+)"/i);
@@ -166,7 +154,7 @@ async function voteForAccount(nickname) {
     if (nameMatch && valMatch) {
       const name = nameMatch[1];
       const val = valMatch[1];
-      if (name !== 'username' && name !== 'captcha') {
+      if (!name.includes('PlayerCollector') && !name.includes('CaptchaCollector')) {
         params.append(name, val);
       }
     }
@@ -177,7 +165,7 @@ async function voteForAccount(nickname) {
     params.append('_csrf', metaToken[1]);
   }
 
-  console.log(`[AutoVote] (${nickname}) Отправка POST запроса с ником и капчей...`);
+  console.log(`[AutoVote] (${nickname}) Отправка POST запроса на сервер...`);
   const postRes = await fetch('https://hotmc.ru/vote-240885', {
     method: 'POST',
     headers: {
@@ -185,8 +173,7 @@ async function voteForAccount(nickname) {
       'Cookie': cookieVal,
       'Referer': 'https://hotmc.ru/vote-240885',
       'Content-Type': 'application/x-www-form-urlencoded',
-      'Origin': 'https://hotmc.ru',
-      'X-Requested-With': 'XMLHttpRequest'
+      'Origin': 'https://hotmc.ru'
     },
     body: params.toString(),
     signal: AbortSignal.timeout(15000)
@@ -195,11 +182,11 @@ async function voteForAccount(nickname) {
   const postText = await postRes.text();
   fs.writeFileSync(path.join(__dirname, `res_${nickname}.html`), postText);
 
-  if (postText.includes('успешно') || postText.includes('спасибо') || postText.includes('голос') || postRes.status === 200) {
+  if (postRes.status === 200 && !postText.includes('field-captchacollector-captcha has-error') && !postText.includes('Неправильный проверочный код')) {
     console.log(`[AutoVote] 🎉 (${nickname}) Голос успешно отправлен и засчитан!`);
     return true;
   } else {
-    console.log(`[AutoVote] ⚠️ (${nickname}) Ответ сервера после отправки:`, postText.replace(/\s+/g, ' ').substring(0, 250));
+    console.log(`[AutoVote] ⚠️ (${nickname}) Ошибка отправки (возможно, неверная капча или лимит). Ответ сохранен в res_${nickname}.html`);
     return false;
   }
 }
