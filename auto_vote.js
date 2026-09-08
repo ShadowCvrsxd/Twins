@@ -162,6 +162,12 @@ async function voteForAccount(nickname) {
       params.append('_csrf', metaToken[1]);
     }
 
+    const csrfParamMatch = voteHtml.match(/name="csrf-param"\s+content="([^"]+)"/i);
+    const csrfTokenMatch = voteHtml.match(/name="csrf-token"\s+content="([^"]+)"/i);
+    if (csrfParamMatch && csrfTokenMatch) {
+      params.append(csrfParamMatch[1], csrfTokenMatch[1]);
+    }
+
     console.log(`[AutoVote] (${nickname}) CookieJar перед POST запросом: ${cookieJar}`);
     console.log(`[AutoVote] (${nickname}) Отправка POST запроса...`);
     const postRes = await fetch('https://hotmc.ru/vote-240885', {
