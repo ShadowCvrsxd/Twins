@@ -307,13 +307,14 @@ async function poll() {
             await sendMessage(chatId, '❌ У вас нет прав администратора.');
             continue;
           }
-          await sendMessage(chatId, '🚀 Запускаю автоголосование для всех аккаунтов через VPN...');
+          await sendMessage(chatId, '🚀 Запускаю автоголосование:\n1. Мейн (без VPN)\n2. Твинки (с ротацией VPN)...');
           const { exec } = require('child_process');
           exec(`node ${path.join(__dirname, 'vote_vpn.js')}`, (err, stdout, stderr) => {
             if (err) {
-              sendMessage(chatId, `❌ Ошибка голосования: ${err.message}`);
+              sendMessage(chatId, `❌ Ошибка голосования:\n\`\`\`\n${err.message.slice(-800)}\n\`\`\``);
             } else {
-              sendMessage(chatId, `✅ Автоголосование завершено!\n\`\`\`\n${stdout.slice(-1000)}\n\`\`\``);
+              const cleaned = stdout.replace(/\u001b\[\d+m/g, '');
+              sendMessage(chatId, `✅ Автоголосование завершено!\n\`\`\`\n${cleaned.slice(-1000)}\n\`\`\``);
             }
           });
         }

@@ -80,40 +80,58 @@ function connectVpn(ovpnPath) {
 }
 
 async function run() {
-  const accounts = [getMainAccount(), ...getTwinks()];
+  const mainAccount = getMainAccount();
+  const twinks = getTwinks();
   const ovpnFiles = getOvpnFiles();
 
-  if (ovpnFiles.length === 0) {
-    console.log('[VPN Vote] ❌ Нет .ovpn файлов для запуска голосования.');
-    return;
+  console.log(`[VPN Vote] Мейн аккаунт: ${mainAccount}`);
+  console.log(`[VPN Vote] Твинки (${twinks.length}): ${twinks.join(', ')}`);
+
+  // 1. Голосуем за мейн без VPN
+  console.log(`[VPN Vote] Голосуем за мейн (${mainAccount}) без VPN...`);
+  disconnectVpn();
+  try {
+    execSync(`node auto_vote.js "${mainAccount}"`, { stdio: 'inherit' });
+  } catch (err) {
+    console.error(`[VPN Vote] Ошибка при голосовании за мейн:`, err.message);
   }
 
-  console.log(`[VPN Vote] Аккаунты (${accounts.length}): ${accounts.join(', ')}`);
-  console.log(`[VPN Vote] Доступные .ovpn профили (${ovpnFiles.length}): ${ovpnFiles.map(f => path.basename(f)).join(', ')}`);
+  // 2. Голосуем за каждого твинка с обязательным успешным голосованием (перебирая VPN при необходимости)
+  let ovpnIndex = 0;
+  for (const nick of twinks) {
+    let success = false;
+    while (!success && ovpnIndex < ovpnFiles.length) {
+      const ovpn = ovpnFiles[ovpnIndex++];
+      disconnectVpn();
+      const connected = connectVpn(ovpn);
+      if (!connected) {
+        console.log(`[VPN Vote] Пропускаем нерабочий VPN профиль.`);
+        continue;
+      }
 
-  for (let i = 0; i < accounts.length; i++) {
-    const nick = accounts[i];
-    const ovpn = ovpnFiles[i % ovpnFiles.length];
-
-    disconnectVpn();
-    const connected = connectVpn(ovpn);
-    if (!connected) {
-      console.log(`[VPN Vote] Пропускаем аккаунт ${nick} из-за ошибки VPN.`);
-      continue;
+      console.log(`[VPN Vote] Запуск голосования для ${nick}...`);
+      try {
+        // Запускаем и проверяем вывод/код возврата
+        const output = execSync(`node auto_vote.js "${nick}"`).toString();
+        process.stdout.write(output);
+        if (output.includes('Голос успешно отправлен') || output.includes('IP уже голосовал недавно') || output.includes('начислен 1 голос')) {
+          success = true;
+          console.log(`[VPN Vote] ✅ Твинк ${nick} успешно обработан.`);
+        }
+      } catch (err) {
+        console.error(`[VPN Vote] Ошибка при голосовании за ${nick}:`, err.message);
+      }
     }
 
-    console.log(`[VPN Vote] Запуск голосования для ${nick}...`);
-    try {
-      execSync(`node auto_vote.js "${nick}"`, { stdio: 'inherit' });
-    } catch (err) {
-      console.error(`[VPN Vote] Ошибка при голосовании за ${nick}:`, err.message);
+    if (!success) {
+      console.log(`[VPN Vote] ❌ Не удалось проголосовать за ${nick} ни через один VPN профиль.`);
     }
 
     disconnectVpn();
     await new Promise(r => setTimeout(r, 3000));
   }
 
-  console.log('[VPN Vote] Все аккаунты проголосовали через VPN!');
+  console.log('[VPN Vote] Все аккаунты обработаны!');
 }
 
 run();

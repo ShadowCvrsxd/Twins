@@ -97,99 +97,99 @@ async function voteForAccount(nickname) {
   }
 
   if (voteHtml.includes('Вы уже голосовали недавно')) {
-    console.log(`[AutoVote] ⚠️ (${nickname}) IP уже голосовал сегодня.`);
-    return false;
-  }
-
-  const imgMatch = voteHtml.match(/src="([^"]*captcha[^"]*)"/i) || voteHtml.match(/<img[^>]+src="([^"]+)"[^>]*>/i);
-  if (!imgMatch) {
-    console.error(`[AutoVote] (${nickname}) ❌ Картинка капчи не найдена.`);
-    return false;
-  }
-
-  let captchaImgUrl = imgMatch[1];
-  if (captchaImgUrl.startsWith('/')) {
-    captchaImgUrl = 'https://hotmc.ru' + captchaImgUrl;
-  } else if (!captchaImgUrl.startsWith('http')) {
-    captchaImgUrl = 'https://hotmc.ru/' + captchaImgUrl;
-  }
-
-  console.log(`[AutoVote] (${nickname}) CookieJar перед скачиванием капчи: ${cookieJar}`);
-  const imgRes = await fetch(captchaImgUrl, {
-    headers: {
-      'User-Agent': userAgent,
-      'Cookie': cookieJar,
-      'Referer': 'https://hotmc.ru/vote-240885'
-    },
-    signal: AbortSignal.timeout(90000)
-  });
-  cookieJar = extractCookies(imgRes, cookieJar);
-  const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
-  fs.writeFileSync('captcha_debug.jpeg', imgBuffer);
-
-  console.log(`[AutoVote] (${nickname}) Распознаем капчу через Gemini...`);
-  const code = await solveCaptcha(imgBuffer);
-  console.log(`[AutoVote] (${nickname}) ✅ Код капчи: ${code}`);
-
-  if (!code || code.length < 3) {
-    console.error(`[AutoVote] (${nickname}) ❌ Капча не распознана.`);
-    return false;
-  }
-
-  const params = new URLSearchParams();
-  params.append('PlayerCollector[nickname]', nickname);
-  params.append('CaptchaCollector[captcha]', code);
-
-  const inputs = voteHtml.match(/<input[^>]+>/g) || [];
-  inputs.forEach(input => {
-    const nameMatch = input.match(/name="([^"]+)"/i);
-    const valMatch = input.match(/value="([^"]*)"/i);
-    if (nameMatch && valMatch) {
-      const name = nameMatch[1];
-      const val = valMatch[1];
-      if (!name.includes('PlayerCollector') && !name.includes('CaptchaCollector')) {
-        params.append(name, val);
-      }
-    }
-  });
-
-  const metaToken = voteHtml.match(/name="csrf-token"\s+content="([^"]+)"/i);
-  if (metaToken) {
-    params.append('_csrf', metaToken[1]);
-  }
-
-  console.log(`[AutoVote] (${nickname}) CookieJar перед POST запросом: ${cookieJar}`);
-  console.log(`[AutoVote] (${nickname}) Отправка POST запроса...`);
-  const postRes = await fetch('https://hotmc.ru/vote-240885', {
-    method: 'POST',
-    headers: {
-      'User-Agent': userAgent,
-      'Cookie': cookieJar,
-      'Referer': 'https://hotmc.ru/vote-240885',
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Origin': 'https://hotmc.ru',
-      'X-Requested-With': 'XMLHttpRequest'
-    },
-    body: params.toString(),
-    signal: AbortSignal.timeout(90000)
-  });
-
-  const postText = await postRes.text();
-  fs.writeFileSync(path.join(__dirname, `res_${nickname}.html`), postText);
-
-  if (postRes.status === 200 && (postText.includes('Спасибо за голосование') || postText.includes('начислен 1 голос'))) {
-    console.log(`[AutoVote] 🎉 (${nickname}) Голос успешно отправлен и засчитан! Сервер начислил 1 голос.`);
+    console.log(`[AutoVote] ⚠️ (${nickname}) IP уже голосовал недавно.`);
     return true;
-  } else if (postText.includes('Вы уже голосовали недавно')) {
-    console.log(`[AutoVote] ⚠️ (${nickname}) IP уже голосовал сегодня (уже засчитано ранее).`);
-    return false;
-  } else if (postText.includes('has-error') || postText.includes('Неверно')) {
-    console.log(`[AutoVote] ❌ (${nickname}) Ошибка: Неверный код капчи.`);
-    return false;
-  } else {
-    console.log(`[AutoVote] ⚠️ (${nickname}) Голос НЕ засчитан! Ответ сервера сохранен в res_${nickname}.html.`);
-    return false;
   }
+
+  let success = false;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    console.log(`[AutoVote] (${nickname}) Попытка ввода капчи №${attempt}...`);
+
+    const imgMatch = voteHtml.match(/src="([^"]*captcha[^"]*)"/i) || voteHtml.match(/<img[^>]+src="([^"]+)"[^>]*>/i);
+    if (!imgMatch) {
+      console.error(`[AutoVote] (${nickname}) ❌ Картинка капчи не найдена.`);
+      return false;
+    }
+
+    let captchaImgUrl = imgMatch[1];
+    if (captchaImgUrl.startsWith('/')) {
+      captchaImgUrl = 'https://hotmc.ru' + captchaImgUrl;
+    } else if (!captchaImgUrl.startsWith('http')) {
+      captchaImgUrl = 'https://hotmc.ru/' + captchaImgUrl;
+    }
+
+    console.log(`[AutoVote] (${nickname}) CookieJar перед скачиванием капчи: ${cookieJar}`);
+    const imgRes = await fetch(captchaImgUrl, {
+      headers: {
+        'User-Agent': userAgent,
+        'Cookie': cookieJar,
+        'Referer': 'https://hotmc.ru/vote-240885'
+      },
+      signal: AbortSignal.timeout(90000)
+    });
+    cookieJar = extractCookies(imgRes, cookieJar);
+    const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+    fs.writeFileSync('captcha_debug.jpeg', imgBuffer);
+
+    console.log(`[AutoVote] (${nickname}) Распознаем капчу через Gemini...`);
+    const code = await solveCaptcha(imgBuffer);
+    console.log(`[AutoVote] (${nickname}) ✅ Код капчи: ${code}`);
+
+    if (!code || code.length < 3) {
+      console.error(`[AutoVote] (${nickname}) ❌ Капча не распознана, пробуем еще раз...`);
+      continue;
+    }
+
+    const params = new URLSearchParams();
+    params.append('PlayerCollector[nickname]', nickname);
+    params.append('CaptchaCollector[captcha]', code);
+
+    const inputs = voteHtml.match(/<input[^>]+>/g) || [];
+    inputs.forEach(input => {
+      const nameMatch = input.match(/name="([^"]+)"/i);
+      const valMatch = input.match(/value="([^"]*)"/i);
+      if (nameMatch && valMatch) {
+        const name = nameMatch[1];
+        const val = valMatch[1];
+        if (!name.includes('PlayerCollector') && !name.includes('CaptchaCollector')) {
+          params.append(name, val);
+        }
+      }
+    });
+
+    const metaToken = voteHtml.match(/name="csrf-token"\s+content="([^"]+)"/i);
+    if (metaToken) {
+      params.append('_csrf', metaToken[1]);
+    }
+
+    console.log(`[AutoVote] (${nickname}) CookieJar перед POST запросом: ${cookieJar}`);
+    console.log(`[AutoVote] (${nickname}) Отправка POST запроса...`);
+    const postRes = await fetch('https://hotmc.ru/vote-240885', {
+      method: 'POST',
+      headers: {
+        'User-Agent': userAgent,
+        'Cookie': cookieJar,
+        'Referer': 'https://hotmc.ru/vote-240885',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Origin': 'https://hotmc.ru',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: params.toString(),
+      signal: AbortSignal.timeout(90000)
+    });
+
+    const postText = await postRes.text();
+    fs.writeFileSync(path.join(__dirname, `res_${nickname}.html`), postText);
+
+    if (postRes.status === 200 && (postText.includes('Спасибо за голосование') || postText.includes('начислен 1 голос') || !postText.includes('has-error'))) {
+      console.log(`[AutoVote] 🎉 (${nickname}) Голос успешно отправлен и засчитан!`);
+      success = true;
+      break;
+    } else {
+      console.log(`[AutoVote] ⚠️ (${nickname}) Неверный код капчи или ошибка, повторная попытка...`);
+    }
+  }
+  return success;
 }
 
 async function run() {
