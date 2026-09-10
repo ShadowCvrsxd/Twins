@@ -86,7 +86,7 @@ function startBot(envPath, configOverrides) {
     host: process.env.MINECRAFT_HOST || process.env.MAIN_SERVER_HOST || '5.83.140.251',
     port: parseInt(process.env.MINECRAFT_PORT || process.env.MAIN_SERVER_PORT || 25809),
     username: configOverrides.username || process.env.USERNAME,
-    version: '1.21.1',
+    version: false,
     brand: 'Гися няшка 󰂑',
     viewDistance: 'tiny',          // ponytail: самый минимум чанков (избегаем таймаутов в лобби)
     loadInternalChunks: false,     // ponytail: не качаем мир вообще (избегаем таймаутов)
@@ -372,10 +372,14 @@ function startBot(envPath, configOverrides) {
       
       // ponytail: дебаг пакетов для поиска "обжоры" трафика
       let packetStats = {};
+      let recentPackets = [];
       bot._client.on('packet', (data, meta, buffer) => {
           if (buffer) sessionBytes += buffer.length;
+          recentPackets.push(meta.name);
+          if (recentPackets.length > 20) recentPackets.shift();
           
           if (meta.name === 'disconnect') {
+              console.log('[DEBUG] Последние пакеты перед киком:', recentPackets);
               console.log('[DEBUG] Сервер прислал пакет disconnect!');
               try {
                   const reason = typeof data.reason === 'string' ? JSON.parse(data.reason) : data.reason;
