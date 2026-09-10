@@ -492,7 +492,7 @@ function startBot(envPath, configOverrides) {
               if (fileAge < 120000 && !bot._hasNotifiedUpdate) {
                   bot._hasNotifiedUpdate = true;
                   setTimeout(() => {
-                      if (!config.isMain) {
+                      if (!config.isMain && bot) {
                           bot.chat(`/msg ${getMainAccount()} Я обновился!`);
                       }
                   }, 5000);
@@ -543,8 +543,8 @@ function startBot(envPath, configOverrides) {
       bot = null;
       console.log(`[Система] Соединение закрыто. Причина: ${reason}`);
       if (!isManualQuit) {
-        console.log('[Система] Запуск реконнекта через 15 сек...');
-        setTimeout(() => { try { createBotInstance(); } catch (e) {} }, 15000);
+        console.log('[Система] Запуск реконнекта через 30 сек...');
+        setTimeout(() => { try { createBotInstance(); } catch (e) {} }, 30000);
       }
     });
 
