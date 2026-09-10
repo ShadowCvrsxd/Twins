@@ -171,7 +171,22 @@ function startBot(envPath, configOverrides) {
             if (lastTabFooter) {
               msg = msg + `\n\n📌 Footer: ${lastTabFooter}`;
             }
-            sendTelegramNotification(bot.username, msg);
+            if (r.chatId) {
+              const token = process.env.TG_BOT_TOKEN;
+              if (token) {
+                fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    chat_id: r.chatId,
+                    text: msg,
+                    parse_mode: 'Markdown'
+                  })
+                }).catch(() => {});
+              }
+            } else {
+              sendTelegramNotification(bot.username, msg);
+            }
           } else if (r.action === 'switchServer') {
             const { host, port } = r;
             if (host && port) {

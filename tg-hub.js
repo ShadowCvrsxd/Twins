@@ -573,9 +573,9 @@ async function poll() {
           const reqFile = path.join(__dirname, 'bot_requests.json');
           const reqs = readJSONArray(reqFile);
           if (!Array.isArray(reqs)) {
-            writeJSON(reqFile, [{ username: targetBot, action: 'players' }]);
+            writeJSON(reqFile, [{ username: targetBot, action: 'players', chatId: chatId }]);
           } else {
-            reqs.push({ username: targetBot, action: 'players' });
+            reqs.push({ username: targetBot, action: 'players', chatId: chatId });
             writeJSON(reqFile, reqs);
           }
 
