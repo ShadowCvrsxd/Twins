@@ -552,12 +552,23 @@ async function poll() {
           }
         }
         else if (cmd === '/players' || cmd === '/tab') {
-          const targetArg = parts[1] || 'bot1';
-          const targetBot = resolveBot(chatId, targetArg);
-          if (!targetBot) {
-            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден.`);
+          const approved = readJSON(APPROVED_FILE);
+          const userBots = approved[chatId] || [];
+          if (userBots.length === 0) {
+            await sendMessage(chatId, `❌ У тебя нет привязанных твинков.`);
             continue;
           }
+
+          const statuses = readJSON(STATUS_FILE);
+          const onlineBots = userBots.filter(b => statuses[b.toLowerCase()] && statuses[b.toLowerCase()].online);
+
+          if (onlineBots.length === 0) {
+            await sendMessage(chatId, `❌ Сейчас нет онлайн твинков.`);
+            continue;
+          }
+
+          onlineBots.sort((a, b) => (statuses[a.toLowerCase()].onlineSince || 0) - (statuses[b.toLowerCase()].onlineSince || 0));
+          const targetBot = onlineBots[0];
 
           const reqFile = path.join(__dirname, 'bot_requests.json');
           const reqs = readJSONArray(reqFile);
@@ -568,7 +579,7 @@ async function poll() {
             writeJSON(reqFile, reqs);
           }
 
-          await sendMessage(chatId, `🔍 Запрос списка игроков отправлен для *${targetBot}*... Ожидайте ответ в чате трансляций.`);
+          await sendMessage(chatId, `🔍 Запрос списка игроков отправлен (выбран *${targetBot}* с наибольшим аптаймом)... Ожидайте ответ.`);
         }
       }
     }
