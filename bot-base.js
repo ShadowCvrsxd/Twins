@@ -365,6 +365,7 @@ function startBot(envPath, configOverrides) {
 
     try {
       bot = mineflayer.createBot(config);
+      bot.physicsEnabled = false; // ponytail: отключаем физику до спавна (1.21 config phase)
       
       // ponytail: ловим абсолютно всё, что происходит с сокетом
       bot._client.on('error', (err) => console.log('[DEBUG] Socket error:', err));
@@ -429,6 +430,13 @@ function startBot(envPath, configOverrides) {
       clearTimeout(spawnTimeout); // ponytail: вход успешный, watchdog не нужен
       console.log(`[Система] Бот ${bot.username} заспавнился!`);
       updateBotStatus(config.username, true);
+
+      // ponytail: включаем физику через 3 секунды после спавна (1.21 config phase)
+      setTimeout(() => {
+        if (bot) {
+          bot.physicsEnabled = true;
+        }
+      }, 3000);
 
       // ponytail: проверка и автопривязка к Telegram через БД
       try {
