@@ -87,7 +87,7 @@ function startBot(envPath, configOverrides) {
     port: parseInt(process.env.MINECRAFT_PORT || process.env.MAIN_SERVER_PORT || 25809),
     username: configOverrides.username || process.env.USERNAME,
     version: '1.21.1',
-    brand: 'Гися няшка 󰂑',
+    brand: 'vanilla',
     viewDistance: 'tiny',          // ponytail: самый минимум чанков (избегаем таймаутов в лобби)
     loadInternalChunks: false,     // ponytail: не качаем мир вообще (избегаем таймаутов)
     checkTimeoutInterval: 30000, 
