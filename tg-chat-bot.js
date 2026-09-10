@@ -110,6 +110,38 @@ async function poll() {
         const approved = readJSON(APPROVED_FILE);
         const userBots = approved[chatId] || [];
 
+        if (!text.startsWith('/')) {
+          if (userBots.length === 0) {
+            await sendMessage(chatId, '❌ У тебя нет привязанных твинков.');
+            continue;
+          }
+          const statuses = readJSON(STATUS_FILE);
+          const onlineBots = userBots.filter(b => {
+            const st = statuses[b.toLowerCase()];
+            return st && st.online;
+          });
+
+          if (onlineBots.length === 0) {
+            await sendMessage(chatId, '❌ Сейчас нет онлайн твинков для отправки сообщения.');
+            continue;
+          }
+
+          onlineBots.sort((a, b) => {
+            const timeA = statuses[a.toLowerCase()].onlineSince || 0;
+            const timeB = statuses[b.toLowerCase()].onlineSince || 0;
+            return timeA - timeB;
+          });
+
+          const targetBot = onlineBots[0];
+
+          let cmds = get('bot_commands', []);
+          cmds.push({ username: targetBot, text: text });
+          set('bot_commands', cmds);
+
+          await sendMessage(chatId, `✉️ Отправлено от *${targetBot}*: ${text}`);
+          continue;
+        }
+
         if (cmd === '/start') {
           await sendMessage(chatId, `💬 *Twins Chat Stream Bot*\n\nЭтот бот управляет дублированием игрового чата твинков.\n\nТвои привязанные твинки: ${userBots.length > 0 ? userBots.join(', ') : 'нет (привяжи через мейн-бота)'}\n\nКоманды:\n\`/streamon <алиас или ник>\` - вкл. трансляцию\n\`/streamoff <алиас или ник>\` - выкл. трансляцию\n\`/display <alias|nick|both|hidden>\` - режим отображения`);
         }

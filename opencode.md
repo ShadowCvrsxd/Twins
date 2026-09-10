@@ -24,13 +24,23 @@ Distributed Minecraft bot management system built on `mineflayer` and `telegraf`
 3. **Execution:** Bot processes poll the database, execute logic (Mineflayer), update state, and respond/log.
 4. **Auto-Vote Flow:** `/vote` → `auto_vote.js` fetches page → solves `bp_chl` → downloads captcha → Gemini OCR → POSTs vote with correct parameters and full cookie jar.
 
-## Configuration & Deployment
+## File Map (Карта файлов)
+- `tg-hub.js`: Главный Telegram-контроллер (управление ботами, статусы, команды).
+- `tg-chat-bot.js`: Ретранслятор игрового чата в Telegram.
+- `bot-base.js`: Общий базовый класс/логика для всех Mineflayer-ботов.
+- `bot.js` / `bot-2.js` / `bot-main.js`: Точки входа для конкретных ботов (используют `.env.twin1`, `.env.twin2`, `.env.main`).
+- `db.js`: Универсальный слой хранения (SQLite + JSON fallback).
+- `auto_vote.js`: Пайплайн автоголосования на HotMC (обход Cloudflare, OCR через Gemini).
+- `vote_vpn.js`: Ротация OpenVPN профилей и проверка внешнего IP.
+- `utils.js`: Вспомогательные утилиты (форматирование, работа со списком ботов).
+- `watchdog.sh` / `setup-systemd.sh`: Системные скрипты автоматизации и деплоя.
 - **Configs:** Per-bot `.env` files (e.g., `.env.twin1`, `.env.main`). `GEMINI_API_KEY` required for captcha solving. `OPENVPN_DIR` points to VPN profile directory.
 - **Deployment:** CI/CD via GitHub Actions (SSH `git pull` + `npm install` + `systemctl restart`).
 - **Provisioning:** `setup-systemd.sh` installs and enables all systemd services.
 - **VPN:** OpenVPN profiles stored in `vpn/` directory. `vote_vpn.js` activates a random profile before each vote attempt.
 
 ## Operational Rules
+- **Environment Notice:** Текущая сессия Opencode и агент выполняются **не на самом VPS**, а локально/на машине разработчика. Развертывание и деплой на VPS выполняются через Git/GitHub Actions или вручную.
 - **State Files:** `db.js` uses `twins_store.json` as fallback. JSON state files are ignored by Git. Never persist state to repo.
 - **Reliability:** Bots use `watchdog.sh` (as backup) or `systemd` (primary) for `Restart=always` with exponential backoff if necessary.
 - **Communication:** Chat relay and command response use internal `botInstance.chat` methods and Telegram API.

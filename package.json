@@ -4,5 +4,13 @@
     "dotenv": "^17.4.2",
     "mineflayer": "^4.37.1",
     "puppeteer": "^22.0.0"
+  },
+  "scripts": {
+    "hub": "node tg-hub.js",
+    "chat": "node tg-chat-bot.js",
+    "bot1": "node bot.js",
+    "bot2": "node bot-2.js",
+    "main": "node bot-main.js",
+    "vote": "node vote_vpn.js"
   }
 }
