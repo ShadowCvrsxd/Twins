@@ -87,7 +87,7 @@ function startBot(envPath, configOverrides) {
     port: parseInt(process.env.MINECRAFT_PORT || process.env.MAIN_SERVER_PORT || 25809),
     username: configOverrides.username || process.env.USERNAME,
     version: '1.21.1',
-    brand: 'vanilla',
+    brand: 'Гися няшка 󰂑',
     viewDistance: 'tiny',          // ponytail: самый минимум чанков (избегаем таймаутов в лобби)
     loadInternalChunks: false,     // ponytail: не качаем мир вообще (избегаем таймаутов)
     checkTimeoutInterval: 30000, 
@@ -466,22 +466,25 @@ function startBot(envPath, configOverrides) {
         }
       } catch (e) {}
 
-      // ponytail: восстановление спама из файла
-      spamTasks.forEach(t => clearInterval(t.interval));
-      spamTasks = [];
-      const savedTasks = loadSpamTasks();
-      savedTasks.forEach(st => {
-        const delayMs = parseInt(st.delay) * 1000;
-        const interval = setInterval(() => {
-          if (bot) {
-            try { bot.chat(st.msg); } catch (e) {}
-          }
-        }, delayMs);
-        spamTasks.push({ msg: st.msg, interval, delay: st.delay });
-      });
-      if (savedTasks.length > 0) {
-        console.log(`[Спам] Восстановлено активных задач: ${savedTasks.length}`);
-      }
+      // ponytail: восстановление спама из файла с задержкой 10с (после логина)
+      setTimeout(() => {
+        if (!bot) return;
+        spamTasks.forEach(t => clearInterval(t.interval));
+        spamTasks = [];
+        const savedTasks = loadSpamTasks();
+        savedTasks.forEach(st => {
+          const delayMs = parseInt(st.delay) * 1000;
+          const interval = setInterval(() => {
+            if (bot) {
+              try { bot.chat(st.msg); } catch (e) {}
+            }
+          }, delayMs);
+          spamTasks.push({ msg: st.msg, interval, delay: st.delay });
+        });
+        if (savedTasks.length > 0) {
+          console.log(`[Спам] Восстановлено активных задач: ${savedTasks.length}`);
+        }
+      }, 10000);
 
       // ponytail: уведомление об обновлении (если файл обновлен менее 2 минут назад)
       const updateFlag = path.join(__dirname, '.just_updated');
