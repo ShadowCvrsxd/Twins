@@ -66,12 +66,15 @@ async function telegramAPI(method, body = {}) {
   }
 }
 
-async function sendMessage(chatId, text) {
-  await telegramAPI('sendMessage', {
+async function sendMessage(chatId, text, parseMode = null) {
+  const body = {
     chat_id: chatId,
-    text,
-    parse_mode: 'Markdown'
-  });
+    text
+  };
+  if (parseMode) {
+    body.parse_mode = parseMode;
+  }
+  await telegramAPI('sendMessage', body);
 }
 
 function formatUptime(ms) {
@@ -603,7 +606,7 @@ setInterval(async () => {
       const response = get(respKey, null);
       if (response && response.msg && response.chatId) {
         set(respKey, null); // Clear immediately to avoid re-sending
-        await sendMessage(response.chatId, response.msg);
+        await sendMessage(response.chatId, response.msg, null);
       }
     }
   }
