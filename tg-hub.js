@@ -254,7 +254,6 @@ async function poll() {
             continue;
           }
 
-          const reqFile = path.join(__dirname, 'bot_requests.json');
           const reqs = readJSONArray(reqFile);
           const approved = readJSON(APPROVED_FILE);
           let allBots = [];
@@ -282,7 +281,6 @@ async function poll() {
           const host = process.env.MAIN_SERVER_HOST || '5.83.140.251';
           const port = process.env.MAIN_SERVER_PORT || 25809;
 
-          const reqFile = path.join(__dirname, 'bot_requests.json');
           const reqs = readJSONArray(reqFile);
           const approved = readJSON(APPROVED_FILE);
           let allBots = [];
@@ -570,7 +568,6 @@ async function poll() {
           onlineBots.sort((a, b) => (statuses[a.toLowerCase()].onlineSince || 0) - (statuses[b.toLowerCase()].onlineSince || 0));
           const targetBot = onlineBots[0];
 
-          const reqFile = path.join(__dirname, 'bot_requests.json');
           const reqs = readJSONArray(reqFile);
           if (!Array.isArray(reqs)) {
             writeJSON(reqFile, [{ username: targetBot, action: 'players', chatId: chatId }]);
