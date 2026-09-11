@@ -75,6 +75,7 @@ process.on('unhandledRejection', (reason) => {
 function startBot(envPath, configOverrides) {
   console.log('--- [DEBUG] Запуск инициализации startBot ---');
   require('dotenv').config();
+  const globalTgToken = process.env.TG_BOT_TOKEN;
   require('dotenv').config({ path: envPath, override: true });
   
   if (!process.env.USERNAME || !process.env.PASSWORD) {
@@ -172,7 +173,7 @@ function startBot(envPath, configOverrides) {
               msg = msg + `\n\n📌 Footer: ${lastTabFooter}`;
             }
             if (r.chatId) {
-              const token = process.env.TG_BOT_TOKEN;
+              const token = process.env.TG_BOT_TOKEN || globalTgToken;
               if (token) {
                 fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                   method: 'POST',
