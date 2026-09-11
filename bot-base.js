@@ -173,9 +173,8 @@ function startBot(envPath, configOverrides) {
               const cleanFooter = lastTabFooter.replace(/[\ufffd\uFFFD]/g, '');
               msg = msg + `\n\n📌 Footer: ${cleanFooter}`;
             }
-            const responses = get('bot_responses', []);
-            responses.push({ msg, chatId: r.chatId });
-            set('bot_responses', responses);
+            const respKey = `bot_response_${config.username.toLowerCase()}`;
+            set(respKey, { msg, chatId: r.chatId });
           } else if (r.action === 'switchServer') {
             const { host, port } = r;
             if (host && port) {
