@@ -550,33 +550,22 @@ async function poll() {
           }
         }
         else if (cmd === '/players' || cmd === '/tab') {
-          const approved = readJSON(APPROVED_FILE);
-          const userBots = approved[chatId] || [];
-          if (userBots.length === 0) {
-            await sendMessage(chatId, `❌ У тебя нет привязанных твинков.`);
+          const targetArg = parts[1] || 'bot1';
+          const targetBot = resolveBot(chatId, targetArg);
+          if (!targetBot) {
+            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден.`);
             continue;
           }
-
-          const statuses = readJSON(STATUS_FILE);
-          const onlineBots = userBots.filter(b => statuses[b.toLowerCase()] && statuses[b.toLowerCase()].online);
-
-          if (onlineBots.length === 0) {
-            await sendMessage(chatId, `❌ Сейчас нет онлайн твинков.`);
-            continue;
-          }
-
-          onlineBots.sort((a, b) => (statuses[a.toLowerCase()].onlineSince || 0) - (statuses[b.toLowerCase()].onlineSince || 0));
-          const targetBot = onlineBots[0];
 
           const reqs = readJSONArray(reqFile);
           if (!Array.isArray(reqs)) {
-            writeJSON(reqFile, [{ username: targetBot, action: 'players', chatId: chatId }]);
+            writeJSON(reqFile, [{ username: targetBot, action: 'players' }]);
           } else {
-            reqs.push({ username: targetBot, action: 'players', chatId: chatId });
+            reqs.push({ username: targetBot, action: 'players' });
             writeJSON(reqFile, reqs);
           }
 
-          await sendMessage(chatId, `🔍 Запрос списка игроков отправлен (выбран *${targetBot}* с наибольшим аптаймом)... Ожидайте ответ.`);
+          await sendMessage(chatId, `🔍 Запрос списка игроков отправлен для *${targetBot}*... Ожидайте ответ в чате трансляций.`);
         }
       }
     }
