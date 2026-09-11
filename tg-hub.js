@@ -551,11 +551,29 @@ async function poll() {
           }
         }
         else if (cmd === '/players' || cmd === '/tab') {
-          const targetArg = parts[1] || 'bot1';
-          const targetBot = resolveBot(chatId, targetArg);
-          if (!targetBot) {
-            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден.`);
-            continue;
+          let targetBot;
+          if (parts[1]) {
+            targetBot = resolveBot(chatId, parts[1]);
+            if (!targetBot) {
+              await sendMessage(chatId, `❌ Твинк '${parts[1]}' не найден.`);
+              continue;
+            }
+          } else {
+            const approved = readJSON(APPROVED_FILE);
+            const userBots = approved[chatId] || [];
+            if (userBots.length === 0) {
+              await sendMessage(chatId, `❌ У тебя нет привязанных твинков.`);
+              continue;
+            }
+            const statuses = readJSON(STATUS_FILE);
+            const onlineBots = userBots.filter(b => statuses[b.toLowerCase()] && statuses[b.toLowerCase()].online);
+            if (onlineBots.length > 0) {
+              // ponytail: sort by onlineSince to find highest uptime
+              onlineBots.sort((a, b) => (statuses[a.toLowerCase()].onlineSince || 0) - (statuses[b.toLowerCase()].onlineSince || 0));
+              targetBot = onlineBots[0];
+            } else {
+              targetBot = resolveBot(chatId, 'bot1') || userBots[0];
+            }
           }
 
           const reqs = readJSONArray(reqFile);
