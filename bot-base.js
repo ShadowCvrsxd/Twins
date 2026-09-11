@@ -353,6 +353,17 @@ function startBot(envPath, configOverrides) {
 
     try {
       bot = mineflayer.createBot(config);
+      bot._client.on('select_known_packs', (packet) => {
+        try {
+          bot._client.write('select_known_packs', { packs: [] });
+        } catch (e) {}
+      });
+
+      bot._client.on('finish_configuration', (packet) => {
+        try {
+          bot._client.write('finish_configuration', {});
+        } catch (e) {}
+      });
       bot.physicsEnabled = false; // ponytail: отключаем физику до спавна (1.21 config phase)
       
       // ponytail: ловим абсолютно всё, что происходит с сокетом
