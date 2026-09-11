@@ -19,6 +19,7 @@ const ALIASES_FILE = 'bot_aliases';
 const LOCK_FILE = 'registration_lock';
 const MEOW_FILE = 'meow_settings';
 const AUTORESPECT_FILE = 'autorespect_settings';
+const RESPONSES_FILE = 'bot_responses';
 const reqFile = 'bot_requests';
 
 const ADMIN_ID = process.env.ADMIN_TG_ID ? process.env.ADMIN_TG_ID.trim() : '';
@@ -559,13 +560,13 @@ async function poll() {
 
           const reqs = readJSONArray(reqFile);
           if (!Array.isArray(reqs)) {
-            writeJSON(reqFile, [{ username: targetBot, action: 'players' }]);
+            writeJSON(reqFile, [{ username: targetBot, action: 'players', chatId: chatId }]);
           } else {
-            reqs.push({ username: targetBot, action: 'players' });
+            reqs.push({ username: targetBot, action: 'players', chatId: chatId });
             writeJSON(reqFile, reqs);
           }
 
-          await sendMessage(chatId, `🔍 Запрос списка игроков отправлен для *${targetBot}*... Ожидайте ответ в чате трансляций.`);
+          await sendMessage(chatId, `🔍 Запрос списка игроков отправлен для *${targetBot}*... Ожидайте ответ.`);
         }
       }
     }
@@ -576,3 +577,13 @@ async function poll() {
 }
 
 poll();
+
+setInterval(async () => {
+  const responses = readJSONArray(RESPONSES_FILE);
+  if (responses.length === 0) return;
+
+  for (const res of responses) {
+    await sendMessage(res.chatId, res.msg);
+  }
+  writeJSON(RESPONSES_FILE, []);
+}, 2000);
