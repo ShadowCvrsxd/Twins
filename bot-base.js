@@ -166,10 +166,12 @@ function startBot(envPath, configOverrides) {
             const players = Object.keys(bot.players || {});
             let msg = `👥 Игроки онлайн (${players.length}): ${players.join(', ')}`;
             if (lastTabHeader) {
-              msg = `📌 Header: ${lastTabHeader}\n\n` + msg;
+              const cleanHeader = lastTabHeader.replace(/[\ufffd\uFFFD]/g, '');
+              msg = `📌 Header: ${cleanHeader}\n\n` + msg;
             }
             if (lastTabFooter) {
-              msg = msg + `\n\n📌 Footer: ${lastTabFooter}`;
+              const cleanFooter = lastTabFooter.replace(/[\ufffd\uFFFD]/g, '');
+              msg = msg + `\n\n📌 Footer: ${cleanFooter}`;
             }
             const responses = get('bot_responses', []);
             responses.push({ msg, chatId: r.chatId });
