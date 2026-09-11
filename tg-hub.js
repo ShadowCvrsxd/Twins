@@ -19,7 +19,6 @@ const ALIASES_FILE = 'bot_aliases';
 const LOCK_FILE = 'registration_lock';
 const MEOW_FILE = 'meow_settings';
 const AUTORESPECT_FILE = 'autorespect_settings';
-const RESPONSES_FILE = 'bot_responses';
 const reqFile = 'bot_requests';
 
 const ADMIN_ID = process.env.ADMIN_TG_ID ? process.env.ADMIN_TG_ID.trim() : '';
@@ -597,11 +596,15 @@ async function poll() {
 poll();
 
 setInterval(async () => {
-  const responses = readJSONArray(RESPONSES_FILE);
-  if (responses.length === 0) return;
-
-  for (const res of responses) {
-    await sendMessage(res.chatId, res.msg);
+  const approved = readJSON(APPROVED_FILE);
+  for (const [chatId, bots] of Object.entries(approved)) {
+    for (const botName of bots) {
+      const respKey = `bot_response_${botName.toLowerCase()}`;
+      const response = get(respKey, null);
+      if (response && response.msg && response.chatId) {
+        set(respKey, null); // Clear immediately to avoid re-sending
+        await sendMessage(response.chatId, response.msg);
+      }
+    }
   }
-  writeJSON(RESPONSES_FILE, []);
-}, 2000);
+}, 1000);
