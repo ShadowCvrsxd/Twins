@@ -171,7 +171,9 @@ function startBot(envPath, configOverrides) {
             if (lastTabFooter) {
               msg = msg + `\n\n📌 Footer: ${lastTabFooter}`;
             }
-            sendTelegramNotification(bot.username, msg);
+            const responses = get('bot_responses', []);
+            responses.push({ msg, chatId: r.chatId });
+            set('bot_responses', responses);
           } else if (r.action === 'switchServer') {
             const { host, port } = r;
             if (host && port) {
