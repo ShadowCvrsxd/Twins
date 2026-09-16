@@ -129,8 +129,9 @@ async function initBotMenu() {
       { command: 'users', description: 'Список пользователей (админ)' },
       { command: 'testserver', description: 'На тестовый сервер (админ)' },
       { command: 'mainserver', description: 'На основной сервер (админ)' },
-      { command: 'setserver', description: 'Сменить сервер (админ) (/setserver <ip> <port>)' },
-      { command: 'vote', description: 'Запустить автоголосование (админ)' }
+       { command: 'setserver', description: 'Сменить сервер (админ) (/setserver <ip> <port>)' },
+       { command: 'vote', description: 'Запустить автоголосование (админ)' },
+       { command: 'voice', description: 'Управление Discord-войсом (/voice <1|2> <on|off|reconnect|channel|status>)' }
     ]
   });
 }
@@ -318,6 +319,54 @@ async function poll() {
               sendMessage(chatId, `✅ Автоголосование завершено!\n\`\`\`\n${cleaned.slice(-1000)}\n\`\`\``);
             }
           });
+        }
+        else if (cmd === '/voice') {
+          if (!isAdmin(chatId)) {
+            await sendMessage(chatId, '❌ Нет прав.');
+            continue;
+          }
+          const instance = parts[1];
+          if (instance !== '1' && instance !== '2') {
+            await sendMessage(chatId, '❌ Использование: /voice <1|2> <on|off|reconnect|channel|status>');
+            continue;
+          }
+          const settings = get('discord_voice_' + instance, {});
+          const action = parts[2] ? parts[2].toLowerCase() : '';
+
+          if (action === 'on') {
+            settings.enabled = true;
+            set('discord_voice_' + instance, settings);
+            await sendMessage(chatId, `✅ Discord-бот ${instance}: войс ВКЛ`);
+          } else if (action === 'off') {
+            settings.enabled = false;
+            set('discord_voice_' + instance, settings);
+            await sendMessage(chatId, `✅ Discord-бот ${instance}: войс ВЫКЛ`);
+          } else if (action === 'reconnect') {
+            const val = parts[3] ? parts[3].toLowerCase() : '';
+            if (val !== 'on' && val !== 'off') {
+              await sendMessage(chatId, '❌ Использование: /voice <1|2> reconnect <on|off>');
+              continue;
+            }
+            settings.reconnect = (val === 'on');
+            set('discord_voice_' + instance, settings);
+            await sendMessage(chatId, `✅ Discord-бот ${instance}: автореконнект ${settings.reconnect ? 'ВКЛ' : 'ВЫКЛ'}`);
+          } else if (action === 'channel') {
+            const channelId = parts[3];
+            if (!channelId || !/^\d{15,20}$/.test(channelId)) {
+              await sendMessage(chatId, '❌ ID канала должен быть числом (15-20 цифр).');
+              continue;
+            }
+            settings.channel_id = channelId;
+            set('discord_voice_' + instance, settings);
+            await sendMessage(chatId, `✅ Discord-бот ${instance}: канал ${channelId}`);
+          } else if (action === 'status') {
+            const statusMsg = `📋 *Discord-бот ${instance}:*\nСтатус: ${settings.enabled === false ? '🔴 Выключен' : '🟢 Включен'}\nАвтореконнект: ${settings.reconnect === false ? '❌ Выкл' : '✅ Вкл'}\nКанал: ${settings.channel_id || 'не задан'}`;
+            await sendMessage(chatId, statusMsg);
+            continue;
+          } else {
+            await sendMessage(chatId, '❌ Использование: /voice <1|2> <on|off|reconnect|channel|status>');
+            continue;
+          }
         }
         else if (cmd === '/addtwin' || cmd === '/link') {
           if (isRegistrationLocked() && !isAdmin(chatId)) {
