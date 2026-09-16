@@ -21,5 +21,5 @@ jobs:
             cd /root/Twins || cd ~/Twins
             git pull origin main
             touch .just_updated
-            sudo systemctl restart twins-bot1 twins-bot2 twins-tghub twins-tgchat
+            sudo systemctl restart twins-bot1 twins-bot2 twins-main twins-tghub twins-tgchat twins-discord1 twins-discord2
             echo "Deployment successful!"
