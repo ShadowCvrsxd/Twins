@@ -13,22 +13,28 @@ if (!apiKey) {
 
 async function solveCaptcha(imageBuffer) {
   const base64Image = imageBuffer.toString('base64');
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{
-        parts: [
-          { text: "На картинке изображены цифры капчи. Верни только эти цифры слитно, без пробелов и любого лишнего текста." },
-          { inline_data: { mime_type: "image/jpeg", data: base64Image } }
-        ]
-      }]
-    })
-  });
-  const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  console.log('[AutoVote] 🤖 Gemini сырой ответ:', JSON.stringify(text));
-  return text ? text.trim().replace(/[^0-9]/g, '') : null;
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: "На картинке изображены цифры капчи. Верни только эти цифры слитно, без пробелов и любого лишнего текста." },
+            { inline_data: { mime_type: "image/jpeg", data: base64Image } }
+          ]
+        }]
+      }),
+      signal: AbortSignal.timeout(30000)
+    });
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    console.log('[AutoVote] 🤖 Gemini сырой ответ:', JSON.stringify(text));
+    return text ? text.trim().replace(/[^0-9]/g, '') : null;
+  } catch (err) {
+    console.error('[AutoVote] ❌ Ошибка запроса к Gemini API (возможно, нет доступа/таймаут):', err.message);
+    return null;
+  }
 }
 
 function extractCookies(res, existingCookies = '') {
