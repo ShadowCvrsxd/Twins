@@ -29,7 +29,7 @@ if (!TOKEN || !CHANNEL_ID) {
   process.exit(3)
 }
 
-const { get } = require('./db.js')
+const { get, set } = require('./db.js')
 const { Client } = require('discord.js-selfbot-v13')
 const VoiceConnection = require('discord.js-selfbot-v13/src/client/voice/VoiceConnection')
 
@@ -42,6 +42,8 @@ VoiceConnection.prototype.selfDeaf = function(val) {
 
 let currentConnection = null
 let connectedChannelId = null
+let failCount = 0
+let lastAttemptedChannelId = null
 
 function getSettings() {
   const dbSettings = get(`discord_voice_${instance}`, {})
@@ -84,11 +86,27 @@ async function joinVoice() {
     log('Войс отключен, пропускаю подключение.')
     return
   }
+  if (lastAttemptedChannelId !== settings.channel_id) {
+    failCount = 0
+    lastAttemptedChannelId = settings.channel_id
+  }
   try {
     const targetChannelId = settings.channel_id
     const channel = await client.channels.fetch(targetChannelId)
     if (!channel || !channel.isVoice()) {
       log(`Канал ${targetChannelId} не является голосовым`, true)
+      if (settings.channel_id !== CHANNEL_ID) {
+        failCount++
+        log(`Не удалось подключиться к каналу ${settings.channel_id} (попытка ${failCount}/10).`)
+        if (failCount >= 10) {
+          log(`Превышено число попыток (10) для канала ${settings.channel_id}. Возврат к стандартному каналу (${CHANNEL_ID}).`, true)
+          const dbSettings = get('discord_voice_' + instance, {})
+          dbSettings.channel_id = CHANNEL_ID
+          set('discord_voice_' + instance, dbSettings)
+          failCount = 0
+          lastAttemptedChannelId = CHANNEL_ID
+        }
+      }
       return retryJoin()
     }
     if (!channel.join) {
@@ -99,6 +117,7 @@ async function joinVoice() {
     await connection.selfDeaf(true)
     currentConnection = connection
     connectedChannelId = targetChannelId
+    failCount = 0
     log('Успешно в войсе, полный мут.')
 
     connection.once('disconnect', () => {
@@ -114,6 +133,18 @@ async function joinVoice() {
     })
   } catch (err) {
     log(`Ошибка входа в войс: ${err.message}`, true)
+    if (settings.channel_id !== CHANNEL_ID) {
+      failCount++
+      log(`Не удалось подключиться к каналу ${settings.channel_id} (попытка ${failCount}/10).`)
+      if (failCount >= 10) {
+        log(`Превышено число попыток (10) для канала ${settings.channel_id}. Возврат к стандартному каналу (${CHANNEL_ID}).`, true)
+        const dbSettings = get('discord_voice_' + instance, {})
+        dbSettings.channel_id = CHANNEL_ID
+        set('discord_voice_' + instance, dbSettings)
+        failCount = 0
+        lastAttemptedChannelId = CHANNEL_ID
+      }
+    }
     retryJoin()
   }
 }
