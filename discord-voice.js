@@ -29,6 +29,7 @@ if (!TOKEN || !CHANNEL_ID) {
   process.exit(3)
 }
 
+const { get } = require('./db.js')
 const { Client } = require('discord.js-selfbot-v13')
 const VoiceConnection = require('discord.js-selfbot-v13/src/client/voice/VoiceConnection')
 
@@ -39,21 +40,55 @@ VoiceConnection.prototype.selfDeaf = function(val) {
   return this.sendVoiceStateUpdate({ self_deaf: val })
 }
 
+let currentConnection = null
+let connectedChannelId = null
+
+function getSettings() {
+  const dbSettings = get(`discord_voice_${instance}`, {})
+  return {
+    enabled: dbSettings.enabled !== undefined ? dbSettings.enabled : true,
+    reconnect: dbSettings.reconnect !== undefined ? dbSettings.reconnect : true,
+    channel_id: dbSettings.channel_id || CHANNEL_ID
+  }
+}
+
+function leaveVoice(reason) {
+  if (currentConnection) {
+    try {
+      currentConnection.disconnect()
+    } catch (e) {}
+    currentConnection = null
+    connectedChannelId = null
+    log(`Выход из войса (${reason}).`)
+  }
+}
+
 log('Подключение к Discord Gateway...')
 const client = new Client({ checkUpdate: false })
 
 client.on('error', e => log(`Ошибка клиента: ${e.message}`, true))
 
 async function retryJoin() {
+  const settings = getSettings()
+  if (!settings.enabled || !settings.reconnect) {
+    log('Автореконнект отключен, останавливаюсь.')
+    return
+  }
   log('Повторная попытка подключения к войсу через 10 сек...')
   setTimeout(joinVoice, 10000)
 }
 
 async function joinVoice() {
+  const settings = getSettings()
+  if (!settings.enabled) {
+    log('Войс отключен, пропускаю подключение.')
+    return
+  }
   try {
-    const channel = await client.channels.fetch(CHANNEL_ID)
+    const targetChannelId = settings.channel_id
+    const channel = await client.channels.fetch(targetChannelId)
     if (!channel || !channel.isVoice()) {
-      log(`Канал ${CHANNEL_ID} не является голосовым`, true)
+      log(`Канал ${targetChannelId} не является голосовым`, true)
       return retryJoin()
     }
     if (!channel.join) {
@@ -62,11 +97,20 @@ async function joinVoice() {
     const connection = await channel.join()
     await connection.selfMute(true)
     await connection.selfDeaf(true)
+    currentConnection = connection
+    connectedChannelId = targetChannelId
     log('Успешно в войсе, полный мут.')
 
     connection.once('disconnect', () => {
+      currentConnection = null
+      connectedChannelId = null
       log('Потеряно соединение с войсом, переподключение...')
-      retryJoin()
+      const curSettings = getSettings()
+      if (curSettings.enabled && curSettings.reconnect) {
+        retryJoin()
+      } else {
+        log('Автореконнект отключен, останавливаюсь.')
+      }
     })
   } catch (err) {
     log(`Ошибка входа в войс: ${err.message}`, true)
@@ -78,6 +122,19 @@ client.on('ready', async () => {
   log(`Авторизован как ${client.user.tag}`)
   await joinVoice()
 })
+
+setInterval(async () => {
+  if (!client.user) return
+  const settings = getSettings()
+  if (settings.enabled && !currentConnection) {
+    await joinVoice()
+  } else if (settings.enabled && currentConnection && settings.channel_id !== connectedChannelId) {
+    leaveVoice('Смена канала')
+    await joinVoice()
+  } else if (!settings.enabled && currentConnection) {
+    leaveVoice('Отключено через Telegram')
+  }
+}, 5000)
 
 client.login(TOKEN).catch(err => {
   log(`Ошибка входа (login): ${err.message}`, true)
