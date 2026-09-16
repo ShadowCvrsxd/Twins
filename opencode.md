@@ -13,10 +13,11 @@ Distributed Minecraft bot management system built on `mineflayer` and `telegraf`
 1. **Control Plane (`tg-hub.js`):** Orchestrates bot lifecycle, server switching, command forwarding. Manages `/vote` command to trigger auto-voting.
 2. **Data Plane (`bot-base.js`):** Core bot library implementing Mineflayer logic (respect, spam, traffic monitoring, meow trigger, chat streaming).
 3. **Streamer (`tg-chat-bot.js`):** Relays Minecraft chat logs to Telegram.
-4. **Voting System (`auto_vote.js`):** Fetches HotMC vote page, solves Cloudflare `bp_chl` JS challenge, extracts captcha image, sends to Gemini API for OCR, submits vote form with correct Yii field names (`PlayerCollector[nickname]`, `CaptchaCollector[captcha]`).
-5. **VPN Orchestrator (`vote_vpn.js`):** Rotates OpenVPN profiles to provide unique IPs for each voting attempt.
-6. **Database (`db.js`):** Unified state management with `better-sqlite3` primary and JSON file fallback.
-7. **Orchestration:** Managed by `systemd` units (`twins-bot1.service`, `twins-bot2.service`, `twins-main.service`, `twins-tghub.service`, `twins-tgchat.service`).
+4. **Discord Voice (`discord-voice.js`):** Persistent voice presence via `discord.js-selfbot-v13` + `@discordjs/voice` (runs 2 user accounts self-muted and self-deafened in server voice channels).
+5. **Voting System (`auto_vote.js`):** Fetches HotMC vote page, solves Cloudflare `bp_chl` JS challenge, extracts captcha image, sends to Gemini API for OCR, submits vote form with correct Yii field names (`PlayerCollector[nickname]`, `CaptchaCollector[captcha]`).
+6. **VPN Orchestrator (`vote_vpn.js`):** Rotates OpenVPN profiles to provide unique IPs for each voting attempt.
+7. **Database (`db.js`):** Unified state management with `better-sqlite3` primary and JSON file fallback.
+8. **Orchestration:** Managed by `systemd` units (`twins-bot1.service`, `twins-bot2.service`, `twins-main.service`, `twins-tghub.service`, `twins-tgchat.service`, `twins-discord1.service`, `twins-discord2.service`).
 
 ## Data Flow
 1. **Command Input:** User executes command in Telegram (`tg-hub`).
@@ -33,8 +34,9 @@ Distributed Minecraft bot management system built on `mineflayer` and `telegraf`
 - `auto_vote.js`: Пайплайн автоголосования на HotMC (обход Cloudflare, OCR через Gemini).
 - `vote_vpn.js`: Ротация OpenVPN профилей и проверка внешнего IP.
 - `utils.js`: Вспомогательные утилиты (форматирование, работа со списком ботов).
+- `discord-voice.js`: Discord selfbot для присутствия твинков в голосовых каналах (`discord.js-selfbot-v13`).
 - `watchdog.sh` / `setup-systemd.sh`: Системные скрипты автоматизации и деплоя.
-- **Configs:** Per-bot `.env` files (e.g., `.env.twin1`, `.env.main`). `GEMINI_API_KEY` required for captcha solving. `OPENVPN_DIR` points to VPN profile directory.
+- **Configs:** Per-bot `.env` files (e.g., `.env.twin1`, `.env.main`, `.env.discord1`, `.env.discord2`). `GEMINI_API_KEY` required for captcha solving. `DISCORD_TOKEN` & `DISCORD_CHANNEL_ID` required for Discord voice selfbots. `OPENVPN_DIR` points to VPN profile directory.
 - **Deployment:** CI/CD via GitHub Actions (SSH `git pull` + `npm install` + `systemctl restart`).
 - **Provisioning:** `setup-systemd.sh` installs and enables all systemd services.
 - **VPN:** OpenVPN profiles stored in `vpn/` directory. `vote_vpn.js` activates a random profile before each vote attempt.
