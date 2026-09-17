@@ -63,11 +63,21 @@ async function voteForAccount(nickname) {
   console.log(`[AutoVote] 🚀 Старт голосования за ник: ${nickname}`);
 
   const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+  const browserHeaders = {
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Sec-Fetch-Site': 'same-origin',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+    'Sec-Ch-Ua-Mobile': '?0',
+    'Sec-Ch-Ua-Platform': '"Windows"'
+  };
   let cookieJar = '';
 
   console.log(`[AutoVote] (${nickname}) Инициализация сессии (GET)...`);
   const res1 = await fetch('https://hotmc.ru/vote-240885', {
-    headers: { 'User-Agent': userAgent },
+    headers: { ...browserHeaders, 'User-Agent': userAgent },
     signal: AbortSignal.timeout(180000)
   });
   cookieJar = extractCookies(res1, cookieJar);
@@ -90,6 +100,7 @@ async function voteForAccount(nickname) {
 
   const res2 = await fetch('https://hotmc.ru/vote-240885', {
     headers: {
+      ...browserHeaders,
       'User-Agent': userAgent,
       'Cookie': cookieJar,
       'Referer': 'https://hotmc.ru/vote-240885'
@@ -130,6 +141,7 @@ async function voteForAccount(nickname) {
     console.log(`[AutoVote] (${nickname}) CookieJar перед скачиванием капчи: ${cookieJar}`);
     const imgRes = await fetch(captchaImgUrl, {
       headers: {
+        ...browserHeaders,
         'User-Agent': userAgent,
         'Cookie': cookieJar,
         'Referer': 'https://hotmc.ru/vote-240885'
@@ -182,6 +194,7 @@ async function voteForAccount(nickname) {
     const postRes = await fetch('https://hotmc.ru/vote-240885', {
       method: 'POST',
       headers: {
+        ...browserHeaders,
         'User-Agent': userAgent,
         'Cookie': cookieJar,
         'Referer': 'https://hotmc.ru/vote-240885',
