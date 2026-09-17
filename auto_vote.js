@@ -1,3 +1,6 @@
+const { Agent, setGlobalDispatcher } = require('undici');
+setGlobalDispatcher(new Agent({ connectTimeout: 180000 }));
+
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
