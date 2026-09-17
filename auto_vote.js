@@ -25,7 +25,7 @@ async function solveCaptcha(imageBuffer) {
           ]
         }]
       }),
-      signal: AbortSignal.timeout(30000)
+      signal: AbortSignal.timeout(90000)
     });
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
