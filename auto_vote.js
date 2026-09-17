@@ -2,7 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
-https.globalAgent.options.timeout = 90000;
+https.globalAgent.options.timeout = 180000;
 const { getMainAccount, getTwinks } = require('./utils.js');
 
 const apiKey = process.env.GEMINI_API_KEY;
@@ -65,7 +65,7 @@ async function voteForAccount(nickname) {
   console.log(`[AutoVote] (${nickname}) Инициализация сессии (GET)...`);
   const res1 = await fetch('https://hotmc.ru/vote-240885', {
     headers: { 'User-Agent': userAgent },
-    signal: AbortSignal.timeout(90000)
+    signal: AbortSignal.timeout(180000)
   });
   cookieJar = extractCookies(res1, cookieJar);
   const html1 = await res1.text();
@@ -91,7 +91,7 @@ async function voteForAccount(nickname) {
       'Cookie': cookieJar,
       'Referer': 'https://hotmc.ru/vote-240885'
     },
-    signal: AbortSignal.timeout(90000)
+    signal: AbortSignal.timeout(180000)
   });
   cookieJar = extractCookies(res2, cookieJar);
   const voteHtml = await res2.text();
@@ -131,7 +131,7 @@ async function voteForAccount(nickname) {
         'Cookie': cookieJar,
         'Referer': 'https://hotmc.ru/vote-240885'
       },
-      signal: AbortSignal.timeout(90000)
+      signal: AbortSignal.timeout(180000)
     });
     cookieJar = extractCookies(imgRes, cookieJar);
     const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
@@ -187,7 +187,7 @@ async function voteForAccount(nickname) {
         'X-Requested-With': 'XMLHttpRequest'
       },
       body: params.toString(),
-      signal: AbortSignal.timeout(90000)
+      signal: AbortSignal.timeout(180000)
     });
 
     const postText = await postRes.text();
