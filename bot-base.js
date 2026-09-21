@@ -530,7 +530,14 @@ function startBot(envPath, configOverrides) {
           const { username, isAuto } = respectTarget;
           if (!isAuto) {
             bot.chat(`!успешно выдан респект игроку:${username}`);
-            getTwinks().forEach(name => { if (bot && name !== bot.username) bot.chat(`/msg ${name} respect`); });
+            // ponytail: задержка 15 секунд между респектами
+            let delay = 15000;
+            getTwinks().forEach(name => { 
+              if (bot && name !== bot.username) {
+                setTimeout(() => bot.chat(`/msg ${name} respect`), delay);
+                delay += 15000;
+              }
+            });
           }
           respectTarget = null;
         }
