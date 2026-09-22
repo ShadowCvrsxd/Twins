@@ -59,9 +59,26 @@ create_service "twins-tgchat" "tg-chat-bot.js" "Twins Telegram Chat Bot"
 create_service "twins-discord1" "discord-voice.js 1" "Twins Discord Voice 1"
 create_service "twins-discord2" "discord-voice.js 2" "Twins Discord Voice 2"
 
+cat << EOF > "$SERVICE_DIR/lightpanda.service"
+[Unit]
+Description=Lightpanda Browser Service
+After=network.target
+
+[Service]
+WorkingDirectory=$DIR
+ExecStart=$DIR/lightpanda serve --host 127.0.0.1 --port 9222 --obey-robots --log-format pretty --log-level info
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=$([ "$IS_ROOT" = true ] && echo "multi-user.target" || echo "default.target")
+EOF
+
+echo "Создан сервис: $SERVICE_DIR/lightpanda.service"
+
 $SYSTEMCTL_CMD daemon-reload
-$SYSTEMCTL_CMD enable twins-bot1 twins-bot2 twins-tghub twins-tgchat twins-main twins-discord1 twins-discord2
-$SYSTEMCTL_CMD start twins-bot1 twins-bot2 twins-tghub twins-tgchat twins-main twins-discord1 twins-discord2
+$SYSTEMCTL_CMD enable twins-bot1 twins-bot2 twins-tghub twins-tgchat twins-main twins-discord1 twins-discord2 lightpanda
+$SYSTEMCTL_CMD start twins-bot1 twins-bot2 twins-tghub twins-tgchat twins-main twins-discord1 twins-discord2 lightpanda
 
 echo "=== Готово! Сервисы systemd настроены и запущены ==="
 if [ "$IS_ROOT" = true ]; then
