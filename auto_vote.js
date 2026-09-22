@@ -1,5 +1,11 @@
-const { Agent, setGlobalDispatcher } = require('undici');
-setGlobalDispatcher(new Agent({ connectTimeout: 180000 }));
+const { Agent, setGlobalDispatcher, ProxyAgent } = require('undici');
+const proxyUrl = process.env.PROXY_URL;
+if (proxyUrl) {
+  setGlobalDispatcher(new ProxyAgent(proxyUrl));
+  console.log(`[AutoVote] Использование прокси: ${proxyUrl}`);
+} else {
+  setGlobalDispatcher(new Agent({ connectTimeout: 180000 }));
+}
 
 require('dotenv').config();
 const fs = require('fs');
