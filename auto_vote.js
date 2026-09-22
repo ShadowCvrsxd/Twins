@@ -1,4 +1,5 @@
 const { Agent, setGlobalDispatcher, ProxyAgent } = require('undici');
+const puppeteer = require('puppeteer-core');
 const proxyUrl = process.env.PROXY_URL;
 if (proxyUrl) {
   setGlobalDispatcher(new ProxyAgent(proxyUrl));
@@ -65,8 +66,42 @@ function extractCookies(res, existingCookies = '') {
   return Array.from(cookiesMap.entries()).map(([k, v]) => `${k}=${v}`).join('; ');
 }
 
-async function voteForAccount(nickname) {
-  console.log(`[AutoVote] 🚀 Старт голосования за ник: ${nickname}`);
+async function voteWithBrowser(nickname) {
+  console.log(`[AutoVote] 🌐 Старт голосования через браузер за ник: ${nickname}`);
+  const browser = await puppeteer.connect({ browserWSEndpoint: 'ws://127.0.0.1:9222' });
+  const page = await browser.newPage();
+  try {
+    await page.goto('https://hotmc.ru/vote-240885', { waitUntil: 'networkidle2' });
+    // Minimal interaction logic to mirror fetch
+    const voteInput = await page.$('input[name="PlayerCollector[nickname]"]');
+    if (!voteInput) throw new Error('Форма не найдена');
+    await voteInput.type(nickname);
+
+    const captchaImg = await page.$('img[src*="captcha"]');
+    if (!captchaImg) throw new Error('Капча не найдена');
+
+    const screenshot = await captchaImg.screenshot();
+    const code = await solveCaptcha(screenshot);
+    if (!code) throw new Error('Капча не решена');
+
+    await page.type('input[name="CaptchaCollector[captcha]"]', code);
+    await page.click('button[type="submit"]');
+
+    await page.waitForNavigation({ waitUntil: 'networkidle2' });
+    const text = await page.evaluate(() => document.body.innerText);
+    if (text.includes('Спасибо за голосование') || text.includes('начислен 1 голос')) {
+      console.log(`[AutoVote] 🎉 (${nickname}) Голос успешно отправлен через браузер!`);
+      return true;
+    }
+    throw new Error('Не удалось подтвердить голосование');
+  } finally {
+    await page.close();
+    await browser.disconnect();
+  }
+}
+
+async function voteWithFetch(nickname) {
+  console.log(`[AutoVote] 🚀 Старт голосования через fetch за ник: ${nickname}`);
 
   const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
   const browserHeaders = {
@@ -224,6 +259,15 @@ async function voteForAccount(nickname) {
     }
   }
   return success;
+}
+
+async function voteForAccount(nickname) {
+  try {
+    return await voteWithBrowser(nickname);
+  } catch (e) {
+    console.warn('[AutoVote] Браузер недоступен или ошибка, фоллбэк на fetch...', e.message);
+    return await voteWithFetch(nickname);
+  }
 }
 
 async function run() {
