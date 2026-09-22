@@ -66,6 +66,7 @@ After=network.target
 
 [Service]
 WorkingDirectory=$DIR
+Environment=ALL_PROXY=socks4://177.91.255.35:5678
 ExecStart=$DIR/lightpanda serve --host 127.0.0.1 --port 9222 --obey-robots --log-format pretty --log-level info
 Restart=always
 RestartSec=10
