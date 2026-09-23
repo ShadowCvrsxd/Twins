@@ -94,10 +94,10 @@ function resolveBot(chatId, targetArg) {
   if (aliases[searchKey]) {
     return aliases[searchKey];
   }
-  if (searchKey === 'bot1' && userBots[0]) {
+  if ((searchKey === 'bot1' || searchKey === '1') && userBots[0]) {
     return userBots[0];
   }
-  if (searchKey === 'bot2' && userBots[1]) {
+  if ((searchKey === 'bot2' || searchKey === '2') && userBots[1]) {
     return userBots[1];
   }
   const found = userBots.find(b => b.toLowerCase() === searchKey);
