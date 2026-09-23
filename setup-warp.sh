@@ -11,7 +11,7 @@ apt-get install -y cloudflare-warp
 # Setup warp
 warp-cli registration new
 warp-cli mode proxy
-warp-cli proxy 40000
+warp-cli proxy port 40000
 warp-cli connect
 
 # Enable service
