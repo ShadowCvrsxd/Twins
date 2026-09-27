@@ -123,6 +123,8 @@ async function initBotMenu() {
       { command: 'autorepoff', description: 'Выкл. авто-респекты (/autorepoff <алиас>)' },
       { command: 'status', description: 'Статус привязанных ботов' },
       { command: 'players', description: 'Список игроков онлайн (/players <бот>)' },
+      { command: 'spamlist', description: 'Список спам-задач' },
+      { command: 'addspam', description: 'Добавить спам (/addspam <алиас> <сек> <текст>)' },
       { command: 'stopspam', description: 'Остановить весь спам' },
       { command: 'lock', description: 'Заблокировать регистрацию (админ)' },
       { command: 'unlock', description: 'Разблокировать регистрацию (админ)' },
@@ -156,7 +158,7 @@ async function poll() {
         const cmd = parts[0].toLowerCase();
 
         if (cmd === '/start') {
-          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/startmain` - запустить мейн-бота\n`/stopmain` - остановить мейн-бота\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/autorepon <алиас>` - вкл. авто-респекты\n`/autorepoff <алиас>` - выкл. авто-респекты\n`/stopspam` - остановить спам';
+          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/startmain` - запустить мейн-бота\n`/stopmain` - остановить мейн-бота\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/autorepon <алиас>` - вкл. авто-респекты\n`/autorepoff <алиас>` - выкл. авто-респекты\n`/spamlist <алиас>` - список спам-задач\n`/addspam <алиас> <сек> <текст>` - добавить спам-задачу\n`/stopspam` - остановить спам';
           if (isAdmin(chatId)) {
             msg += '\n\n👑 *Админ-панель:*\nСтатус регистрации: ' + (isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта') + '\n`/lock` - заблокировать\n`/unlock` - разблокировать\n`/users` - список юзеров\n`/testserver` - на тестовый\n`/mainserver` - на основной\n`/setserver <ip> <port>` - сменить сервер\n`/vote` - автоголосование';
           }
@@ -627,6 +629,33 @@ async function poll() {
             cmds.push({ username: targetBot, text: messageText });
             writeJSON(CMDS_FILE, cmds);
           }
+        }
+        else if (cmd === '/spamlist') {
+          const targetBot = resolveBot(chatId, parts[1]);
+          if (!targetBot) { await sendMessage(chatId, '❌ Неизвестный бот. /spamlist <алиас>'); continue; }
+          const tasks = get('spam_tasks_' + targetBot.toLowerCase(), []);
+          if (!tasks.length) { await sendMessage(chatId, `📋 У бота *${targetBot}* нет активных спам-задач.`); continue; }
+          const lines = tasks.map((t, i) => `${i + 1}:${t.msg} - ${t.delay} сек`);
+          await sendMessage(chatId, `📋 Спам-задачи *${targetBot}*:\n${lines.join('\n')}`);
+        }
+        else if (cmd === '/addspam') {
+          const targetBot = resolveBot(chatId, parts[1]);
+          const delay = parseInt(parts[2], 10);
+          const msg = parts.slice(3).join(' ').trim();
+          if (!targetBot || !(delay > 0) || !msg) {
+            await sendMessage(chatId, '❌ Использование: /addspam <алиас> <сек> <текст>');
+            continue;
+          }
+          const key = 'spam_tasks_' + targetBot.toLowerCase();
+          const tasks = get(key, []);
+          if (tasks.length >= 20) { await sendMessage(chatId, `❌ У бота *${targetBot}* уже 20 задач. Удали лишние.`); continue; }
+          tasks.push({ msg, delay });
+          set(key, tasks);
+          // сигнал боту перечитать список на лету
+          const reqs = readJSONArray(reqFile);
+          reqs.push({ username: targetBot, action: 'reloadSpam' });
+          writeJSON(reqFile, reqs);
+          await sendMessage(chatId, `✅ Спам #${tasks.length} добавлен для *${targetBot}*: "${msg}" (каждые ${delay} с)`);
         }
         else if (cmd === '/players' || cmd === '/tab') {
           let targetBot;

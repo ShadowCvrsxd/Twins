@@ -127,6 +127,28 @@ function startBot(envPath, configOverrides) {
       set(spamKey, data);
     } catch (e) {}
   }
+
+  // ponytail: общий перезапуск спам-интервалов
+  function reloadSpamTasks(initialDelayMs = 10000) {
+    setTimeout(() => {
+      if (!bot) return;
+      spamTasks.forEach(t => clearInterval(t.interval));
+      spamTasks = [];
+      const savedTasks = loadSpamTasks();
+      savedTasks.forEach(st => {
+        const delayMs = parseInt(st.delay) * 1000;
+        const interval = setInterval(() => {
+          if (bot) { try { bot.chat(st.msg); } catch (e) {} }
+        }, delayMs);
+        spamTasks.push({ msg: st.msg, interval, delay: st.delay });
+      });
+      if (savedTasks.length > 0) {
+        console.log(`[Спам] Восстановлено активных задач: ${savedTasks.length}`);
+      }
+    }, initialDelayMs);
+  }
+
+
   let nextRespectTime = 0;
   let respectTarget = null;
   let isRespectFailed = false;
@@ -188,6 +210,9 @@ function startBot(envPath, configOverrides) {
                 createBotInstance();
               }
             }
+          } else if (r.action === 'reloadSpam') {
+            reloadSpamTasks(1000);
+            console.log(`[${config.username}] Перезагрузка спама из хаба`);
           }
         });
         reqs = reqs.filter(r => r.username.toLowerCase() !== config.username.toLowerCase());
@@ -482,24 +507,7 @@ function startBot(envPath, configOverrides) {
       } catch (e) {}
 
       // ponytail: восстановление спама из файла с задержкой 10с (после логина)
-      setTimeout(() => {
-        if (!bot) return;
-        spamTasks.forEach(t => clearInterval(t.interval));
-        spamTasks = [];
-        const savedTasks = loadSpamTasks();
-        savedTasks.forEach(st => {
-          const delayMs = parseInt(st.delay) * 1000;
-          const interval = setInterval(() => {
-            if (bot) {
-              try { bot.chat(st.msg); } catch (e) {}
-            }
-          }, delayMs);
-          spamTasks.push({ msg: st.msg, interval, delay: st.delay });
-        });
-        if (savedTasks.length > 0) {
-          console.log(`[Спам] Восстановлено активных задач: ${savedTasks.length}`);
-        }
-      }, 10000);
+      reloadSpamTasks(10000);
 
       // ponytail: уведомление об обновлении (если файл обновлен менее 2 минут назад)
       const updateFlag = path.join(__dirname, '.just_updated');
