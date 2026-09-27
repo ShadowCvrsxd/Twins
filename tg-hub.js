@@ -242,7 +242,27 @@ async function poll() {
           const streamAll = readJSON('main_chat_stream_all');
           streamAll[chatId] = enabled;
           writeJSON('main_chat_stream_all', streamAll);
-          await sendMessage(chatId, `✅ Дублирование ВСЕГО чата мейна ${enabled ? 'ВКЛ' : 'ВЫКЛ'}.`);
+          const twinStream = readJSON('chat_streaming');
+          const backup = readJSON('main_chat_stream_backup');
+          if (enabled) {
+            if (!backup[chatId]) {
+              backup[chatId] = JSON.parse(JSON.stringify(twinStream[chatId] || {}));
+            }
+            twinStream[chatId] = {};
+            writeJSON('main_chat_stream_backup', backup);
+            writeJSON('chat_streaming', twinStream);
+            await sendMessage(chatId, '✅ Дублирование ВСЕГО чата мейна ВКЛ. Стриминг твинков выключен.');
+          } else {
+            if (backup[chatId]) {
+              twinStream[chatId] = backup[chatId];
+              delete backup[chatId];
+              writeJSON('main_chat_stream_backup', backup);
+              writeJSON('chat_streaming', twinStream);
+              await sendMessage(chatId, '✅ Дублирование ВСЕГО чата мейна ВЫКЛ. Стриминг твинков восстановлен.');
+            } else {
+              await sendMessage(chatId, '✅ Дублирование ВСЕГО чата мейна ВЫКЛ.');
+            }
+          }
         }
         else if (cmd === '/setservice') {
           if (!isAdmin(chatId)) { await sendMessage(chatId, '❌ Нет прав.'); continue; }
