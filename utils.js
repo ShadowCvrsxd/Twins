@@ -127,26 +127,27 @@ function sendTelegramNotification(username, text) {
 function sendMainTelegramNotification(text) {
   try {
     const streaming = get('main_chat_streaming', {});
+    const streamAll = get('main_chat_stream_all', {});
     const approved = get('links_approved', {});
     const mainNick = getMainAccount().toLowerCase();
     const cleanedText = cleanMinecraftText(text);
     if (!cleanedText) return;
-    if (!cleanedText.toLowerCase().includes(mainNick)) return;
 
     const token = process.env.TG_CHAT_BOT_TOKEN || process.env.TG_BOT_TOKEN;
     if (!token) return;
 
     for (const [chatId, bots] of Object.entries(approved)) {
-      if (streaming[chatId]) {
-        fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text: `💬 [мейн] ${cleanedText}`
-          })
-        }).catch(() => {});
-      }
+      if (!streaming[chatId]) continue;
+      if (!streamAll[chatId] && !cleanedText.toLowerCase().includes(mainNick)) continue;
+
+      fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: `💬 [мейн] ${cleanedText}`
+        })
+      }).catch(() => {});
     }
   } catch(e){}
 }

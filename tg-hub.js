@@ -146,6 +146,8 @@ async function initBotMenu() {
         { command: 'voice', description: 'Управление Discord-войсом (/voice <1|2> <on|off|reconnect|channel|status>)' },
         { command: 'mainstreamon', description: 'Вкл. дублирование чата мейна (/mainstreamon)' },
         { command: 'mainstreamoff', description: 'Выкл. дублирование чата мейна (/mainstreamoff)' },
+        { command: 'mainstreamallon', description: 'Вкл. дублирование ВСЕГО чата мейна (/mainstreamallon)' },
+        { command: 'mainstreamalloff', description: 'Выкл. дублирование ВСЕГО чата мейна (/mainstreamalloff)' },
       { command: 'setservice', description: 'Привязать бота к сервису (/setservice <ник> <сервис>)' }
       ]
     });
@@ -168,7 +170,7 @@ async function poll() {
         const cmd = parts[0].toLowerCase();
 
         if (cmd === '/start') {
-          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/startmain` - запустить мейн-бота\n`/stopmain` - остановить мейн-бота\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/autorepon <алиас>` - вкл. авто-респекты\n`/autorepoff <алиас>` - выкл. авто-респекты\n`/spamlist <алиас>` - список спам-задач\n`/addspam <алиас> <сек> <текст>` - добавить спам-задачу\n`/stopspam` - остановить спам';
+          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/startmain` - запустить мейн-бота\n`/stopmain` - остановить мейн-бота\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/autorepon <алиас>` - вкл. авто-респекты\n`/autorepoff <алиас>` - выкл. авто-респекты\n`/spamlist <алиас>` - список спам-задач\n`/addspam <алиас> <сек> <текст>` - добавить спам-задачу\n`/mainstreamallon` - дублировать ВЕСЬ чат мейна\n`/mainstreamalloff` - только сообщения с ником мейна\n`/stopspam` - остановить спам';
           if (isAdmin(chatId)) {
             msg += '\n\n👑 *Админ-панель:*\nСтатус регистрации: ' + (isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта') + '\n`/lock` - заблокировать\n`/unlock` - разблокировать\n`/users` - список юзеров\n`/testserver` - на тестовый\n`/mainserver` - на основной\n`/setserver <ip> <port>` - сменить сервер\n`/vote` - автоголосование';
           }
@@ -234,6 +236,13 @@ async function poll() {
           streaming[chatId] = enabled;
           writeJSON('main_chat_streaming', streaming);
           await sendMessage(chatId, `✅ Трансляция чата мейна ${enabled ? 'ВКЛ' : 'ВЫКЛ'}.`);
+        }
+        else if (cmd === '/mainstreamallon' || cmd === '/mainstreamalloff') {
+          const enabled = cmd === '/mainstreamallon';
+          const streamAll = readJSON('main_chat_stream_all');
+          streamAll[chatId] = enabled;
+          writeJSON('main_chat_stream_all', streamAll);
+          await sendMessage(chatId, `✅ Дублирование ВСЕГО чата мейна ${enabled ? 'ВКЛ' : 'ВЫКЛ'}.`);
         }
         else if (cmd === '/setservice') {
           if (!isAdmin(chatId)) { await sendMessage(chatId, '❌ Нет прав.'); continue; }
