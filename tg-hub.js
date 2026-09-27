@@ -131,10 +131,12 @@ async function initBotMenu() {
       { command: 'mainserver', description: 'На основной сервер (админ)' },
        { command: 'setserver', description: 'Сменить сервер (админ) (/setserver <ip> <port>)' },
        { command: 'vote', description: 'Запустить автоголосование (админ)' },
-       { command: 'voice', description: 'Управление Discord-войсом (/voice <1|2> <on|off|reconnect|channel|status>)' }
-    ]
-  });
-}
+        { command: 'voice', description: 'Управление Discord-войсом (/voice <1|2> <on|off|reconnect|channel|status>)' },
+        { command: 'mainstreamon', description: 'Вкл. дублирование чата мейна (/mainstreamon)' },
+        { command: 'mainstreamoff', description: 'Выкл. дублирование чата мейна (/mainstreamoff)' }
+      ]
+    });
+  }
 
 initBotMenu();
 console.log('[Telegram] Хаб запущен и слушает сообщения...');
@@ -212,6 +214,13 @@ async function poll() {
            await sendMessage(chatId, `✅ Режим "мяу" для твинка *${targetBot}* ${enabled ? 'ВКЛ' : 'ВЫКЛ'}.`);
 
 
+        }
+        else if (cmd === '/mainstreamon' || cmd === '/mainstreamoff') {
+          const enabled = cmd === '/mainstreamon';
+          const streaming = readJSON('main_chat_streaming');
+          streaming[chatId] = enabled;
+          writeJSON('main_chat_streaming', streaming);
+          await sendMessage(chatId, `✅ Трансляция чата мейна ${enabled ? 'ВКЛ' : 'ВЫКЛ'}.`);
         }
         else if (cmd === '/lock' || cmd === '/adminlock') {
           if (!isAdmin(chatId)) {

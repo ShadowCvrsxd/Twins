@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const { get, set } = require('./db.js');
+const { getMainAccount } = require('./utils.js');
+
 
 require('dotenv').config();
 
@@ -86,7 +88,8 @@ async function initBotMenu() {
       { command: 'streamon', description: 'Включить дублирование чата (/streamon <бот>)' },
       { command: 'streamoff', description: 'Выключить дублирование чата (/streamoff <бот>)' },
       { command: 'display', description: 'Режим отображения имен (/display <mode>)' },
-      { command: 'status', description: 'Статус потоков чата' }
+      { command: 'status', description: 'Статус потоков чата' },
+      { command: 'setchat', description: 'Выбрать отправителя (/setchat <1|2|main>)' }
     ]
   });
 }
@@ -116,34 +119,57 @@ async function poll() {
             continue;
           }
           const statuses = readJSON(STATUS_FILE);
-          const onlineBots = userBots.filter(b => {
-            const st = statuses[b.toLowerCase()];
-            return st && st.online;
-          });
-
-          if (onlineBots.length === 0) {
-            await sendMessage(chatId, '❌ Сейчас нет онлайн твинков для отправки сообщения.');
-            continue;
+          const selection = get('chat_sender_selection', {});
+          let targetBot = null;
+          const selectedLower = selection[chatId];
+          if (selectedLower) {
+            const selStatus = statuses[selectedLower];
+            if (!selStatus || !selStatus.online) {
+              const nick = selectedLower === getMainAccount().toLowerCase() ? 'Мейн' : selectedLower;
+              await sendMessage(chatId, `❌ Бот *${nick}* оффлайн.`);
+              continue;
+            }
+            targetBot = selectedLower;
+          } else {
+            const onlineBots = userBots.filter(b => { const st = statuses[b.toLowerCase()]; return st && st.online; });
+            if (onlineBots.length === 0) {
+              await sendMessage(chatId, '❌ Сейчас нет онлайн твинков для отправки сообщения.');
+              continue;
+            }
+            onlineBots.sort((a, b) => (statuses[a.toLowerCase()].onlineSince || 0) - (statuses[b.toLowerCase()].onlineSince || 0));
+            targetBot = onlineBots[0];
           }
-
-          onlineBots.sort((a, b) => {
-            const timeA = statuses[a.toLowerCase()].onlineSince || 0;
-            const timeB = statuses[b.toLowerCase()].onlineSince || 0;
-            return timeA - timeB;
-          });
-
-          const targetBot = onlineBots[0];
-
           let cmds = get('bot_commands', []);
           cmds.push({ username: targetBot, text: text });
           set('bot_commands', cmds);
-
           await sendMessage(chatId, `✉️ Отправлено от *${targetBot}*: ${text}`);
           continue;
         }
 
-        if (cmd === '/start') {
-          await sendMessage(chatId, `💬 *Twins Chat Stream Bot*\n\nЭтот бот управляет дублированием игрового чата твинков.\n\nТвои привязанные твинки: ${userBots.length > 0 ? userBots.join(', ') : 'нет (привяжи через мейн-бота)'}\n\nКоманды:\n\`/streamon <алиас или ник>\` - вкл. трансляцию\n\`/streamoff <алиас или ник>\` - выкл. трансляцию\n\`/display <alias|nick|both|hidden>\` - режим отображения`);
+        if (cmd === '/setchat') {
+          const target = parts[1] ? parts[1].toLowerCase() : null;
+          if (!target || !['1', '2', 'main'].includes(target)) {
+            await sendMessage(chatId, '❌ Использование: /setchat <1|2|main>');
+            continue;
+          }
+          let resolved = null;
+          if (target === 'main') {
+            resolved = getMainAccount();
+          } else {
+            const index = parseInt(target) - 1;
+            resolved = userBots[index];
+            if (!resolved) {
+              await sendMessage(chatId, `❌ У тебя нет ${target}-го твинка.`);
+              continue;
+            }
+          }
+          const selection = get('chat_sender_selection', {});
+          selection[chatId] = resolved.toLowerCase();
+          set('chat_sender_selection', selection);
+          await sendMessage(chatId, `✅ Сообщения будут отправляться с бота *${resolved}*.`);
+        }
+        else if (cmd === '/start') {
+          await sendMessage(chatId, `💬 *Twins Chat Stream Bot*\n\nЭтот бот управляет дублированием игрового чата твинков.\n\nТвои привязанные твинки: ${userBots.length > 0 ? userBots.join(', ') : 'нет (привяжи через мейн-бота)'}\n\nКоманды:\n\`/streamon <алиас или ник>\` - вкл. трансляцию\n\`/streamoff <алиас или ник>\` - выкл. трансляцию\n\`/setchat <1|2|main>\` - выбрать отправителя\n\`/display <alias|nick|both|hidden>\` - режим отображения`);
         }
         else if (cmd === '/streamon' || cmd === '/chaton') {
           if (userBots.length === 0) {

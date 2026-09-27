@@ -3,7 +3,7 @@ const readline = require('readline');
 const fs = require('fs');
 const path = require('path');
 const { get, set } = require('./db.js');
-const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification } = require('./utils.js');
+const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification, sendMainTelegramNotification } = require('./utils.js');
 
 
 function formatTabComponent(comp) {
@@ -551,7 +551,11 @@ function startBot(envPath, configOverrides) {
         respectTarget = null;
       } else {
         if (!msg.startsWith('/login') && !msg.startsWith('/register')) {
-          sendTelegramNotification(bot.username, message);
+          if (config.isMain) {
+            sendMainTelegramNotification(message);
+          } else {
+            sendTelegramNotification(bot.username, message);
+          }
         }
       }
     });
