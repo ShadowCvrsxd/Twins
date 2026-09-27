@@ -133,12 +133,21 @@ function sendMainTelegramNotification(text) {
     const cleanedText = cleanMinecraftText(text);
     if (!cleanedText) return;
 
+    const cleanedLower = cleanedText.toLowerCase();
+    // Извлекаем отправителя: токен перед '›' в формате '<префикс> |  Nick › текст'
+    const senderMatch = cleanedLower.match(/(?:^|\|)\s*([^\s›|]+)\s*›/);
+    const sender = senderMatch ? senderMatch[1] : '';
+    const isTwinMsg = sender && getTwinks().some(t => t.toLowerCase() === sender);
+
     const token = process.env.TG_CHAT_BOT_TOKEN || process.env.TG_BOT_TOKEN;
     if (!token) return;
 
     for (const [chatId, bots] of Object.entries(approved)) {
       if (!streaming[chatId]) continue;
-      if (!streamAll[chatId] && !cleanedText.toLowerCase().includes(mainNick)) continue;
+      if (!streamAll[chatId]) {
+        const isMention = cleanedLower.includes(mainNick);
+        if (!isMention || isTwinMsg) continue;
+      }
 
       fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: 'POST',
