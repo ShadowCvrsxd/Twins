@@ -85,6 +85,16 @@ function formatUptime(ms) {
   return `${m} мин.`;
 }
 
+function parseDuration(str) {
+  const match = str.toLowerCase().match(/^(\d+)([smh]?)$/);
+  if (!match) return NaN;
+  const val = parseInt(match[1], 10);
+  const unit = match[2];
+  if (unit === 'm') return val * 60;
+  if (unit === 'h') return val * 3600;
+  return val; // s or none
+}
+
 function resolveBot(chatId, targetArg) {
   const approved = readJSON(APPROVED_FILE);
   const userBots = approved[chatId] || [];
@@ -640,10 +650,11 @@ async function poll() {
         }
         else if (cmd === '/addspam') {
           const targetBot = resolveBot(chatId, parts[1]);
-          const delay = parseInt(parts[2], 10);
+          const delay = parseDuration(parts[2]);
           const msg = parts.slice(3).join(' ').trim();
-          if (!targetBot || !(delay > 0) || !msg) {
-            await sendMessage(chatId, '❌ Использование: /addspam <алиас> <сек> <текст>');
+          
+          if (!targetBot || isNaN(delay) || delay <= 0 || !msg) {
+            await sendMessage(chatId, '❌ Использование: /addspam <алиас> <время> <текст> (время: 30, 30s, 5m, 1h)');
             continue;
           }
           const key = 'spam_tasks_' + targetBot.toLowerCase();
