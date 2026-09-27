@@ -133,7 +133,8 @@ async function initBotMenu() {
        { command: 'vote', description: 'Запустить автоголосование (админ)' },
         { command: 'voice', description: 'Управление Discord-войсом (/voice <1|2> <on|off|reconnect|channel|status>)' },
         { command: 'mainstreamon', description: 'Вкл. дублирование чата мейна (/mainstreamon)' },
-        { command: 'mainstreamoff', description: 'Выкл. дублирование чата мейна (/mainstreamoff)' }
+        { command: 'mainstreamoff', description: 'Выкл. дублирование чата мейна (/mainstreamoff)' },
+      { command: 'setservice', description: 'Привязать бота к сервису (/setservice <ник> <сервис>)' }
       ]
     });
   }
@@ -221,6 +222,19 @@ async function poll() {
           streaming[chatId] = enabled;
           writeJSON('main_chat_streaming', streaming);
           await sendMessage(chatId, `✅ Трансляция чата мейна ${enabled ? 'ВКЛ' : 'ВЫКЛ'}.`);
+        }
+        else if (cmd === '/setservice') {
+          if (!isAdmin(chatId)) { await sendMessage(chatId, '❌ Нет прав.'); continue; }
+          const botNick = parts[1] ? parts[1].toLowerCase() : null;
+          const service = parts[2] ? parts[2].toLowerCase() : null;
+          if (!botNick || !['twins-bot1', 'twins-bot2'].includes(service)) {
+            await sendMessage(chatId, '❌ Использование: /setservice <ник> <twins-bot1|twins-bot2>');
+            continue;
+          }
+          const mapping = get('bot_service_mapping', {});
+          mapping[botNick] = service;
+          set('bot_service_mapping', mapping);
+          await sendMessage(chatId, `✅ Бот *${botNick}* теперь привязан к сервису *${service}*.`);
         }
         else if (cmd === '/lock' || cmd === '/adminlock') {
           if (!isAdmin(chatId)) {
@@ -504,12 +518,14 @@ async function poll() {
             continue;
           }
 
-          const approved = readJSON(APPROVED_FILE);
-          const userBots = approved[chatId] || [];
-          const index = userBots.findIndex(b => b.toLowerCase() === targetBot.toLowerCase());
-          const serviceName = index === 1 ? 'twins-bot2' : 'twins-bot1';
+           const approved = readJSON(APPROVED_FILE);
+           const userBots = approved[chatId] || [];
+           const index = userBots.findIndex(b => b.toLowerCase() === targetBot.toLowerCase());
+           
+           const mapping = get('bot_service_mapping', {});
+           const serviceName = mapping[targetBot.toLowerCase()] || (index === 1 ? 'twins-bot2' : 'twins-bot1');
 
-          const cmdStr = process.env.USER_SYSTEMD === 'true' ? `systemctl --user start ${serviceName}` : `sudo systemctl start ${serviceName}`;
+           const cmdStr = process.env.USER_SYSTEMD === 'true' ? `systemctl --user start ${serviceName}` : `sudo systemctl start ${serviceName}`;
           require('child_process').exec(cmdStr, (err) => {
             if (err) {
               sendMessage(chatId, `❌ Ошибка запуска твинка *${targetBot}*: ${err.message}`);
@@ -530,12 +546,14 @@ async function poll() {
             continue;
           }
 
-          const approved = readJSON(APPROVED_FILE);
-          const userBots = approved[chatId] || [];
-          const index = userBots.findIndex(b => b.toLowerCase() === targetBot.toLowerCase());
-          const serviceName = index === 1 ? 'twins-bot2' : 'twins-bot1';
+           const approved = readJSON(APPROVED_FILE);
+           const userBots = approved[chatId] || [];
+           const index = userBots.findIndex(b => b.toLowerCase() === targetBot.toLowerCase());
+           
+           const mapping = get('bot_service_mapping', {});
+           const serviceName = mapping[targetBot.toLowerCase()] || (index === 1 ? 'twins-bot2' : 'twins-bot1');
 
-          const cmdStr = process.env.USER_SYSTEMD === 'true' ? `systemctl --user stop ${serviceName}` : `sudo systemctl stop ${serviceName}`;
+           const cmdStr = process.env.USER_SYSTEMD === 'true' ? `systemctl --user stop ${serviceName}` : `sudo systemctl stop ${serviceName}`;
           require('child_process').exec(cmdStr, (err) => {
             if (err) {
               sendMessage(chatId, `❌ Ошибка остановки твинка *${targetBot}*: ${err.message}`);
