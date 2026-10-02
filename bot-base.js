@@ -13,39 +13,76 @@ function getClickerState(bot) {
   return settings[bot.username.toLowerCase()] || { enabled: false };
 }
 
-function setClickerState(bot, enabled) {
+function setClickerState(bot, patch) {
   const settings = get('clicker_settings', {});
-  settings[bot.username.toLowerCase()] = { enabled };
+  const name = bot.username.toLowerCase();
+  settings[name] = { ...(settings[name] || { enabled: false }), ...patch };
   set('clicker_settings', settings);
+}
+
+function getAttackSpeed(bot) {
+  try {
+    if (!bot.heldItem) return 1.6;
+    const item = bot.heldItem;
+    
+    // Path (a): Modern NBT (1.21.x components)
+    const mods = item.nbt?.value?.components?.value?.['minecraft:attribute_modifiers']?.value?.modifiers?.value;
+    if (Array.isArray(mods)) {
+      for (const mod of mods) {
+        const an = mod.value?.attribute_name?.value;
+        if (typeof an === 'string' && an.toLowerCase().replace(/[_-]/g, '').includes('attackspeed')) {
+          const amt = parseFloat(mod.value?.amount?.value);
+          if (!isNaN(amt)) return amt;
+        }
+      }
+    }
+    // Path (b): Old NBT (attributeModifiers list)
+    const oldMods = item.nbt?.value?.attributeModifiers?.value;
+    if (Array.isArray(oldMods)) {
+      for (const mod of oldMods) {
+        const an = mod.value?.AttributeName?.value;
+        if (typeof an === 'string' && an.toLowerCase().replace(/[_-]/g, '').includes('attackspeed')) {
+          const amt = parseFloat(mod.value?.Amount?.value);
+          if (!isNaN(amt)) return amt;
+        }
+      }
+    }
+    // Path (c): Attributes
+    if (item.attributes) {
+      const speed = item.attributes['minecraft:generic.attack_speed'];
+      if (speed !== undefined) return parseFloat(speed);
+    }
+  } catch (e) {
+    console.error(`[AutoClick] Ошибка определения скорости: ${e.message}`);
+  }
+  return 1.6;
 }
 
 function startAutoClick(bot) {
   if (autoClickTimer && autoClickBot === bot) return;
   if (autoClickTimer) stopAutoClick();
   autoClickBot = bot;
-  autoClickTimer = setInterval(() => {
+  const tick = () => {
     if (!bot || !bot.entity) return;
     try {
-      let closest = null;
-      let closestDist = 4.5;
+      let closest = null, closestDist = 4.5;
       for (const e of Object.values(bot.entities)) {
         if (!e || e === bot.entity || e.type === 'player' || !e.position) continue;
-        const dist = bot.entity.position.distanceTo(e.position);
-        if (dist <= closestDist) {
-          closest = e;
-          closestDist = dist;
-        }
+        const d = bot.entity.position.distanceTo(e.position);
+        if (d <= closestDist) { closest = e; closestDist = d; }
       }
       if (closest) bot.attack(closest);
-    } catch (e) {
-      console.error(`[AutoClick] Ошибка атаки: ${e.message}`);
-    }
-  }, 700);
+    } catch (e) { console.error(`[AutoClick] Ошибка атаки: ${e.message}`); }
+    const st = getClickerState(bot);
+    autoClickTimer = setTimeout(tick, st.manualCooldownMs || Math.round(1000 / getAttackSpeed(bot)));
+  };
+  const st = getClickerState(bot);
+  autoClickTimer = setTimeout(tick, st.manualCooldownMs || Math.round(1000 / getAttackSpeed(bot)));
 }
 
 function stopAutoClick() {
   if (autoClickTimer) {
-    clearInterval(autoClickTimer);
+    clearTimeout(autoClickTimer);
     autoClickTimer = null;
     autoClickBot = null;
   }
@@ -260,11 +297,14 @@ function startBot(envPath, configOverrides) {
           } else if (r.action === 'reloadSpam') {
             reloadSpamTasks(1000);
             console.log(`[${config.username}] Перезагрузка спама из хаба`);
+          } else if (r.action === 'setswing') {
+            setClickerState(bot, { manualCooldownMs: r.ms || null });
+            console.log(`[${config.username}] Тайминг удара установлен: ${r.ms || 'авто'}`);
           } else if (r.action === 'autoclickon') {
-            setClickerState(bot, true);
+            setClickerState(bot, { enabled: true });
             startAutoClick(bot);
           } else if (r.action === 'autoclickoff') {
-            setClickerState(bot, false);
+            setClickerState(bot, { enabled: false });
             stopAutoClick();
           }
         });
@@ -300,16 +340,32 @@ function startBot(envPath, configOverrides) {
       if (getClickerState(botInstance).enabled) {
         botInstance.chat(`${replyCmd} Автокликер уже включен`);
       } else {
-        setClickerState(botInstance, true);
+        setClickerState(botInstance, { enabled: true });
         startAutoClick(botInstance);
         botInstance.chat(`${replyCmd} Автокликер включен`);
       }
       return true;
     }
     if (command === 'autoclickoff') {
-      setClickerState(botInstance, false);
+      setClickerState(botInstance, { enabled: false });
       stopAutoClick();
       botInstance.chat(`${replyCmd} Автокликер выключен`);
+      return true;
+    }
+    if (command === 'setswing') {
+      const val = parts[1];
+      if (!val || val.toLowerCase() === 'auto' || val === '0') {
+        setClickerState(botInstance, { manualCooldownMs: null });
+        botInstance.chat(`${replyCmd} Тайминг удара: авто (по оружию)`);
+      } else {
+        const ms = parseInt(val, 10);
+        if (isNaN(ms) || ms <= 0) {
+          botInstance.chat(`${replyCmd} Ошибка: укажи мс > 0 или auto`);
+          return false;
+        }
+        setClickerState(botInstance, { manualCooldownMs: ms });
+        botInstance.chat(`${replyCmd} Тайминг удара: ${ms} мс (вручную)`);
+      }
       return true;
     }
     if (command === 'respect') {
