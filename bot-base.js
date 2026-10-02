@@ -65,13 +65,10 @@ function startAutoClick(bot) {
   const tick = () => {
     if (!bot || !bot.entity) return;
     try {
-      let closest = null, closestDist = 4.5;
-      for (const e of Object.values(bot.entities)) {
-        if (!e || e === bot.entity || e.type === 'player' || !e.position) continue;
-        const d = bot.entity.position.distanceTo(e.position);
-        if (d <= closestDist) { closest = e; closestDist = d; }
+      const entity = bot.entityAtCursor(4.5);
+      if (entity && entity.type !== 'player' && entity !== bot.entity) {
+        bot.attack(entity);
       }
-      if (closest) bot.attack(closest);
     } catch (e) { console.error(`[AutoClick] Ошибка атаки: ${e.message}`); }
     const st = getClickerState(bot);
     autoClickTimer = setTimeout(tick, st.manualCooldownMs || Math.round(1000 / getAttackSpeed(bot)));
