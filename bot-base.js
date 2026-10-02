@@ -62,16 +62,23 @@ function startAutoClick(bot) {
   if (autoClickTimer && autoClickBot === bot) return;
   if (autoClickTimer) stopAutoClick();
   autoClickBot = bot;
+  console.log(`[AutoClick][${bot.username}] started`);
   const tick = () => {
-    if (!bot || !bot.entity) return;
-    try {
-      const entity = bot.entityAtCursor(4.5);
-      if (entity && entity.type !== 'player' && entity !== bot.entity) {
-        bot.attack(entity);
-      }
-    } catch (e) { console.error(`[AutoClick] Ошибка атаки: ${e.message}`); }
+    if (!bot || !bot.entity) { autoClickTimer = setTimeout(tick, 500); return; }
     const st = getClickerState(bot);
-    autoClickTimer = setTimeout(tick, st.manualCooldownMs || Math.round(1000 / getAttackSpeed(bot)));
+    if (!st.enabled) { stopAutoClick(); return; }
+    const delay = st.manualCooldownMs || Math.round(1000 / getAttackSpeed(bot));
+    try {
+      console.log(`[AutoClick][${bot.username}] tick: delay=${delay}ms target=${bot.targetEntity ? bot.targetEntity.name : 'none'} swing`);
+      bot.swingArm('right');
+      if (bot.targetEntity && bot.targetEntity.type !== 'player') {
+        bot.attack(bot.targetEntity);
+        console.log(`[AutoClick][${bot.username}] attack -> ${bot.targetEntity.name}`);
+      }
+    } catch (e) {
+      console.error(`[AutoClick][${bot.username}] error: ${e.message}`);
+    }
+    autoClickTimer = setTimeout(tick, delay);
   };
   const st = getClickerState(bot);
   autoClickTimer = setTimeout(tick, st.manualCooldownMs || Math.round(1000 / getAttackSpeed(bot)));
@@ -80,6 +87,7 @@ function startAutoClick(bot) {
 function stopAutoClick() {
   if (autoClickTimer) {
     clearTimeout(autoClickTimer);
+    console.log(`[AutoClick][${autoClickBot ? autoClickBot.username : 'unknown'}] stopped`);
     autoClickTimer = null;
     autoClickBot = null;
   }
