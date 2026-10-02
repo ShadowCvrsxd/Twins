@@ -70,6 +70,7 @@ function startAutoClick(bot) {
     const delay = st.manualCooldownMs || Math.round(1000 / getAttackSpeed(bot));
     try {
       const target = bot.entityAtCursor(4.5);
+      console.log("[AutoClick] view: pitch=" + bot.pitch.toFixed(2) + " yaw=" + bot.yaw.toFixed(2));
       console.log(`[AutoClick] entityAtCursor = ${target ? target.name : "none"}`);
       bot.swingArm('right');
       if (target && target.type !== 'player' && target !== bot.entity) {
