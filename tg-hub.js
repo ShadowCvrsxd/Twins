@@ -136,6 +136,8 @@ async function initBotMenu() {
       { command: 'spamlist', description: 'Список спам-задач' },
       { command: 'addspam', description: 'Добавить спам (/addspam <алиас> <сек> <текст>)' },
       { command: 'delspam', description: 'Удалить спам-задачу (/delspam <алиас> <номер>)' },
+      { command: 'autoclickon', description: 'Вкл. автокликер (/autoclickon <алиас>)' },
+      { command: 'autoclickoff', description: 'Выкл. автокликер (/autoclickoff <алиас>)' },
       { command: 'stopspam', description: 'Остановить весь спам' },
       { command: 'lock', description: 'Заблокировать регистрацию (админ)' },
       { command: 'unlock', description: 'Разблокировать регистрацию (админ)' },
@@ -185,7 +187,7 @@ async function poll() {
         const cmd = parts[0].toLowerCase();
 
         if (cmd === '/start') {
-          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/startmain` - запустить мейн-бота\n`/stopmain` - остановить мейн-бота\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/autorepon <алиас>` - вкл. авто-респекты\n`/autorepoff <алиас>` - выкл. авто-респекты\n`/spamlist <алиас>` - список спам-задач\n`/addspam <алиас> <сек> <текст>` - добавить спам-задачу\n`/delspam <алиас> <номер>` - удалить спам-задачу\n`/mainstreamallon` - дублировать ВЕСЬ чат мейна\n`/mainstreamalloff` - только сообщения с ником мейна\n`/stopspam` - остановить спам';
+          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/startmain` - запустить мейн-бота\n`/stopmain` - остановить мейн-бота\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/autorepon <алиас>` - вкл. авто-респекты\n`/autorepoff <алиас>` - выкл. авто-респекты\n`/spamlist <алиас>` - список спам-задач\n`/addspam <алиас> <сек> <текст>` - добавить спам-задачу\n`/delspam <алиас> <номер>` - удалить спам-задачу\n`/autoclickon <алиас>` - вкл. автокликер\n`/autoclickoff <алиас>` - выкл. автокликер\n`/mainstreamallon` - дублировать ВЕСЬ чат мейна\n`/mainstreamalloff` - только сообщения с ником мейна\n`/stopspam` - остановить спам';
           if (isAdmin(chatId)) {
             msg += '\n\n👑 *Админ-панель:*\nСтатус регистрации: ' + (isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта') + '\n`/lock` - заблокировать\n`/unlock` - разблокировать\n`/users` - список юзеров\n`/testserver` - на тестовый\n`/mainserver` - на основной\n`/setserver <ip> <port>` - сменить сервер\n`/vote` - автоголосование';
           }
@@ -732,6 +734,18 @@ async function poll() {
       reqs.push({ username: targetBot, action: 'reloadSpam' });
       writeJSON(reqFile, reqs);
       await sendMessage(chatId, `🗑 Спам-задача #${taskNum} ("${removed.msg}") удалена у *${targetBot}*`);
+    }
+    else if (cmd === '/autoclickon' || cmd === '/autoclickoff') {
+      const targetBot = resolveBot(chatId, parts[1]);
+      if (!targetBot) {
+        await sendMessage(chatId, `❌ Укажи твинка: \`${cmd} <алиас или ник>\``);
+        continue;
+      }
+      const action = cmd === '/autoclickon' ? 'autoclickon' : 'autoclickoff';
+      const reqs = readJSONArray(reqFile);
+      reqs.push({ username: targetBot, action: action });
+      writeJSON(reqFile, reqs);
+      await sendMessage(chatId, `✅ Автокликер ${cmd === '/autoclickon' ? 'включен' : 'выключен'} для *${targetBot}*`);
     }
     else if (cmd === '/players' || cmd === '/tab') {
           let targetBot;

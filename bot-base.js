@@ -3,6 +3,45 @@ const readline = require('readline');
 const fs = require('fs');
 const path = require('path');
 const { get, set } = require('./db.js');
+
+// ponytail: автокликер
+let autoClickTimer = null;
+let autoClickBot = null;
+
+function getClickerState(bot) {
+  const settings = get('clicker_settings', {});
+  return settings[bot.username.toLowerCase()] || { enabled: false };
+}
+
+function setClickerState(bot, enabled) {
+  const settings = get('clicker_settings', {});
+  settings[bot.username.toLowerCase()] = { enabled };
+  set('clicker_settings', settings);
+}
+
+function startAutoClick(bot) {
+  if (autoClickTimer && autoClickBot === bot) return;
+  if (autoClickTimer) stopAutoClick();
+  autoClickBot = bot;
+  autoClickTimer = setInterval(() => {
+    if (!bot || !bot.entity) return;
+    try {
+      const target = bot.entityAtCursor(4.5);
+      if (!target || target === bot.entity || target.type === 'player') return;
+      bot.attack(target);
+    } catch (e) {
+      console.error(`[AutoClick] Ошибка атаки: ${e.message}`);
+    }
+  }, 700);
+}
+
+function stopAutoClick() {
+  if (autoClickTimer) {
+    clearInterval(autoClickTimer);
+    autoClickTimer = null;
+    autoClickBot = null;
+  }
+}
 const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification, sendMainTelegramNotification } = require('./utils.js');
 
 
@@ -213,6 +252,12 @@ function startBot(envPath, configOverrides) {
           } else if (r.action === 'reloadSpam') {
             reloadSpamTasks(1000);
             console.log(`[${config.username}] Перезагрузка спама из хаба`);
+          } else if (r.action === 'autoclickon') {
+            setClickerState(bot, true);
+            startAutoClick(bot);
+          } else if (r.action === 'autoclickoff') {
+            setClickerState(bot, false);
+            stopAutoClick();
           }
         });
         reqs = reqs.filter(r => r.username.toLowerCase() !== config.username.toLowerCase());
@@ -243,6 +288,22 @@ function startBot(envPath, configOverrides) {
     const parts = input.split(' ');
     const command = parts[0].toLowerCase();
     const replyCmd = replyTarget ? `/m ${replyTarget}` : '/r';
+    if (command === 'autoclickon') {
+      if (getClickerState(botInstance).enabled) {
+        botInstance.chat(`${replyCmd} Автокликер уже включен`);
+      } else {
+        setClickerState(botInstance, true);
+        startAutoClick(botInstance);
+        botInstance.chat(`${replyCmd} Автокликер включен`);
+      }
+      return true;
+    }
+    if (command === 'autoclickoff') {
+      setClickerState(botInstance, false);
+      stopAutoClick();
+      botInstance.chat(`${replyCmd} Автокликер выключен`);
+      return true;
+    }
     if (command === 'respect') {
       tryRespect(getMainAccount(), false);
       return true;
@@ -508,6 +569,10 @@ function startBot(envPath, configOverrides) {
 
       // ponytail: восстановление спама из файла с задержкой 10с (после логина)
       reloadSpamTasks(10000);
+      
+      setTimeout(() => {
+        if (bot && getClickerState(bot).enabled) startAutoClick(bot);
+      }, 10000);
 
       // ponytail: уведомление об обновлении (если файл обновлен менее 2 минут назад)
       const updateFlag = path.join(__dirname, '.just_updated');
