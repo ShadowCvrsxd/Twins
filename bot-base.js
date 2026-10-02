@@ -72,7 +72,10 @@ function startAutoClick(bot) {
       const target = bot.entityAtCursor(4.5);
       console.log("[AutoClick] view: pitch=" + bot.entity.pitch.toFixed(2) + " yaw=" + bot.entity.yaw.toFixed(2));
       console.log(`[AutoClick] entityAtCursor = ${target ? target.name : "none"}`);
-      bot.swingArm('right');
+      if (target) {
+        const dist = bot.entity.position.distanceTo(target.position);
+        console.log("[AutoClick] attack target=" + target.name + " dist=" + dist.toFixed(2));
+      }
       if (target && target.type !== 'player' && target !== bot.entity) {
         bot.attack(target);
         console.log(`[AutoClick][${bot.username}] attack -> ${target.name}`);
