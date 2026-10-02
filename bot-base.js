@@ -69,19 +69,20 @@ function startAutoClick(bot) {
     if (!st.enabled) { stopAutoClick(); return; }
     const delay = st.manualCooldownMs || Math.round(1000 / getAttackSpeed(bot));
       try {
+        const nearby = Object.values(bot.entities).filter(e => {
+          if (!e || !e.position) return false;
+          return bot.entity.position.distanceTo(e.position) <= 5.0 && e !== bot.entity;
+        });
+        if (nearby.length > 0) {
+          console.log("[AutoClick] Рядом с ботом энтити: " + nearby.map(e => `${e.name || 'unnamed'}(type=${e.type}, id=${e.id}, dist=${bot.entity.position.distanceTo(e.position).toFixed(1)})`).join(', '));
+        }
+
         const target = bot.nearestEntity((e) => {
           if (e.type !== 'mob' && e.type !== 'animal' && e.type !== 'object') return false;
           const dist = bot.entity.position.distanceTo(e.position);
-          return dist <= 4.5;
+          return dist <= 3.0;
         });
         
-        console.log("[AutoClick] total entities in view: " + Object.keys(bot.entities).length);
-        console.log("[AutoClick] view: pitch=" + bot.entity.pitch.toFixed(2) + " yaw=" + bot.entity.yaw.toFixed(2));
-        console.log(`[AutoClick] nearestEntity = ${target ? target.name : "none"}`);
-        if (target) {
-          const dist = bot.entity.position.distanceTo(target.position);
-          console.log("[AutoClick] attack target=" + target.name + " dist=" + dist.toFixed(2));
-        }
         if (target && target.type !== 'player' && target !== bot.entity) {
           bot.attack(target);
           console.log(`[AutoClick][${bot.username}] attack -> ${target.name}`);
