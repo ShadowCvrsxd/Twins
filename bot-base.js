@@ -53,7 +53,6 @@ function getAttackSpeed(bot) {
       if (speed !== undefined) return parseFloat(speed);
     }
   } catch (e) {
-    console.error(`[AutoClick] Ошибка определения скорости: ${e.message}`);
   }
   return 1.6;
 }
@@ -62,7 +61,6 @@ function startAutoClick(bot) {
   if (autoClickTimer && autoClickBot === bot) return;
   if (autoClickTimer) stopAutoClick();
   autoClickBot = bot;
-  console.log(`[AutoClick][${bot.username}] started`);
     const tick = () => {
     if (!bot || !bot.entity) { autoClickTimer = setTimeout(tick, 500); return; }
     const st = getClickerState(bot);
@@ -78,10 +76,8 @@ function startAutoClick(bot) {
         
         if (target) {
           bot.attack(target);
-          console.log(`[AutoClick][${bot.username}] attack -> ${target.name}`);
         }
       } catch (e) {
-      console.error(`[AutoClick][${bot.username}] error: ${e.message}`);
     }
     autoClickTimer = setTimeout(tick, delay);
   };
@@ -92,7 +88,6 @@ function startAutoClick(bot) {
 function stopAutoClick() {
   if (autoClickTimer) {
     clearTimeout(autoClickTimer);
-    console.log(`[AutoClick][${autoClickBot ? autoClickBot.username : 'unknown'}] stopped`);
     autoClickTimer = null;
     autoClickBot = null;
   }
@@ -590,8 +585,13 @@ function startBot(envPath, configOverrides) {
 
     bot.on('spawn', () => {
       clearTimeout(spawnTimeout); // ponytail: вход успешный, watchdog не нужен
-      console.log(`[Система] Бот ${bot.username} заспавнился!`);
       updateBotStatus(config.username, true);
+
+      // ponytail: проверка состояния кликера
+      const st = getClickerState(bot);
+      if (st.enabled) {
+        startAutoClick(bot);
+      }
 
       // ponytail: включаем физику через 3 секунды после спавна (1.21 config phase)
       setTimeout(() => {
