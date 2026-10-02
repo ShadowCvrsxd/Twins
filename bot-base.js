@@ -297,6 +297,15 @@ function startBot(envPath, configOverrides) {
           } else if (r.action === 'setswing') {
             setClickerState(bot, { manualCooldownMs: r.ms || null });
             console.log(`[${config.username}] Тайминг удара установлен: ${r.ms || 'авто'}`);
+          } else if (r.action === 'pos') {
+            if (bot && bot.entity && bot.entity.position) {
+              const p = bot.entity.position;
+              const f = (n) => Math.floor(n);
+              bot.chat(`Координаты: X ${f(p.x)} Y ${f(p.y)} Z ${f(p.z)} | Ад: X ${f(p.x / 8)} Z ${f(p.z / 8)}`);
+              console.log(`[${config.username}] Координаты запрошены из хаба`);
+            } else {
+              console.log(`[${config.username}] /pos: позиция недоступна`);
+            }
           } else if (r.action === 'autoclickon') {
             setClickerState(bot, { enabled: true });
             startAutoClick(bot);
