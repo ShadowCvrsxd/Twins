@@ -301,8 +301,9 @@ function startBot(envPath, configOverrides) {
             if (bot && bot.entity && bot.entity.position) {
               const p = bot.entity.position;
               const f = (n) => Math.floor(n);
-              bot.chat(`Координаты: X ${f(p.x)} Y ${f(p.y)} Z ${f(p.z)} | Ад: X ${f(p.x / 8)} Z ${f(p.z / 8)}`);
-              console.log(`[${config.username}] Координаты запрошены из хаба`);
+              const text = `Координаты: X ${f(p.x)} Y ${f(p.y)} Z ${f(p.z)} | Ад: X ${f(p.x / 8)} Z ${f(p.z / 8)}`;
+              sendTelegramNotification(config.username, text);
+              console.log(`[${config.username}] Координаты отправлены в Telegram`);
             } else {
               console.log(`[${config.username}] /pos: позиция недоступна`);
             }
