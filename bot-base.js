@@ -69,11 +69,12 @@ function startAutoClick(bot) {
     if (!st.enabled) { stopAutoClick(); return; }
     const delay = st.manualCooldownMs || Math.round(1000 / getAttackSpeed(bot));
     try {
-      console.log(`[AutoClick][${bot.username}] tick: delay=${delay}ms target=${bot.targetEntity ? bot.targetEntity.name : 'none'} swing`);
+      const target = bot.entityAtCursor(4.5);
+      console.log(`[AutoClick] entityAtCursor = ${target ? target.name : "none"}`);
       bot.swingArm('right');
-      if (bot.targetEntity && bot.targetEntity.type !== 'player') {
-        bot.attack(bot.targetEntity);
-        console.log(`[AutoClick][${bot.username}] attack -> ${bot.targetEntity.name}`);
+      if (target && target.type !== 'player' && target !== bot.entity) {
+        bot.attack(target);
+        console.log(`[AutoClick][${bot.username}] attack -> ${target.name}`);
       }
     } catch (e) {
       console.error(`[AutoClick][${bot.username}] error: ${e.message}`);
