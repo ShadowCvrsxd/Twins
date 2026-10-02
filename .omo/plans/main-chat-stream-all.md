@@ -13,9 +13,9 @@
 - `get`/`set` — SQLite (JSON фоллбэк), как везде.
 
 ## Todos
-- [ ] 1. tg-hub.js: команды `/mainstreamallon`/`/mainstreamalloff` — `set('main_chat_stream_all', { ...map, [chatId]: enabled })`, ответы `✅ Дублирование всего чата мейна включено/выключено`, добавление в `initBotMenu` и /start-хелп.
-- [ ] 2. utils.js: `sendMainTelegramNotification` — перед фильтром ника проверять `get('main_chat_stream_all', {})[chatId]`, тогда НЕ применять `includes(mainNick)` (слать всё).
-- [ ] 3. Верификация: `node --check tg-hub.js utils.js`, пробник фильтра (мок get/set: выкл → только ник; вкл → всё), коммит `feat(tg): stream full main chat toggle` → push.
+- [x] 1. tg-hub.js: команды `/mainstreamallon`/`/mainstreamalloff` — `set('main_chat_stream_all', { ...map, [chatId]: enabled })`, ответы `✅ Дублирование всего чата мейна включено/выключено`, добавление в `initBotMenu` и /start-хелп.
+- [x] 2. utils.js: `sendMainTelegramNotification` — перед фильтром ника проверять `get('main_chat_stream_all', {})[chatId]`, тогда НЕ применять `includes(mainNick)` (слать всё).
+- [x] 3. Верификация: `node --check tg-hub.js utils.js`, пробник фильтра (мок get/set: выкл → только ник; вкл → всё), коммит `feat(tg): stream full main chat toggle` → push.
 
 ## Acceptance
 - `/mainstreamallon` → любое сообщение чата мейна уходит в ТГ; `/mainstreamalloff` → снова только с ником мейна.
