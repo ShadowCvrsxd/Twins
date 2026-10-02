@@ -70,7 +70,7 @@ function startAutoClick(bot) {
     const delay = st.manualCooldownMs || Math.round(1000 / getAttackSpeed(bot));
       try {
         const target = bot.nearestEntity((e) => {
-          if (e.type !== 'mob' && e.type !== 'animal') return false;
+          if (e.type !== 'mob' && e.type !== 'animal' && e.type !== 'object') return false;
           const dist = bot.entity.position.distanceTo(e.position);
           return dist <= 4.5;
         });
