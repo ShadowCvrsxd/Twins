@@ -68,31 +68,25 @@ function startAutoClick(bot) {
     const st = getClickerState(bot);
     if (!st.enabled) { stopAutoClick(); return; }
     const delay = st.manualCooldownMs || Math.round(1000 / getAttackSpeed(bot));
-    try {
-      const target = bot.nearestEntity((e) => {
-        if (e.type !== 'mob' && e.type !== 'animal') return false;
-        const dist = bot.entity.position.distanceTo(e.position);
-        if (dist > 4.5) return false;
+      try {
+        const target = bot.nearestEntity((e) => {
+          if (e.type !== 'mob' && e.type !== 'animal') return false;
+          const dist = bot.entity.position.distanceTo(e.position);
+          return dist <= 4.5;
+        });
         
-        // ponytail: проверка угла обзора
-        const dir = e.position.minus(bot.entity.position);
-        const angle = Math.abs(bot.entity.yaw - Math.atan2(-dir.x, dir.z));
-        return angle < 0.3; // ponytail: конус ~20-30 градусов
-      });
-      
-      console.log("[AutoClick] view: pitch=" + bot.entity.pitch.toFixed(2) + " yaw=" + bot.entity.yaw.toFixed(2));
-      console.log(`[AutoClick] nearestEntity = ${target ? target.name : "none"}`);
-      if (target) {
-        const dist = bot.entity.position.distanceTo(target.position);
-        const dir = target.position.minus(bot.entity.position);
-        const angle = Math.abs(bot.entity.yaw - Math.atan2(-dir.x, dir.z));
-        console.log("[AutoClick] attack target=" + target.name + " dist=" + dist.toFixed(2) + " angle=" + angle.toFixed(2));
-      }
-      if (target && target.type !== 'player' && target !== bot.entity) {
-        bot.attack(target);
-        console.log(`[AutoClick][${bot.username}] attack -> ${target.name}`);
-      }
-    } catch (e) {
+        console.log("[AutoClick] total entities in view: " + Object.keys(bot.entities).length);
+        console.log("[AutoClick] view: pitch=" + bot.entity.pitch.toFixed(2) + " yaw=" + bot.entity.yaw.toFixed(2));
+        console.log(`[AutoClick] nearestEntity = ${target ? target.name : "none"}`);
+        if (target) {
+          const dist = bot.entity.position.distanceTo(target.position);
+          console.log("[AutoClick] attack target=" + target.name + " dist=" + dist.toFixed(2));
+        }
+        if (target && target.type !== 'player' && target !== bot.entity) {
+          bot.attack(target);
+          console.log(`[AutoClick][${bot.username}] attack -> ${target.name}`);
+        }
+      } catch (e) {
       console.error(`[AutoClick][${bot.username}] error: ${e.message}`);
     }
     autoClickTimer = setTimeout(tick, delay);
