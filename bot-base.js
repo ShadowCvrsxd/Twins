@@ -26,9 +26,17 @@ function startAutoClick(bot) {
   autoClickTimer = setInterval(() => {
     if (!bot || !bot.entity) return;
     try {
-      const target = bot.entityAtCursor(4.5);
-      if (!target || target === bot.entity || target.type === 'player') return;
-      bot.attack(target);
+      let closest = null;
+      let closestDist = 4.5;
+      for (const e of Object.values(bot.entities)) {
+        if (!e || e === bot.entity || e.type === 'player' || !e.position) continue;
+        const dist = bot.entity.position.distanceTo(e.position);
+        if (dist <= closestDist) {
+          closest = e;
+          closestDist = dist;
+        }
+      }
+      if (closest) bot.attack(closest);
     } catch (e) {
       console.error(`[AutoClick] Ошибка атаки: ${e.message}`);
     }
