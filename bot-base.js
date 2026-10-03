@@ -71,8 +71,7 @@ function startAutoClick(bot) {
       try {
         const target = bot.nearestEntity((e) => {
           if (!e || !e.position) return false;
-          if (e.type !== 'living' && e.type !== 'mob' && e.type !== 'animal' && e.type !== 'hostile') return false;
-          if (e.type === 'player' || e === bot.entity) return false;
+          if (e.name !== 'armor_stand') return false;
           return bot.entity.position.distanceTo(e.position) <= 3.0;
         });
         
