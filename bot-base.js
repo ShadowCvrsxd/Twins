@@ -65,7 +65,9 @@ function startAutoClick(bot) {
     if (!bot || !bot.entity) { autoClickTimer = setTimeout(tick, 500); return; }
     const st = getClickerState(bot);
     if (!st.enabled) { stopAutoClick(); return; }
-    const delay = st.manualCooldownMs || Math.round(1000 / getAttackSpeed(bot));
+    const baseDelay = st.manualCooldownMs || Math.round(1000 / getAttackSpeed(bot));
+    const jitter = Math.floor(Math.random() * 200) - 100; // от -100 до +100 мс
+    const delay = Math.max(200, baseDelay + jitter);
       try {
         const target = bot.nearestEntity((e) => {
           if (!e || !e.position) return false;
