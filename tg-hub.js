@@ -163,13 +163,9 @@ setTimeout(() => { notifyVpsRestart(); }, 2000);
 
 async function notifyVpsRestart() {
   try {
-    const approved = readJSON(APPROVED_FILE);
-    const chatIds = new Set(Object.keys(approved));
-    if (ADMIN_ID) chatIds.add(ADMIN_ID);
+    if (!ADMIN_ID) return;
     const text = '🔄 *VPS / Twins Hub перезапущен* (сервис возобновлен)';
-    for (const chatId of chatIds) {
-      if (chatId) await sendMessage(chatId, text, 'Markdown');
-    }
+    await sendMessage(ADMIN_ID, text, 'Markdown');
   } catch (e) {}
 }
 
