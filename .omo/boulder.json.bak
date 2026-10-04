@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "active_work_id": "fix-players-routing-race-b08986a2",
+  "works": {
+    "fix-players-routing-race-b08986a2": {
+      "work_id": "fix-players-routing-race-b08986a2",
+      "active_plan": "/home/shadowcvrsxd/my/twinks/.omo/plans/fix-players-routing-race.md",
+      "plan_name": "fix-players-routing-race",
+      "status": "active",
+      "started_at": "2026-09-27T13:42:16.624Z",
+      "updated_at": "2026-09-27T13:42:16.624Z",
+      "session_ids": [
+        "opencode:ses_f730c7f98ffeFJaCo72iaNmQGo"
+      ],
+      "session_origins": {
+        "opencode:ses_f730c7f98ffeFJaCo72iaNmQGo": "direct"
+      },
+      "agent": "sisyphus",
+      "task_sessions": {}
+    }
+  },
+  "active_plan": "/home/shadowcvrsxd/my/twinks/.omo/plans/fix-players-routing-race.md",
+  "started_at": "2026-09-27T13:42:16.624Z",
+  "status": "active",
+  "updated_at": "2026-09-27T13:42:16.624Z",
+  "session_ids": [
+    "opencode:ses_f730c7f98ffeFJaCo72iaNmQGo"
+  ],
+  "session_origins": {
+    "opencode:ses_f730c7f98ffeFJaCo72iaNmQGo": "direct"
+  },
+  "plan_name": "fix-players-routing-race",
+  "task_sessions": {},
+  "agent": "sisyphus"
+}

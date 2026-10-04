@@ -1,1 +1,16 @@
 # Twins
+Бот-фреймворк для управления твинками в Minecraft через Telegram.
+
+## Команды Telegram
+- Управление твинками: `/bot1`, `/bot2`
+- Спам: `/addspam <время><s|m|h>`
+- Автокликер: `/click`
+- Позиция: `/pos`
+- Стриминг чата: `/stream`
+
+## Запуск
+- `npm run hub` — основной хаб
+- `npm run chat` — чат-бот
+- `npm run main` — основной бот
+- `npm run bot1` / `npm run bot2` — управление твинками
+- `npm run vote` — голосование
