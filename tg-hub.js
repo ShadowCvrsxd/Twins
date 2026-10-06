@@ -579,7 +579,8 @@ async function poll() {
            const index = userBots.findIndex(b => b.toLowerCase() === targetBot.toLowerCase());
            
            const mapping = get('bot_service_mapping', {});
-           const serviceName = mapping[targetBot.toLowerCase()] || (index === 1 ? 'twins-bot2' : 'twins-bot1');
+           const rawService = mapping[targetBot.toLowerCase()] || (index === 1 ? 'twins-bot2' : 'twins-bot1');
+           const serviceName = ['twins-bot1', 'twins-bot2'].includes(rawService) ? rawService : 'twins-bot1'; // ponytail: whitelist
 
            const cmdStr = process.env.USER_SYSTEMD === 'true' ? `systemctl --user start ${serviceName}` : `sudo systemctl start ${serviceName}`;
           require('child_process').exec(cmdStr, (err) => {
@@ -607,7 +608,8 @@ async function poll() {
            const index = userBots.findIndex(b => b.toLowerCase() === targetBot.toLowerCase());
            
            const mapping = get('bot_service_mapping', {});
-           const serviceName = mapping[targetBot.toLowerCase()] || (index === 1 ? 'twins-bot2' : 'twins-bot1');
+           const rawService = mapping[targetBot.toLowerCase()] || (index === 1 ? 'twins-bot2' : 'twins-bot1');
+           const serviceName = ['twins-bot1', 'twins-bot2'].includes(rawService) ? rawService : 'twins-bot1'; // ponytail: whitelist
 
            const cmdStr = process.env.USER_SYSTEMD === 'true' ? `systemctl --user stop ${serviceName}` : `sudo systemctl stop ${serviceName}`;
           require('child_process').exec(cmdStr, (err) => {
