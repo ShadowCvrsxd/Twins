@@ -143,7 +143,7 @@ function checkMeow(bot, message, sender) {
     return;
   }
   const timeSinceLast = now - botSettings.lastMeowed;
-  const cooldownMs = 5 * 60 * 1000; // ponytail: КД 5 минут
+  const cooldownMs = botSettings.cooldownMs || (5 * 60 * 1000);
   if (timeSinceLast < cooldownMs) {
     return;
   }

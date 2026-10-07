@@ -127,8 +127,9 @@ async function initBotMenu() {
       { command: 'startmain', description: 'Запустить мейн-бота (/startmain)' },
       { command: 'stopmain', description: 'Остановить мейн-бота (/stopmain)' },
       { command: 'chat', description: 'Написать в чат (/chat <алиас> <текст>)' },
-      { command: 'meowon', description: 'Вкл. мяуканье (/meowon <алиас>)' },
-      { command: 'meowoff', description: 'Выкл. мяуканье (/meowoff <алиас>)' },
+       { command: 'meowon', description: 'Вкл. мяуканье (/meowon <алиас>)' },
+       { command: 'meowoff', description: 'Выкл. мяуканье (/meowoff <алиас>)' },
+       { command: 'meowcd', description: 'Кулдаун мяуканья (/meowcd <алиас> <время>)' },
       { command: 'autorepon', description: 'Вкл. авто-респекты (/autorepon <алиас>)' },
       { command: 'autorepoff', description: 'Выкл. авто-респекты (/autorepoff <алиас>)' },
       { command: 'status', description: 'Статус привязанных ботов' },
@@ -185,7 +186,7 @@ async function poll() {
         const cmd = parts[0].toLowerCase();
 
         if (cmd === '/start') {
-          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/startmain` - запустить мейн-бота\n`/stopmain` - остановить мейн-бота\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/autorepon <алиас>` - вкл. авто-респекты\n`/autorepoff <алиас>` - выкл. авто-респекты\n`/spamlist <алиас>` - список спам-задач\n`/addspam <алиас> <сек> <текст>` - добавить спам-задачу\n`/delspam <алиас> <номер>` - удалить спам-задачу\n`/autoclickon <алиас>` - вкл. автокликер\n`/autoclickoff <алиас>` - выкл. автокликер\n`/setswing <алиас> <мс|auto>` - тайминг удара\n`/pos <алиас>` - координаты твинка\n`/mainstreamallon` - дублировать ВЕСЬ чат мейна\n`/mainstreamalloff` - только сообщения с ником мейна\n`/stopspam` - остановить спам';
+          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/startmain` - запустить мейн-бота\n`/stopmain` - остановить мейн-бота\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/meowcd <алиас> <время>` - кулдаун мяуканья\n`/autorepon <алиас>` - вкл. авто-респекты\n`/autorepoff <алиас>` - выкл. авто-респекты\n`/spamlist <алиас>` - список спам-задач\n`/addspam <алиас> <сек> <текст>` - добавить спам-задачу\n`/delspam <алиас> <номер>` - удалить спам-задачу\n`/autoclickon <алиас>` - вкл. автокликер\n`/autoclickoff <алиас>` - выкл. автокликер\n`/setswing <алиас> <мс|auto>` - тайминг удара\n`/pos <алиас>` - координаты твинка\n`/mainstreamallon` - дублировать ВЕСЬ чат мейна\n`/mainstreamalloff` - только сообщения с ником мейна\n`/stopspam` - остановить спам';
           if (isAdmin(chatId)) {
             msg += '\n\n👑 *Админ-панель:*\nСтатус регистрации: ' + (isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта') + '\n`/lock` - заблокировать\n`/unlock` - разблокировать\n`/users` - список юзеров\n`/testserver` - на тестовый\n`/mainserver` - на основной\n`/setserver <ip> <port>` - сменить сервер\n`/vote` - автоголосование';
           }
@@ -244,6 +245,41 @@ async function poll() {
            await sendMessage(chatId, `✅ Режим "мяу" для твинка *${targetBot}* ${enabled ? 'ВКЛ' : 'ВЫКЛ'}.`);
 
 
+        }
+        else if (cmd === '/meowcd') {
+          const userBots = (readJSON(APPROVED_FILE)[chatId] || []);
+          if (userBots.length === 0) {
+            await sendMessage(chatId, '❌ У тебя нет привязанных твинков.');
+            continue;
+          }
+          const targetArg = parts[1];
+          const timeArg = parts[2];
+          if (!targetArg || !timeArg) {
+            await sendMessage(chatId, '❌ Использование: `/meowcd <алиас или ник> <время>` (например, `/meowcd bot1 2` или `/meowcd bot1 30s`)');
+            continue;
+          }
+
+          const targetBot = resolveBot(chatId, targetArg);
+          if (!targetBot) {
+            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден.`);
+            continue;
+          }
+
+          const seconds = /[smh]$/i.test(timeArg) ? parseDuration(timeArg) : parseInt(timeArg, 10) * 60;
+          if (isNaN(seconds) || seconds <= 0) {
+            await sendMessage(chatId, '❌ Неверный формат времени. Используйте минуты (например, `2`) или с суффиксом (`30s`, `2m`, `1h`).');
+            continue;
+          }
+
+          const cooldownMs = seconds * 1000;
+          let settings = readJSON(MEOW_FILE);
+          settings[targetBot.toLowerCase()] = {
+            ...settings[targetBot.toLowerCase()],
+            cooldownMs
+          };
+          writeJSON(MEOW_FILE, settings);
+
+          await sendMessage(chatId, `✅ Кулдаун "мяу" для твинка *${targetBot}* установлен на ${timeArg} (${seconds} сек).`);
         }
         else if (cmd === '/mainstreamon' || cmd === '/mainstreamoff') {
           const enabled = cmd === '/mainstreamon';
