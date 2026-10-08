@@ -178,6 +178,8 @@ http.createServer((req, res) => {
   const token = url.searchParams.get('token');
   const botName = url.searchParams.get('bot');
 
+  console.log('[Bridge] Получен запрос:', { token, botName });
+
   if (token !== process.env.BRIDGE_TOKEN) {
     res.writeHead(403);
     res.end('Forbidden');
