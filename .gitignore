@@ -13,3 +13,6 @@ vpn/
 *.txt
 test_*.js
 list_models.js
+friend_dist.zip
+
+friend_dist/
