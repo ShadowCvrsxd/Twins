@@ -1,4 +1,3 @@
-const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
@@ -6,11 +5,12 @@ const dbPath = path.join(__dirname, 'twins.db');
 let db;
 
 try {
+  const Database = require('better-sqlite3');
   db = new Database(dbPath);
 } catch (e) {
-  // Если бинарник better-sqlite3 не собрался под текущую версию Node, 
+  // Если better-sqlite3 не установлен или не собрался,
   // используем встроенное SQLite-подобное хранилище на JSON без падений
-  console.warn('[DB Warning] better-sqlite3 native binding failed, using JSON store fallback.');
+  console.warn('[DB Warning] better-sqlite3 not available, using JSON store fallback.');
 }
 
 if (db) {
