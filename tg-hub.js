@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 const { get, set } = require('./db.js');
 
 require('dotenv').config();
@@ -171,6 +172,32 @@ async function notifyVpsRestart() {
 }
 
 console.log('[Telegram] Хаб запущен и слушает сообщения...');
+
+http.createServer((req, res) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const token = url.searchParams.get('token');
+  const botName = url.searchParams.get('bot');
+
+  if (token !== process.env.BRIDGE_TOKEN) {
+    res.writeHead(403);
+    res.end('Forbidden');
+    return;
+  }
+  if (!botName) {
+    res.writeHead(400);
+    res.end('Bad Request');
+    return;
+  }
+
+  const reqs = readJSONArray(reqFile);
+  const botReqs = reqs.filter(r => r.username.toLowerCase() === botName.toLowerCase());
+  const otherReqs = reqs.filter(r => r.username.toLowerCase() !== botName.toLowerCase());
+
+  writeJSON(reqFile, otherReqs);
+
+  res.writeHead(200, {'Content-Type': 'application/json'});
+  res.end(JSON.stringify(botReqs));
+}).listen(8088);
 
 async function poll() {
   try {
