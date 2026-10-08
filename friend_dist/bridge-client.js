@@ -47,7 +47,8 @@ function poll() {
         });
     });
 
-    req.on('error', (e) => console.log('[Bridge] Ошибка сети:', e.message));
+    req.setTimeout(3000, () => { req.destroy(); console.log('[Bridge] Ошибка: Таймаут соединения'); });
+    req.on('error', (e) => console.log(`[Bridge] Ошибка сети: ${e.code || 'UNKNOWN'} ${e.message}`));
     req.end();
 }
 
