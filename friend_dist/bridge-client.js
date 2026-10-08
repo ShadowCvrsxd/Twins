@@ -32,6 +32,13 @@ function poll() {
                 const reqs = JSON.parse(data);
                 if (Array.isArray(reqs) && reqs.length > 0) {
                     set('bot_requests', reqs);
+                    if (reqs.some(r => r.action === 'stoptwin')) {
+                        if (botProcess) {
+                            botProcess.kill();
+                            botProcess = null;
+                            console.log('[Bridge] Бот остановлен по команде из хаба.');
+                        }
+                    }
                     if (!botProcess) {
                         console.log(`[Bridge] Запуск бота ${botName}...`);
                         botProcess = exec('node bot-base.js');
