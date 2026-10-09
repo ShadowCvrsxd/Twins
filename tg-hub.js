@@ -251,11 +251,17 @@ async function poll() {
           await sendMessage(chatId, msg);
         }
         else if (cmd === '/gettoken') {
-          const token = crypto.randomBytes(32).toString('hex');
-          const userTokens = get('user_tokens', {});
-          userTokens[chatId] = token;
-          set('user_tokens', userTokens);
-          await sendMessage(chatId, `🔑 Твой токен для подключения: \`${token}\`\n\nИспользуй его для авторизации в боте.`);
+          try {
+            console.log('[Bridge Debug] Вызвана команда /gettoken для чата:', chatId);
+            const token = crypto.randomBytes(32).toString('hex');
+            const userTokens = get('user_tokens', {});
+            userTokens[chatId] = token;
+            set('user_tokens', userTokens);
+            console.log('[Bridge Debug] Токен сгенерирован и записан в БД.');
+            await sendMessage(chatId, `🔑 Твой токен для подключения: \`${token}\`\n\nИспользуй его для авторизации в боте.`);
+          } catch (e) {
+            console.error('[Bridge Debug] Ошибка в /gettoken:', e);
+          }
         }
         else if (cmd === '/autorepon' || cmd === '/autorepoff') {
           const userBots = (readJSON(APPROVED_FILE)[chatId] || []);
