@@ -23,6 +23,15 @@ wss.on('connection', (socket, req) => {
         socket.close();
         return;
     }
+
+    const approved = readJSON(APPROVED_FILE);
+    const allBots = Object.values(approved).flat();
+    if (!allBots.some(b => b.toLowerCase() === botName.toLowerCase())) {
+        console.log(`[Bridge] Отклонено: бот ${botName} не привязан.`);
+        socket.close();
+        return;
+    }
+
     // Сохраняем сокет для отправки команд
     socket.botName = botName.toLowerCase();
     clients.set(socket.botName, socket);
