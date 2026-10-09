@@ -952,3 +952,5 @@ setInterval(async () => {
     }
   }
 }, 1000);
+
+console.log('[Bridge Debug] Конец файла достигнут.');
