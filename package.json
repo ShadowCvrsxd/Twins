@@ -7,7 +7,8 @@
     "minecraft-protocol": "^1.68.0",
     "mineflayer": "^4.39.0",
     "opusscript": "^0.0.8",
-    "puppeteer": "^22.0.0"
+    "puppeteer": "^22.0.0",
+    "ws": "^8.22.0"
   },
   "scripts": {
     "hub": "node tg-hub.js",

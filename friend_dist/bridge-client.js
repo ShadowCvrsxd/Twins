@@ -5,10 +5,10 @@ const { set } = require('./db.js');
 
 const bridgeUrl = process.env.SERVER_URL || process.env.BRIDGE_URL || 'ws://localhost:8088';
 const token = process.env.BRIDGE_TOKEN;
-const botName = process.env.USERNAME;
+const botName = process.env.BOT_NAME;
 
 if (!token || !botName) {
-  console.log('[Bridge Client] Ошибка: не задан BRIDGE_TOKEN или USERNAME в .env');
+  console.log('[Bridge Client] Ошибка: не задан BRIDGE_TOKEN или BOT_NAME в .env');
   process.exit(1);
 }
 
