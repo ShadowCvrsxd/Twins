@@ -936,9 +936,6 @@ async function poll() {
   setTimeout(poll, 1000);
 }
 
-console.log('[Bridge Debug] Вызываю функцию poll()...');
-poll();
-
 setInterval(async () => {
   const approved = readJSON(APPROVED_FILE);
   for (const [chatId, bots] of Object.entries(approved)) {
@@ -953,4 +950,6 @@ setInterval(async () => {
   }
 }, 1000);
 
+console.log('[Bridge Debug] Вызываю функцию poll()...');
+poll();
 console.log('[Bridge Debug] Конец файла достигнут.');
