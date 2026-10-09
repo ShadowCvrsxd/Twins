@@ -38,7 +38,7 @@ function connect() {
                 
                 if (!botProcess) {
                     console.log(`[Bridge] Запуск бота ${botName}...`);
-                    botProcess = exec('node bot-base.js');
+                    botProcess = exec('node bot.js');
                     botProcess.stdout.pipe(process.stdout);
                     botProcess.stderr.pipe(process.stderr);
                     botProcess.on('close', () => {
