@@ -231,6 +231,7 @@ async function notifyVpsRestart() {
 console.log('[Telegram] Хаб запущен и слушает сообщения...');
 
 async function poll() {
+  console.log('[Bridge Debug] Функция poll() начала выполнение.');
   try {
     console.log('[Bridge Debug] Запрос обновлений (offset:', offset, ')');
     const updates = await telegramAPI('getUpdates', { offset, timeout: 30 });
@@ -935,6 +936,7 @@ async function poll() {
   setTimeout(poll, 1000);
 }
 
+console.log('[Bridge Debug] Вызываю функцию poll()...');
 poll();
 
 setInterval(async () => {
