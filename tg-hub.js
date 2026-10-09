@@ -120,6 +120,7 @@ async function telegramAPI(method, body = {}) {
     return data.result;
   } catch (e) {
     console.error(`[Telegram Network Error] Method ${method}:`, e.message);
+    console.log('[Bridge Debug] telegramAPI вернул null для метода', method);
     return null;
   }
 }
