@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const WebSocket = require('ws');
 const crypto = require('crypto');
+const { execSync } = require('child_process');
 const { get, set } = require('./db.js');
 
 require('dotenv').config();
@@ -255,17 +256,19 @@ async function poll() {
           await sendMessage(chatId, msg);
         }
         else if (cmd === '/gettoken') {
-          try {
-            console.log('[Bridge Debug] Вызвана команда /gettoken для чата:', chatId);
-            const token = crypto.randomBytes(32).toString('hex');
-            const userTokens = get('user_tokens', {});
-            userTokens[chatId] = token;
-            set('user_tokens', userTokens);
-            console.log('[Bridge Debug] Токен сгенерирован и записан в БД.');
-            await sendMessage(chatId, `🔑 Твой токен для подключения: \`${token}\`\n\nИспользуй его для авторизации в боте.`);
-          } catch (e) {
-            console.error('[Bridge Debug] Ошибка в /gettoken:', e);
-          }
+            // ponytail: using openssl as requested; crypto.randomBytes(32).toString('hex') is the stdlib alternative.
+            try {
+                console.log('[TokenDebug] Команда /gettoken вызвана для:', chatId);
+                const token = execSync('openssl rand -hex 32').toString().trim();
+                const userTokens = get('user_tokens', {});
+                userTokens[chatId] = token;
+                set('user_tokens', userTokens);
+                console.log('[TokenDebug] Токен сохранен:', token);
+                await sendMessage(chatId, `🔑 Твой токен: \`${token}\``);
+            } catch (e) {
+                console.error('[TokenDebug] Ошибка:', e);
+                await sendMessage(chatId, '❌ Ошибка при генерации токена.');
+            }
         }
         else if (cmd === '/autorepon' || cmd === '/autorepoff') {
           const userBots = (readJSON(APPROVED_FILE)[chatId] || []);
