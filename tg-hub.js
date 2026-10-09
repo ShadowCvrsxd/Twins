@@ -240,6 +240,7 @@ async function poll() {
 
         const chatId = update.message.chat.id;
         const text = update.message.text.trim();
+        console.log('[Bridge Debug] Получено сообщение:', text);
         const parts = text.split(' ');
         const cmd = parts[0].toLowerCase();
 
