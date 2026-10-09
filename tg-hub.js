@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const http = require('http');
+const WebSocket = require('ws');
 const { get, set } = require('./db.js');
 
 require('dotenv').config();
@@ -9,6 +9,38 @@ const TOKEN = process.env.TG_BOT_TOKEN;
 if (!TOKEN) {
   console.log('[Telegram] TG_BOT_TOKEN не задан в .env. Телеграм-хаб отключен.');
   process.exit(0);
+}
+
+const wss = new WebSocket.Server({ port: 8088 });
+const clients = new Map();
+
+wss.on('connection', (socket, req) => {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const token = url.searchParams.get('token');
+    const botName = url.searchParams.get('bot');
+
+    if (token !== process.env.BRIDGE_TOKEN || !botName) {
+        socket.close();
+        return;
+    }
+    // Сохраняем сокет для отправки команд
+    socket.botName = botName.toLowerCase();
+    clients.set(socket.botName, socket);
+    console.log(`[Bridge] Бот ${socket.botName} подключен.`);
+
+    socket.on('close', () => {
+        clients.delete(socket.botName);
+        console.log(`[Bridge] Бот ${socket.botName} отключен.`);
+    });
+});
+
+function sendCommand(botName, command) {
+  const client = clients.get(botName.toLowerCase());
+  if (client && client.readyState === WebSocket.OPEN) {
+    client.send(JSON.stringify(command));
+    return true;
+  }
+  return false;
 }
 
 const PENDING_FILE = 'links_pending';
@@ -172,34 +204,6 @@ async function notifyVpsRestart() {
 }
 
 console.log('[Telegram] Хаб запущен и слушает сообщения...');
-
-http.createServer((req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const token = url.searchParams.get('token');
-  const botName = url.searchParams.get('bot');
-
-  console.log('[Bridge] Получен запрос:', { token, botName });
-
-  if (token !== process.env.BRIDGE_TOKEN) {
-    res.writeHead(403);
-    res.end('Forbidden');
-    return;
-  }
-  if (!botName) {
-    res.writeHead(400);
-    res.end('Bad Request');
-    return;
-  }
-
-  const reqs = readJSONArray(reqFile);
-  const botReqs = reqs.filter(r => r.username.toLowerCase() === botName.toLowerCase());
-  const otherReqs = reqs.filter(r => r.username.toLowerCase() !== botName.toLowerCase());
-
-  writeJSON(reqFile, otherReqs);
-
-  res.writeHead(200, {'Content-Type': 'application/json'});
-  res.end(JSON.stringify(botReqs));
-}).listen(8088);
 
 async function poll() {
   try {
@@ -415,9 +419,8 @@ async function poll() {
           }
 
           allBots.forEach(botName => {
-            reqs.push({ username: botName, action: 'switchServer', host, port });
+            sendCommand(botName, { action: 'switchServer', host, port });
           });
-          writeJSON(reqFile, reqs);
 
           await sendMessage(chatId, `🚀 Команда переключения на тестовый сервер (${host}:${port}) отправлена для всех ботов!`);
         }
@@ -442,9 +445,8 @@ async function poll() {
           }
 
           allBots.forEach(botName => {
-            reqs.push({ username: botName, action: 'switchServer', host, port });
+            sendCommand(botName, { action: 'switchServer', host, port });
           });
-          writeJSON(reqFile, reqs);
 
           await sendMessage(chatId, `🚀 Команда переключения на основной сервер (${host}:${port}) отправлена для всех ботов!`);
         }
@@ -774,9 +776,7 @@ async function poll() {
           tasks.push({ msg, delay });
           set(key, tasks);
           // сигнал боту перечитать список на лету
-          const reqs = readJSONArray(reqFile);
-          reqs.push({ username: targetBot, action: 'reloadSpam' });
-          writeJSON(reqFile, reqs);
+          sendCommand(targetBot, { action: 'reloadSpam' });
       await sendMessage(chatId, `✅ Спам #${tasks.length} добавлен для *${targetBot}*: "${msg}" (каждые ${delay} с)`);
     }
     else if (cmd === '/delspam') {
@@ -795,9 +795,7 @@ async function poll() {
       }
       const removed = tasks.splice(index, 1)[0];
       set(key, tasks);
-      const reqs = readJSONArray(reqFile);
-      reqs.push({ username: targetBot, action: 'reloadSpam' });
-      writeJSON(reqFile, reqs);
+      sendCommand(targetBot, { action: 'reloadSpam' });
       await sendMessage(chatId, `🗑 Спам-задача #${taskNum} ("${removed.msg}") удалена у *${targetBot}*`);
     }
     else if (cmd === '/autoclickon' || cmd === '/autoclickoff') {
@@ -807,9 +805,7 @@ async function poll() {
         continue;
       }
       const action = cmd === '/autoclickon' ? 'autoclickon' : 'autoclickoff';
-      const reqs = readJSONArray(reqFile);
-      reqs.push({ username: targetBot, action: action });
-      writeJSON(reqFile, reqs);
+      sendCommand(targetBot, { action: action });
       await sendMessage(chatId, `✅ Автокликер ${cmd === '/autoclickon' ? 'включен' : 'выключен'} для *${targetBot}*`);
     }
     else if (cmd === '/setswing') {
@@ -830,9 +826,7 @@ async function poll() {
           continue;
         }
       }
-      const reqs = readJSONArray(reqFile);
-      reqs.push({ username: targetBot, action: 'setswing', ms });
-      writeJSON(reqFile, reqs);
+      sendCommand(targetBot, { action: 'setswing', ms });
       if (ms === null) {
         await sendMessage(chatId, `✅ Тайминг удара для *${targetBot}*: авто (по оружию)`);
       } else {
@@ -849,9 +843,7 @@ async function poll() {
         await sendMessage(chatId, `❌ Твинк '${parts[1]}' не найден.`);
         continue;
       }
-      const reqs = readJSONArray(reqFile);
-      reqs.push({ username: targetBot, action: 'pos' });
-      writeJSON(reqFile, reqs);
+      sendCommand(targetBot, { action: 'pos' });
       await sendMessage(chatId, `✅ Запрашиваю координаты *${targetBot}*...`);
     }
     else if (cmd === '/players' || cmd === '/tab') {
@@ -880,13 +872,7 @@ async function poll() {
             }
           }
 
-          const reqs = readJSONArray(reqFile);
-          if (!Array.isArray(reqs)) {
-            writeJSON(reqFile, [{ username: targetBot, action: 'players', chatId: chatId }]);
-          } else {
-            reqs.push({ username: targetBot, action: 'players', chatId: chatId });
-            writeJSON(reqFile, reqs);
-          }
+          sendCommand(targetBot, { action: 'players', chatId: chatId });
 
           await sendMessage(chatId, `🔍 Запрос списка игроков отправлен для *${targetBot}*... Ожидайте ответ.`);
         }
