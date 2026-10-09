@@ -649,6 +649,7 @@ async function poll() {
            const rawService = mapping[targetBot.toLowerCase()] || (index === 1 ? 'twins-bot2' : 'twins-bot1');
            const serviceName = ['twins-bot1', 'twins-bot2'].includes(rawService) ? rawService : 'twins-bot1'; // ponytail: whitelist
 
+           console.log(`[Bridge Debug] Попытка отправить команду боту ${targetBot.toLowerCase()}. Активные сокеты:`, Array.from(clients.keys()));
            if (sendCommand(targetBot, { action: 'start' })) {
              await sendMessage(chatId, `🟢 Команда запуска отправлена твинку *${targetBot}* через WebSocket.`);
            } else {
@@ -682,6 +683,7 @@ async function poll() {
            const rawService = mapping[targetBot.toLowerCase()] || (index === 1 ? 'twins-bot2' : 'twins-bot1');
            const serviceName = ['twins-bot1', 'twins-bot2'].includes(rawService) ? rawService : 'twins-bot1'; // ponytail: whitelist
 
+           console.log(`[Bridge Debug] Попытка отправить команду боту ${targetBot.toLowerCase()}. Активные сокеты:`, Array.from(clients.keys()));
            if (sendCommand(targetBot, { action: 'stoptwin' })) {
              await sendMessage(chatId, `🔴 Команда остановки отправлена твинку *${targetBot}* через WebSocket.`);
            } else {
