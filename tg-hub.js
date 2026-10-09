@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const WebSocket = require('ws');
+const crypto = require('crypto');
 const { get, set } = require('./db.js');
 
 require('dotenv').config();
@@ -19,15 +20,29 @@ wss.on('connection', (socket, req) => {
     const token = url.searchParams.get('token');
     const botName = url.searchParams.get('bot');
 
-    if (token !== process.env.BRIDGE_TOKEN || !botName) {
+    if (!botName) {
         socket.close();
         return;
     }
 
     const approved = readJSON(APPROVED_FILE);
-    const allBots = Object.values(approved).flat();
-    if (!allBots.some(b => b.toLowerCase() === botName.toLowerCase())) {
+    let ownerId = null;
+    for (const [chatId, bots] of Object.entries(approved)) {
+        if (bots.some(b => b.toLowerCase() === botName.toLowerCase())) {
+            ownerId = chatId;
+            break;
+        }
+    }
+
+    if (!ownerId) {
         console.log(`[Bridge] Отклонено: бот ${botName} не привязан.`);
+        socket.close();
+        return;
+    }
+
+    const userTokens = get('user_tokens', {});
+    if (token !== userTokens[ownerId]) {
+        console.log(`[Bridge] Отклонено: неверный токен для бота ${botName}.`);
         socket.close();
         return;
     }
@@ -160,6 +175,7 @@ async function initBotMenu() {
   await telegramAPI('setMyCommands', {
     commands: [
       { command: 'start', description: 'Главное меню' },
+      { command: 'gettoken', description: 'Получить токен' },
       { command: 'addtwin', description: 'Привязать твинка (/addtwin <ник>)' },
       { command: 'deltwin', description: 'Отвязать твинка (/deltwin <ник>)' },
       { command: 'alias', description: 'Задать алиас (/alias <бот> <алиас>)' },
@@ -228,11 +244,18 @@ async function poll() {
         const cmd = parts[0].toLowerCase();
 
         if (cmd === '/start') {
-          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/startmain` - запустить мейн-бота\n`/stopmain` - остановить мейн-бота\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/meowcd <алиас> <время>` - кулдаун мяуканья\n`/autorepon <алиас>` - вкл. авто-респекты\n`/autorepoff <алиас>` - выкл. авто-респекты\n`/spamlist <алиас>` - список спам-задач\n`/addspam <алиас> <сек> <текст>` - добавить спам-задачу\n`/delspam <алиас> <номер>` - удалить спам-задачу\n`/autoclickon <алиас>` - вкл. автокликер\n`/autoclickoff <алиас>` - выкл. автокликер\n`/setswing <алиас> <мс|auto>` - тайминг удара\n`/pos <алиас>` - координаты твинка\n`/mainstreamallon` - дублировать ВЕСЬ чат мейна\n`/mainstreamalloff` - только сообщения с ником мейна\n`/stopspam` - остановить спам';
+          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/gettoken` - получить токен для подключения\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/startmain` - запустить мейн-бота\n`/stopmain` - остановить мейн-бота\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/meowcd <алиас> <время>` - кулдаун мяуканья\n`/autorepon <алиас>` - вкл. авто-респекты\n`/autorepoff <алиас>` - выкл. авто-респекты\n`/spamlist <алиас>` - список спам-задач\n`/addspam <алиас> <сек> <текст>` - добавить спам-задачу\n`/delspam <алиас> <номер>` - удалить спам-задачу\n`/autoclickon <алиас>` - вкл. автокликер\n`/autoclickoff <алиас>` - выкл. автокликер\n`/setswing <алиас> <мс|auto>` - тайминг удара\n`/pos <алиас>` - координаты твинка\n`/mainstreamallon` - дублировать ВЕСЬ чат мейна\n`/mainstreamalloff` - только сообщения с ником мейна\n`/stopspam` - остановить спам';
           if (isAdmin(chatId)) {
             msg += '\n\n👑 *Админ-панель:*\nСтатус регистрации: ' + (isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта') + '\n`/lock` - заблокировать\n`/unlock` - разблокировать\n`/users` - список юзеров\n`/testserver` - на тестовый\n`/mainserver` - на основной\n`/setserver <ip> <port>` - сменить сервер\n`/vote` - автоголосование';
           }
           await sendMessage(chatId, msg);
+        }
+        else if (cmd === '/gettoken') {
+          const token = crypto.randomBytes(32).toString('hex');
+          const userTokens = get('user_tokens', {});
+          userTokens[chatId] = token;
+          set('user_tokens', userTokens);
+          await sendMessage(chatId, `🔑 Твой токен для подключения: \`${token}\`\n\nИспользуй его для авторизации в боте.`);
         }
         else if (cmd === '/autorepon' || cmd === '/autorepoff') {
           const userBots = (readJSON(APPROVED_FILE)[chatId] || []);
