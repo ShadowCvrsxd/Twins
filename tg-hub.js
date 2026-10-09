@@ -232,7 +232,9 @@ console.log('[Telegram] Хаб запущен и слушает сообщени
 
 async function poll() {
   try {
+    console.log('[Bridge Debug] Запрос обновлений (offset:', offset, ')');
     const updates = await telegramAPI('getUpdates', { offset, timeout: 30 });
+    console.log('[Bridge Debug] Ответ API (кол-во обновлений):', updates ? updates.length : 'null');
     if (updates && Array.isArray(updates)) {
       for (const update of updates) {
         offset = update.update_id + 1;
