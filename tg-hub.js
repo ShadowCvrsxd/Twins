@@ -15,9 +15,7 @@ if (!TOKEN) {
 
 const http = require('http');
 
-// ... (existing websocket setup)
-
-// API Server (Port 8089)
+// API Server (Port 8089) - initialized explicitly for visibility
 const apiServer = http.createServer((req, res) => {
     if (req.method === 'POST' && req.url === '/command') {
         const auth = req.headers['authorization'];
@@ -26,7 +24,6 @@ const apiServer = http.createServer((req, res) => {
         }
         const token = auth.split(' ')[1];
         const tokens = get('bot_tokens', {});
-        // ponytail: простой поиск токена в БД
         let authorizedBot = null;
         for (const [name, t] of Object.entries(tokens)) {
             if (t === token) { authorizedBot = name; break; }
@@ -41,7 +38,6 @@ const apiServer = http.createServer((req, res) => {
         req.on('end', () => {
             try {
                 const command = JSON.parse(body);
-                // Отправляем команду в WebSocket
                 if (sendCommand(authorizedBot, command)) {
                     res.writeHead(200); res.end('OK');
                 } else {
@@ -55,8 +51,10 @@ const apiServer = http.createServer((req, res) => {
         res.writeHead(404); res.end();
     }
 });
-apiServer.listen(8089);
-console.log('[API] Шлюз запущен на порту 8089');
+
+apiServer.listen(8089, '0.0.0.0', () => {
+    console.log('[API] Шлюз запущен на порту 8089');
+});
 
 wss.on('connection', (socket, req) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
