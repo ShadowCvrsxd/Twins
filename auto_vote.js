@@ -86,7 +86,7 @@ async function voteWithFetch(nickname) {
       const match = html1.match(/window\.bp_chl_vars\s*=\s*({[^}]+})/);
       if (match) {
         try {
-          const vars = eval("(" + match[1] + ")");
+          const vars = new Function("return " + match[1])();
           if (vars.sec && vars.name) {
             cookieJar = extractCookies({ headers: { getSetCookie: () => [`${vars.name}=${vars.sec}; Path=/; Domain=.hotmc.ru`] } }, cookieJar);
             console.log(`[AutoVote] (${nickname}) ✅ Cloudflare bp_chl кука установлена: ${vars.name}=${vars.sec}`);
