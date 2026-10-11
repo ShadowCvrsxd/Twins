@@ -13,8 +13,50 @@ if (!TOKEN) {
   process.exit(0);
 }
 
-const wss = new WebSocket.Server({ port: 8088 });
-const clients = new Map();
+const http = require('http');
+
+// ... (existing websocket setup)
+
+// API Server (Port 8089)
+const apiServer = http.createServer((req, res) => {
+    if (req.method === 'POST' && req.url === '/command') {
+        const auth = req.headers['authorization'];
+        if (!auth || !auth.startsWith('Bearer ')) {
+            res.writeHead(401); res.end('Unauthorized'); return;
+        }
+        const token = auth.split(' ')[1];
+        const tokens = get('bot_tokens', {});
+        // ponytail: простой поиск токена в БД
+        let authorizedBot = null;
+        for (const [name, t] of Object.entries(tokens)) {
+            if (t === token) { authorizedBot = name; break; }
+        }
+
+        if (!authorizedBot) {
+            res.writeHead(403); res.end('Forbidden'); return;
+        }
+
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            try {
+                const command = JSON.parse(body);
+                // Отправляем команду в WebSocket
+                if (sendCommand(authorizedBot, command)) {
+                    res.writeHead(200); res.end('OK');
+                } else {
+                    res.writeHead(404); res.end('Bot offline');
+                }
+            } catch (e) {
+                res.writeHead(400); res.end('Invalid JSON');
+            }
+        });
+    } else {
+        res.writeHead(404); res.end();
+    }
+});
+apiServer.listen(8089);
+console.log('[API] Шлюз запущен на порту 8089');
 
 wss.on('connection', (socket, req) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
@@ -394,18 +436,16 @@ async function poll() {
             }
           }
         }
-        else if (cmd === '/setservice') {
+        else if (cmd === '/gentoken') {
           if (!isAdmin(chatId)) { await sendMessage(chatId, '❌ Нет прав.'); continue; }
           const botNick = parts[1] ? parts[1].toLowerCase() : null;
-          const service = parts[2] ? parts[2].toLowerCase() : null;
-          if (!botNick || !['twins-bot1', 'twins-bot2'].includes(service)) {
-            await sendMessage(chatId, '❌ Использование: /setservice <ник> <twins-bot1|twins-bot2>');
-            continue;
-          }
-          const mapping = get('bot_service_mapping', {});
-          mapping[botNick] = service;
-          set('bot_service_mapping', mapping);
-          await sendMessage(chatId, `✅ Бот *${botNick}* теперь привязан к сервису *${service}*.`);
+          if (!botNick) { await sendMessage(chatId, '❌ Использование: /gentoken <ник>'); continue; }
+          
+          const token = crypto.randomBytes(32).toString('hex');
+          const tokens = get('bot_tokens', {});
+          tokens[botNick] = token;
+          set('bot_tokens', tokens);
+          await sendMessage(chatId, `🔑 Токен для *${botNick}*: \`${token}\``);
         }
         else if (cmd === '/lock' || cmd === '/adminlock') {
           if (!isAdmin(chatId)) {

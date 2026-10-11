@@ -22,33 +22,36 @@ function connect() {
         console.log('[Bridge] Подключено к серверу.');
     });
 
-    ws.on('message', (data) => {
-        try {
-            const command = JSON.parse(data);
-            console.log('[Bridge] Получена команда:', command);
-            
-            if (command.action === 'stoptwin') {
-                if (botProcess) {
-                    botProcess.kill();
-                    botProcess = null;
-                    console.log('[Bridge] Бот остановлен по команде из хаба.');
-                }
-            } else {
-                set('bot_requests', [command]);
-                
-                if (!botProcess) {
-                    console.log(`[Bridge] Запуск бота ${botName}...`);
-                    botProcess = exec('node bot.js');
-                    botProcess.stdout.pipe(process.stdout);
-                    botProcess.stderr.pipe(process.stderr);
-                    botProcess.on('close', () => {
-                        console.log('[Bridge] Бот остановлен.');
-                        botProcess = null;
-                    });
-                }
-            }
-        } catch (e) { console.log('[Bridge] Ошибка JSON:', e.message); }
-    });
+const axios = require('axios'); // ponytail: используем fetch (уже есть в ноде) или http
+
+async function sendToApi(command) {
+    try {
+        const response = await fetch(`${bridgeUrl.replace('ws', 'http')}/command`, {
+            method: 'POST',
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(command)
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        console.log('[Bridge] Команда успешно отправлена через API.');
+    } catch (e) {
+        console.log('[Bridge] Ошибка API:', e.message);
+    }
+}
+
+ws.on('message', (data) => {
+    try {
+        const command = JSON.parse(data);
+        if (command.action === 'stoptwin') {
+            if (botProcess) { botProcess.kill(); botProcess = null; }
+        } else {
+            // Переход на API вместо прямой записи в БД
+            sendToApi(command);
+        }
+    } catch (e) { console.log('[Bridge] Ошибка:', e.message); }
+});
 
     ws.on('close', () => {
         console.log('[Bridge] Соединение закрыто. Реконнект через 3 сек...');
