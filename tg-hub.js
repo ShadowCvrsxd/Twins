@@ -5,6 +5,8 @@ const crypto = require('crypto');
 const { execSync } = require('child_process');
 const { get, set } = require('./db.js');
 
+const clients = new Map();
+
 require('dotenv').config();
 
 const TOKEN = process.env.TG_BOT_TOKEN;
@@ -55,6 +57,9 @@ const apiServer = http.createServer((req, res) => {
 apiServer.listen(8089, '0.0.0.0', () => {
     console.log('[API] Шлюз запущен на порту 8089');
 });
+
+const wss = new WebSocket.Server({ server: apiServer });
+console.log('[Bridge] WebSocket-сервер запущен на порту 8089 (через API Server)');
 
 wss.on('connection', (socket, req) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
@@ -111,7 +116,6 @@ function sendCommand(botName, command) {
 const PENDING_FILE = 'links_pending';
 const APPROVED_FILE = 'links_approved';
 const STATUS_FILE = 'bots_status';
-const CMDS_FILE = 'bot_commands';
 const STREAMING_FILE = 'chat_streaming';
 const ALIASES_FILE = 'bot_aliases';
 const LOCK_FILE = 'registration_lock';
@@ -839,14 +843,13 @@ async function poll() {
             continue;
           }
 
-          const cmds = readJSONArray(CMDS_FILE);
-          if (!Array.isArray(cmds)) {
-            writeJSON(CMDS_FILE, [{ username: targetBot, text: messageText }]);
-          } else {
-            cmds.push({ username: targetBot, text: messageText });
-            writeJSON(CMDS_FILE, cmds);
-          }
-        }
+           if (sendCommand(targetBot, { action: 'chat', text: messageText })) {
+             await sendMessage(chatId, `✅ Сообщение отправлено боту *${targetBot}*.`);
+           } else {
+             await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
+           }
+       }
+
         else if (cmd === '/spamlist') {
           const targetBot = resolveBot(chatId, parts[1]);
           if (!targetBot) { await sendMessage(chatId, '❌ Неизвестный бот. /spamlist <алиас>'); continue; }

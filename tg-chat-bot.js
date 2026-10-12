@@ -139,9 +139,14 @@ async function poll() {
             onlineBots.sort((a, b) => (statuses[a.toLowerCase()].onlineSince || 0) - (statuses[b.toLowerCase()].onlineSince || 0));
             targetBot = onlineBots[0];
           }
-          let cmds = get('bot_commands', []);
-          cmds.push({ username: targetBot, text: text });
-          set('bot_commands', cmds);
+          await fetch('http://localhost:8089/command', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.TG_BOT_TOKEN}`
+            },
+            body: JSON.stringify({ targetBot: targetBot.toLowerCase(), action: 'chat', text: text })
+          });
           await sendMessage(chatId, `✉️ Отправлено от *${targetBot}*: ${text}`);
           continue;
         }

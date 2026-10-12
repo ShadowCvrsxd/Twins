@@ -2,6 +2,7 @@ const mineflayer = require('mineflayer');
 const readline = require('readline');
 const fs = require('fs');
 const path = require('path');
+const WebSocket = require('ws');
 const { get, set } = require('./db.js');
 
 // ponytail: автокликер
@@ -249,33 +250,25 @@ function startBot(envPath, configOverrides) {
   const RESOURCE_PACK_RESPONSE_NAMES = ['resource_pack_receive', 'resource_pack_response', 'resource_pack_status'];
   const RESULT_SUCCESS = 0;
 
-  // ponytail: раз в 1 секунду проверяем команды чата из Telegram-хаба через БД
-  setInterval(() => {
-    if (!bot) return;
-    try {
-      let cmds = get('bot_commands', []);
-      const myCmds = cmds.filter(c => c.username.toLowerCase() === config.username.toLowerCase());
-      if (myCmds.length > 0) {
-        myCmds.forEach(c => {
-          bot.chat(c.text);
-          console.log(`[Telegram Chat] Отправлено в игру: "${c.text}"`);
-        });
-        cmds = cmds.filter(c => c.username.toLowerCase() !== config.username.toLowerCase());
-        set('bot_commands', cmds);
-      }
-    } catch(e){}
-  }, 1000);
+  // ponytail: WebSocket соединение для получения команд из хаба
+  function connectToHub(botInstance) {
+    const botName = config.username.toLowerCase();
+    const token = process.env.BOT_TOKEN || '';
+    const url = `ws://localhost:8089?token=${token}&bot=${botName}`;
+    const ws = new WebSocket(url);
 
-  // ponytail: проверка запросов (например /players) из Telegram-хаба через БД
-  setInterval(() => {
-    if (!bot) return;
-    try {
-      let reqs = get('bot_requests', []);
-      const myReqs = reqs.filter(r => r.username.toLowerCase() === config.username.toLowerCase());
-      if (myReqs.length > 0) {
-        myReqs.forEach(r => {
-          if (r.action === 'players') {
-            const players = Object.keys(bot.players || {});
+    ws.on('open', () => {
+      console.log(`[WebSocket] Бот ${botName} подключен к Hub.`);
+    });
+
+    ws.on('message', (data) => {
+      try {
+        const command = JSON.parse(data);
+        if (command.action === 'chat') {
+          botInstance.chat(command.text);
+          console.log(`[Telegram Chat] Отправлено в игру: "${command.text}"`);
+        } else if (command.action === 'players') {
+            const players = Object.keys(botInstance.players || {});
             let msg = `👥 Игроки онлайн (${players.length}): ${players.join(', ')}`;
             if (lastTabHeader) {
               const cleanHeader = lastTabHeader.replace(/[\ufffd\uFFFD]/g, '');
@@ -286,49 +279,63 @@ function startBot(envPath, configOverrides) {
               msg = msg + `\n\n📌 Footer: ${cleanFooter}`;
             }
             const respKey = `bot_response_${config.username.toLowerCase()}`;
-            set(respKey, { msg, chatId: r.chatId });
-          } else if (r.action === 'switchServer') {
-            const { host, port } = r;
+            set(respKey, { msg, chatId: command.chatId });
+        } else if (command.action === 'switchServer') {
+            const { host, port } = command;
             if (host && port) {
-              console.log(`[Система] Переключение на тестовый сервер: ${host}:${port}`);
+              console.log(`[Система] Переключение на сервер: ${host}:${port}`);
               config.host = host;
               config.port = parseInt(port);
               isManualQuit = false;
-              if (bot) {
-                bot.quit();
+              if (botInstance) {
+                botInstance.quit();
               } else {
                 createBotInstance();
               }
             }
-          } else if (r.action === 'reloadSpam') {
+        } else if (command.action === 'reloadSpam') {
             reloadSpamTasks(1000);
             console.log(`[${config.username}] Перезагрузка спама из хаба`);
-          } else if (r.action === 'setswing') {
-            setClickerState(bot, { manualCooldownMs: r.ms || null });
-            console.log(`[${config.username}] Тайминг удара установлен: ${r.ms || 'авто'}`);
-          } else if (r.action === 'pos') {
-            if (bot && bot.entity && bot.entity.position) {
-              const p = bot.entity.position;
+        } else if (command.action === 'setswing') {
+            setClickerState(botInstance, { manualCooldownMs: command.ms || null });
+            console.log(`[${config.username}] Тайминг удара установлен: ${command.ms || 'авто'}`);
+        } else if (command.action === 'pos') {
+            if (botInstance && botInstance.entity && botInstance.entity.position) {
+              const p = botInstance.entity.position;
               const f = (n) => Math.floor(n);
               const text = `Координаты: X ${f(p.x)} Y ${f(p.y)} Z ${f(p.z)} | Ад: X ${f(p.x / 8)} Z ${f(p.z / 8)}`;
               sendTelegramNotification(config.username, text);
               console.log(`[${config.username}] Координаты отправлены в Telegram`);
-            } else {
-              console.log(`[${config.username}] /pos: позиция недоступна`);
             }
-          } else if (r.action === 'autoclickon') {
-            setClickerState(bot, { enabled: true });
-            startAutoClick(bot);
-          } else if (r.action === 'autoclickoff') {
-            setClickerState(bot, { enabled: false });
-            stopAutoClick();
-          }
-        });
-        reqs = reqs.filter(r => r.username.toLowerCase() !== config.username.toLowerCase());
-        set('bot_requests', reqs);
+        } else if (command.action === 'autoclickon') {
+            setClickerState(botInstance, { enabled: true });
+            startAutoClick(botInstance);
+        } else if (command.action === 'autoclickoff') {
+            setClickerState(botInstance, { enabled: false });
+            stopAutoClick(botInstance);
+        } else if (command.action === 'start') {
+            console.log(`[Command] Received start command, already running.`);
+        } else if (command.action === 'stoptwin') {
+            isManualQuit = true;
+            botInstance.quit();
+        }
+      } catch (e) {
+        console.error('[WebSocket] Ошибка обработки команды:', e);
       }
-    } catch(e){}
-  }, 1000);
+    });
+
+    ws.on('close', () => {
+      console.log(`[WebSocket] Бот ${botName} отключен. Реконнект через 5 сек...`);
+      setTimeout(() => connectToHub(botInstance), 5000);
+    });
+
+    ws.on('error', (e) => {
+        console.error('[WebSocket] Ошибка:', e);
+    });
+
+    return ws;
+  }
+
 
   // ponytail: проверка авто-респекта с рандомным интервалом от 5 до 10 минут
   function scheduleAutoRespectCheck() {
@@ -519,6 +526,7 @@ function startBot(envPath, configOverrides) {
 
     try {
       bot = mineflayer.createBot(config);
+      connectToHub(bot);
       bot.physicsEnabled = false; // ponytail: отключаем физику до спавна (1.21 config phase)
       
       // ponytail: ловим абсолютно всё, что происходит с сокетом
