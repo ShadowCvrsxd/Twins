@@ -120,6 +120,59 @@ async function resolveBot(chatId, targetArg) {
   return null;
 }
 
+function extractReplyNick(replyText) {
+  if (!replyText) return null;
+  let text = replyText.trim();
+  if (text.startsWith('💬')) {
+    text = text.substring(1).trim();
+  }
+  while (text.startsWith('[')) {
+    const endIdx = text.indexOf(']');
+    if (endIdx !== -1) {
+      text = text.substring(endIdx + 1).trim();
+    } else {
+      break;
+    }
+  }
+
+  const angleMatch = text.match(/^<([^>]+)>/);
+  if (angleMatch) {
+    let nick = angleMatch[1].trim();
+    nick = nick.replace(/^\[.*?\]\s*/, '').trim();
+    return nick || null;
+  }
+
+  if (text.includes('›')) {
+    const parts = text.split('›');
+    let senderPart = parts[0].trim();
+    while (senderPart.startsWith('[')) {
+      const endIdx = senderPart.indexOf(']');
+      if (endIdx !== -1) {
+        senderPart = senderPart.substring(endIdx + 1).trim();
+      } else {
+        break;
+      }
+    }
+    if (senderPart.includes('|')) {
+      const subParts = senderPart.split('|');
+      senderPart = subParts[subParts.length - 1].trim();
+    }
+    senderPart = senderPart.replace(/^\[.*?\]\s*/, '').trim();
+    const tokens = senderPart.split(/\s+/);
+    if (tokens.length > 0) {
+      const nick = tokens[tokens.length - 1];
+      return nick || null;
+    }
+  }
+
+  const match = text.match(/(?:^|\||\])\s*([^\s›|]+)\s*›/);
+  if (match) {
+    return match[1].trim() || null;
+  }
+
+  return null;
+}
+
 async function initBotMenu() {
   await telegramAPI('setMyCommands', {
     commands: [
@@ -160,6 +213,13 @@ async function poll() {
             await sendMessage(chatId, '❌ У тебя нет привязанных твинков.');
             continue;
           }
+          let messageToSend = text;
+          if (update.message.reply_to_message && update.message.reply_to_message.text) {
+            const replyNick = extractReplyNick(update.message.reply_to_message.text);
+            if (replyNick) {
+              messageToSend = `${text} (отвечая "${replyNick}")`;
+            }
+          }
           const statuses = await readJSON(STATUS_FILE);
           const selection = await apiGet('chat_sender_selection', {});
           let targetBot = null;
@@ -187,7 +247,7 @@ async function poll() {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${TOKEN}`
             },
-            body: JSON.stringify({ targetBot: targetBot.toLowerCase(), action: 'chat', text: text })
+            body: JSON.stringify({ targetBot: targetBot.toLowerCase(), action: 'chat', text: messageToSend })
           });
           if (!resp.ok) {
             if (resp.status === 404) {
@@ -197,7 +257,7 @@ async function poll() {
             }
             continue;
           }
-          await sendMessage(chatId, `✉️ Отправлено от *${targetBot}*: ${text}`);
+          await sendMessage(chatId, `✉️ Отправлено от *${targetBot}*: ${messageToSend}`);
           continue;
         }
 
