@@ -23,6 +23,7 @@ const STATUS_FILE = 'bots_status';
 const STREAMING_FILE = 'chat_streaming';
 const ALIASES_FILE = 'bot_aliases';
 const DISPLAY_MODE_FILE = 'chat_display_mode';
+const GLOBAL_MODE_FILE = 'chat_global_mode';
 
 async function apiGet(key, defaultValue = {}) {
   try {
@@ -181,7 +182,9 @@ async function initBotMenu() {
       { command: 'streamoff', description: 'Выключить дублирование чата (/streamoff <бот>)' },
       { command: 'display', description: 'Режим отображения имен (/display <mode>)' },
       { command: 'status', description: 'Статус потоков чата' },
-      { command: 'setchat', description: 'Выбрать отправителя (/setchat <1|2|main>)' }
+      { command: 'setchat', description: 'Выбрать отправителя (/setchat <1|2|main>)' },
+      { command: 'globalon', description: 'Включить глобальный чат (!)' },
+      { command: 'globaloff', description: 'Выключить глобальный чат (!)' }
     ]
   });
 }
@@ -219,6 +222,10 @@ async function poll() {
             if (replyNick) {
               messageToSend = `${text} (отвечая "${replyNick}")`;
             }
+          }
+          const globalModes = await readJSON(GLOBAL_MODE_FILE);
+          if (globalModes[chatId]) {
+            messageToSend = `!${messageToSend}`;
           }
           const statuses = await readJSON(STATUS_FILE);
           const selection = await apiGet('chat_sender_selection', {});
@@ -284,7 +291,19 @@ async function poll() {
           await sendMessage(chatId, `✅ Сообщения будут отправляться с бота *${resolved}*.`);
         }
         else if (cmd === '/start') {
-          await sendMessage(chatId, `💬 *Twins Chat Stream Bot*\n\nЭтот бот управляет дублированием игрового чата твинков.\n\nТвои привязанные твинки: ${userBots.length > 0 ? userBots.join(', ') : 'нет (привяжи через мейн-бота)'}\n\nКоманды:\n\`/streamon <алиас или ник>\` - вкл. трансляцию\n\`/streamoff <алиас или ник>\` - выкл. трансляцию\n\`/setchat <1|2|main>\` - выбрать отправителя\n\`/display <alias|nick|both|hidden>\` - режим отображения`);
+          await sendMessage(chatId, `💬 *Twins Chat Stream Bot*\n\nЭтот бот управляет дублированием игрового чата твинков.\n\nТвои привязанные твинки: ${userBots.length > 0 ? userBots.join(', ') : 'нет (привяжи через мейн-бота)'}\n\nКоманды:\n\`/streamon <алиас или ник>\` - вкл. трансляцию\n\`/streamoff <алиас или ник>\` - выкл. трансляцию\n\`/setchat <1|2|main>\` - выбрать отправителя\n\`/display <alias|nick|both|hidden>\` - режим отображения\n\`/globalon\` - вкл. глобальный чат (!)\n\`/globaloff\` - выкл. глобальный чат (!)`);
+        }
+        else if (cmd === '/globalon') {
+          const globalModes = await readJSON(GLOBAL_MODE_FILE);
+          globalModes[chatId] = true;
+          await writeJSON(GLOBAL_MODE_FILE, globalModes);
+          await sendMessage(chatId, '✅ Режим глобального чата (`!`) включен.');
+        }
+        else if (cmd === '/globaloff') {
+          const globalModes = await readJSON(GLOBAL_MODE_FILE);
+          globalModes[chatId] = false;
+          await writeJSON(GLOBAL_MODE_FILE, globalModes);
+          await sendMessage(chatId, '✅ Режим глобального чата (`!`) выключен.');
         }
         else if (cmd === '/streamon' || cmd === '/chaton') {
           if (userBots.length === 0) {
@@ -359,8 +378,10 @@ async function poll() {
             const aliases = (await readJSON(ALIASES_FILE))[chatId] || {};
             const modes = await readJSON(DISPLAY_MODE_FILE);
             const currentMode = modes[chatId] || 'alias';
+            const globalModes = await readJSON(GLOBAL_MODE_FILE);
+            const isGlobal = !!globalModes[chatId];
             
-            let msg = `💬 *Статус трансляций чата (режим: ${currentMode}):*\n\n`;
+            let msg = `💬 *Статус трансляций чата (режим: ${currentMode}, глобальный чат: ${isGlobal ? '🟢 ВКЛ' : '🔴 ВЫКЛ'}):*\n\n`;
             userMains.forEach((botName) => {
               const isStreaming = !!userStream[botName.toLowerCase()];
               msg += `• *${botName}* (мейн-бот)\n   Трансляция в ТГ: ${isStreaming ? '🟢 ВКЛ' : '🔴 ВЫКЛ'}\n\n`;
