@@ -344,7 +344,13 @@ function startBot(envPath, configOverrides) {
             setClickerState(botInstance, { enabled: false });
             stopAutoClick(botInstance);
         } else if (command.action === 'start') {
-            console.log(`[Command] Received start command, already running.`);
+            if (!bot) {
+                isManualQuit = false;
+                createBotInstance();
+                console.log(`[Command] Received start command, creating bot instance.`);
+            } else {
+                console.log(`[Command] Received start command, already running.`);
+            }
         } else if (command.action === 'stoptwin') {
             isManualQuit = true;
             botInstance.quit();
