@@ -254,7 +254,9 @@ function startBot(envPath, configOverrides) {
   function connectToHub(botInstance) {
     const botName = config.username.toLowerCase();
     const token = process.env.BOT_TOKEN || '';
-    const url = `ws://localhost:8089?token=${token}&bot=${botName}`;
+    const host = process.env.HUB_HOST || 'localhost';
+    const port = process.env.HUB_PORT || '8089';
+    const url = `ws://${host}:${port}?token=${token}&bot=${botName}`;
     const ws = new WebSocket(url);
 
     ws.on('open', () => {
