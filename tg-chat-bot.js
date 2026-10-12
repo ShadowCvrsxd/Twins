@@ -1,8 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { get, set } = require('./db.js');
 const { getMainAccount } = require('./utils.js');
-
 
 require('dotenv').config();
 
@@ -25,12 +23,44 @@ const STREAMING_FILE = 'chat_streaming';
 const ALIASES_FILE = 'bot_aliases';
 const DISPLAY_MODE_FILE = 'chat_display_mode';
 
-function readJSON(key) {
-  return get(key, {});
+async function apiGet(key, defaultValue = {}) {
+  try {
+    const res = await fetch(`http://localhost:8089/state?key=${encodeURIComponent(key)}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${TOKEN}`
+      }
+    });
+    if (!res.ok) return defaultValue;
+    const data = await res.json();
+    return data !== undefined && data !== null ? data : defaultValue;
+  } catch (e) {
+    console.error(`[API Get Error] key ${key}:`, e.message);
+    return defaultValue;
+  }
 }
 
-function writeJSON(key, data) {
-  set(key, data);
+async function apiSet(key, value) {
+  try {
+    await fetch(`http://localhost:8089/state`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${TOKEN}`
+      },
+      body: JSON.stringify({ key, value })
+    });
+  } catch (e) {
+    console.error(`[API Set Error] key ${key}:`, e.message);
+  }
+}
+
+async function readJSON(key) {
+  return await apiGet(key, {});
+}
+
+async function writeJSON(key, data) {
+  await apiSet(key, data);
 }
 
 let offset = 0;
@@ -62,10 +92,10 @@ async function sendMessage(chatId, text) {
   });
 }
 
-function resolveBot(chatId, targetArg) {
-  const approved = readJSON(APPROVED_FILE);
+async function resolveBot(chatId, targetArg) {
+  const approved = await readJSON(APPROVED_FILE);
   const userBots = approved[chatId] || [];
-  const aliases = readJSON(ALIASES_FILE)[chatId] || {};
+  const aliases = (await readJSON(ALIASES_FILE))[chatId] || {};
   const searchKey = targetArg.toLowerCase();
 
   if (aliases[searchKey]) {
@@ -110,7 +140,7 @@ async function poll() {
         const parts = text.split(' ');
         const cmd = parts[0].toLowerCase();
 
-        const approved = readJSON(APPROVED_FILE);
+        const approved = await readJSON(APPROVED_FILE);
         const userBots = approved[chatId] || [];
 
         if (!text.startsWith('/')) {
@@ -118,8 +148,8 @@ async function poll() {
             await sendMessage(chatId, '❌ У тебя нет привязанных твинков.');
             continue;
           }
-          const statuses = readJSON(STATUS_FILE);
-          const selection = get('chat_sender_selection', {});
+          const statuses = await readJSON(STATUS_FILE);
+          const selection = await apiGet('chat_sender_selection', {});
           let targetBot = null;
           const selectedLower = selection[chatId];
           if (selectedLower) {
@@ -143,7 +173,7 @@ async function poll() {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${process.env.TG_BOT_TOKEN}`
+              'Authorization': `Bearer ${TOKEN}`
             },
             body: JSON.stringify({ targetBot: targetBot.toLowerCase(), action: 'chat', text: text })
           });
@@ -168,9 +198,9 @@ async function poll() {
               continue;
             }
           }
-          const selection = get('chat_sender_selection', {});
+          const selection = await apiGet('chat_sender_selection', {});
           selection[chatId] = resolved.toLowerCase();
-          set('chat_sender_selection', selection);
+          await apiSet('chat_sender_selection', selection);
           await sendMessage(chatId, `✅ Сообщения будут отправляться с бота *${resolved}*.`);
         }
         else if (cmd === '/start') {
@@ -187,16 +217,16 @@ async function poll() {
             continue;
           }
 
-          const targetBot = resolveBot(chatId, targetArg);
+          const targetBot = await resolveBot(chatId, targetArg);
           if (!targetBot) {
             await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден в твоем списке привязанных ботов.`);
             continue;
           }
 
-          const streaming = readJSON(STREAMING_FILE);
+          const streaming = await readJSON(STREAMING_FILE);
           if (!streaming[chatId]) streaming[chatId] = {};
           streaming[chatId][targetBot.toLowerCase()] = true;
-          writeJSON(STREAMING_FILE, streaming);
+          await writeJSON(STREAMING_FILE, streaming);
 
           await sendMessage(chatId, `🟢 Трансляция чата для твинка *${targetBot}* включена в этот чат.`);
         }
@@ -211,16 +241,16 @@ async function poll() {
             continue;
           }
 
-          const targetBot = resolveBot(chatId, targetArg);
+          const targetBot = await resolveBot(chatId, targetArg);
           if (!targetBot) {
             await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден.`);
             continue;
           }
 
-          const streaming = readJSON(STREAMING_FILE);
+          const streaming = await readJSON(STREAMING_FILE);
           if (streaming[chatId]) {
             streaming[chatId][targetBot.toLowerCase()] = false;
-            writeJSON(STREAMING_FILE, streaming);
+            await writeJSON(STREAMING_FILE, streaming);
           }
 
           await sendMessage(chatId, `🔴 Трансляция чата для твинка *${targetBot}* выключена.`);
@@ -234,9 +264,9 @@ async function poll() {
             continue;
           }
 
-          const modes = readJSON(DISPLAY_MODE_FILE);
+          const modes = await readJSON(DISPLAY_MODE_FILE);
           modes[chatId] = modeArg;
-          writeJSON(DISPLAY_MODE_FILE, modes);
+          await writeJSON(DISPLAY_MODE_FILE, modes);
 
           await sendMessage(chatId, `✅ Режим отображения имен в чате установлен на: *${modeArg}*`);
         }
@@ -244,10 +274,10 @@ async function poll() {
           if (userBots.length === 0) {
             await sendMessage(chatId, '📭 У тебя нет привязанных твинков. Привяжи их через мейн-бота.');
           } else {
-            const streaming = readJSON(STREAMING_FILE);
+            const streaming = await readJSON(STREAMING_FILE);
             const userStream = streaming[chatId] || {};
-            const aliases = readJSON(ALIASES_FILE)[chatId] || {};
-            const modes = readJSON(DISPLAY_MODE_FILE);
+            const aliases = (await readJSON(ALIASES_FILE))[chatId] || {};
+            const modes = await readJSON(DISPLAY_MODE_FILE);
             const currentMode = modes[chatId] || 'alias';
             
             let msg = `💬 *Статус трансляций чата (режим: ${currentMode}):*\n\n`;

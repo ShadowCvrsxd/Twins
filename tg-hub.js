@@ -19,7 +19,10 @@ const http = require('http');
 
 // API Server (Port 8089) - initialized explicitly for visibility
 const apiServer = http.createServer((req, res) => {
-    if (req.method === 'POST' && req.url === '/command') {
+    const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+    const pathname = parsedUrl.pathname;
+
+    if (pathname === '/command' && req.method === 'POST') {
         const auth = req.headers['authorization'];
         if (!auth || !auth.startsWith('Bearer ')) {
             res.writeHead(401); res.end('Unauthorized'); return;
@@ -29,6 +32,9 @@ const apiServer = http.createServer((req, res) => {
         let authorizedBot = null;
         for (const [name, t] of Object.entries(tokens)) {
             if (t === token) { authorizedBot = name; break; }
+        }
+        if (!authorizedBot && (token === process.env.TG_BOT_TOKEN || token === process.env.TG_CHAT_BOT_TOKEN || token === TOKEN)) {
+            authorizedBot = 'tg-chat-bot';
         }
 
         if (!authorizedBot) {
@@ -49,6 +55,45 @@ const apiServer = http.createServer((req, res) => {
                 res.writeHead(400); res.end('Invalid JSON');
             }
         });
+    } else if (pathname === '/state') {
+        const auth = req.headers['authorization'];
+        if (!auth || !auth.startsWith('Bearer ')) {
+            res.writeHead(401); res.end('Unauthorized'); return;
+        }
+        const token = auth.split(' ')[1];
+        const tokens = get('bot_tokens', {});
+        const isValidToken = Object.values(tokens).includes(token) || token === process.env.TG_BOT_TOKEN || token === process.env.TG_CHAT_BOT_TOKEN || token === TOKEN;
+
+        if (!isValidToken) {
+            res.writeHead(403); res.end('Forbidden'); return;
+        }
+
+        if (req.method === 'GET') {
+            const key = parsedUrl.searchParams.get('key');
+            if (!key) {
+                res.writeHead(400); res.end('Missing key'); return;
+            }
+            const value = get(key, {});
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(value));
+        } else if (req.method === 'POST') {
+            let body = '';
+            req.on('data', chunk => body += chunk);
+            req.on('end', () => {
+                try {
+                    const { key, value } = JSON.parse(body);
+                    if (!key) {
+                        res.writeHead(400); res.end('Missing key'); return;
+                    }
+                    set(key, value);
+                    res.writeHead(200); res.end('OK');
+                } catch (e) {
+                    res.writeHead(400); res.end('Invalid JSON');
+                }
+            });
+        } else {
+            res.writeHead(405); res.end('Method Not Allowed');
+        }
     } else {
         res.writeHead(404); res.end();
     }
