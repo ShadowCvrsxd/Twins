@@ -129,6 +129,7 @@ function sendMainTelegramNotification(text) {
     const streaming = get('main_chat_streaming', {});
     const streamAll = get('main_chat_stream_all', {});
     const approved = get('links_approved', {});
+    const mainsApproved = get('mains_approved', {});
     const mainNick = getMainAccount().toLowerCase();
     const cleanedText = cleanMinecraftText(text);
     if (!cleanedText) return;
@@ -142,7 +143,13 @@ function sendMainTelegramNotification(text) {
     const token = process.env.TG_CHAT_BOT_TOKEN || process.env.TG_BOT_TOKEN;
     if (!token) return;
 
-    for (const [chatId, bots] of Object.entries(approved)) {
+    const allApproved = { ...approved };
+    for (const [chatId, mains] of Object.entries(mainsApproved)) {
+      if (!allApproved[chatId]) allApproved[chatId] = [];
+      allApproved[chatId].push(...mains);
+    }
+
+    for (const [chatId, bots] of Object.entries(allApproved)) {
       if (!streaming[chatId]) continue;
       if (!streamAll[chatId]) {
         const isMention = cleanedLower.includes(mainNick);

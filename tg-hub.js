@@ -119,11 +119,20 @@ wss.on('connection', (socket, req) => {
     }
 
     const approved = readJSON(APPROVED_FILE);
+    const mainsApproved = readJSON(MAINS_APPROVED_FILE);
     let ownerId = null;
     for (const [chatId, bots] of Object.entries(approved)) {
         if (bots.some(b => b.toLowerCase() === botName.toLowerCase())) {
             ownerId = chatId;
             break;
+        }
+    }
+    if (!ownerId) {
+        for (const [chatId, bots] of Object.entries(mainsApproved)) {
+            if (bots.some(b => b.toLowerCase() === botName.toLowerCase())) {
+                ownerId = chatId;
+                break;
+            }
         }
     }
 
@@ -162,6 +171,8 @@ function sendCommand(botName, command) {
 
 const PENDING_FILE = 'links_pending';
 const APPROVED_FILE = 'links_approved';
+const MAINS_PENDING_FILE = 'mains_pending';
+const MAINS_APPROVED_FILE = 'mains_approved';
 const STATUS_FILE = 'bots_status';
 const STREAMING_FILE = 'chat_streaming';
 const ALIASES_FILE = 'bot_aliases';
@@ -247,21 +258,29 @@ function parseDuration(str) {
 
 function resolveBot(chatId, targetArg) {
   const approved = readJSON(APPROVED_FILE);
-  const userBots = approved[chatId] || [];
+  const userTwins = approved[chatId] || [];
+  const mainsApproved = readJSON(MAINS_APPROVED_FILE);
+  const userMains = mainsApproved[chatId] || [];
   const aliases = readJSON(ALIASES_FILE)[chatId] || {};
   const searchKey = targetArg.toLowerCase();
 
   if (aliases[searchKey]) {
     return aliases[searchKey];
   }
-  if ((searchKey === 'bot1' || searchKey === '1') && userBots[0]) {
-    return userBots[0];
+  if (searchKey === 'main' && userMains[0]) {
+    return userMains[0];
   }
-  if ((searchKey === 'bot2' || searchKey === '2') && userBots[1]) {
-    return userBots[1];
+  if ((searchKey === 'bot1' || searchKey === '1') && userTwins[0]) {
+    return userTwins[0];
   }
-  const found = userBots.find(b => b.toLowerCase() === searchKey);
-  return found || null;
+  if ((searchKey === 'bot2' || searchKey === '2') && userTwins[1]) {
+    return userTwins[1];
+  }
+  const foundTwin = userTwins.find(b => b.toLowerCase() === searchKey);
+  if (foundTwin) return foundTwin;
+  const foundMain = userMains.find(b => b.toLowerCase() === searchKey);
+  if (foundMain) return foundMain;
+  return null;
 }
 
 async function initBotMenu() {
@@ -269,6 +288,8 @@ async function initBotMenu() {
     commands: [
       { command: 'start', description: 'Главное меню' },
       { command: 'gettoken', description: 'Получить токен' },
+      { command: 'addmain', description: 'Привязать мейн-бота (/addmain <ник>)' },
+      { command: 'delmain', description: 'Отвязать мейн-бота (/delmain <ник>)' },
       { command: 'addtwin', description: 'Привязать твинка (/addtwin <ник>)' },
       { command: 'deltwin', description: 'Отвязать твинка (/deltwin <ник>)' },
       { command: 'alias', description: 'Задать алиас (/alias <бот> <алиас>)' },
@@ -629,6 +650,75 @@ async function poll() {
           } else {
             await sendMessage(chatId, '❌ Использование: /voice <1|2> <on|off|reconnect|channel|status>');
             continue;
+          }
+        }
+        else if (cmd === '/addmain') {
+          if (isRegistrationLocked() && !isAdmin(chatId)) {
+            await sendMessage(chatId, '❌ Регистрация новых ботов временно заблокирована администратором.');
+            continue;
+          }
+
+          const username = parts[1];
+          if (!username) {
+            await sendMessage(chatId, '❌ Укажи ник мейн-бота: `/addmain ИмяБота`');
+            continue;
+          }
+
+          const mainsApproved = readJSON(MAINS_APPROVED_FILE);
+          const approved = readJSON(APPROVED_FILE);
+
+          let alreadyOwnedBy = null;
+          for (const [ownerChatId, bots] of Object.entries(mainsApproved)) {
+            if (bots.some(b => b.toLowerCase() === username.toLowerCase())) {
+              alreadyOwnedBy = ownerChatId;
+              break;
+            }
+          }
+          if (!alreadyOwnedBy) {
+            for (const [ownerChatId, bots] of Object.entries(approved)) {
+              if (bots.some(b => b.toLowerCase() === username.toLowerCase())) {
+                alreadyOwnedBy = ownerChatId;
+                break;
+              }
+            }
+          }
+
+          if (alreadyOwnedBy && alreadyOwnedBy !== chatId.toString()) {
+            await sendMessage(chatId, `❌ Этот мейн-аккаунт уже привязан к другому Telegram аккаунту.`);
+            continue;
+          }
+
+          const userMains = mainsApproved[chatId] || [];
+          const alreadyLinked = userMains.some(b => b.toLowerCase() === username.toLowerCase());
+          if (!alreadyLinked && userMains.length >= 1) {
+            await sendMessage(chatId, '❌ Достигнут лимит: можно привязать максимум 1 мейн-аккаунт.');
+            continue;
+          }
+
+          const pending = readJSON(MAINS_PENDING_FILE);
+          pending[username.toLowerCase()] = { chatId };
+          writeJSON(MAINS_PENDING_FILE, pending);
+
+          await sendMessage(chatId, `🔗 Запрос на привязку мейн-бота *${username}* добавлен.\n\nЗапусти этого мейн-бота локально — при входе в игру он автоматически привяжется к твоему Telegram!`);
+        }
+        else if (cmd === '/delmain') {
+          const username = parts[1];
+          if (!username) {
+            await sendMessage(chatId, '❌ Укажи ник мейн-бота для отвязки: `/delmain ИмяБота`');
+            continue;
+          }
+          const mainsApproved = readJSON(MAINS_APPROVED_FILE);
+          if (mainsApproved[chatId]) {
+            const index = mainsApproved[chatId].findIndex(b => b.toLowerCase() === username.toLowerCase());
+            if (index !== -1) {
+              mainsApproved[chatId].splice(index, 1);
+              writeJSON(MAINS_APPROVED_FILE, mainsApproved);
+              await sendMessage(chatId, `🗑 Мейн-бот *${username}* успешно отвязан.`);
+            } else {
+              await sendMessage(chatId, `❌ Мейн-бот *${username}* не найден в твоем списке.`);
+            }
+          } else {
+            await sendMessage(chatId, `❌ У тебя нет привязанных мейн-ботов.`);
           }
         }
         else if (cmd === '/addtwin' || cmd === '/link') {

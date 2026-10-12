@@ -696,6 +696,58 @@ function startBot(envPath, configOverrides) {
         }
       } catch (e) {}
 
+      // ponytail: проверка и автопривязка мейн-бота к Telegram через БД
+      try {
+        const mainsPending = get('mains_pending', {});
+        const uname = config.username.toLowerCase();
+        if (mainsPending[uname]) {
+          const { chatId } = mainsPending[uname];
+          delete mainsPending[uname];
+          set('mains_pending', mainsPending);
+
+          const mainsApproved = get('mains_approved', {});
+
+          let isOwnedElsewhere = false;
+          for (const [ownerChatId, bots] of Object.entries(mainsApproved)) {
+            if (bots.some(b => b.toLowerCase() === config.username.toLowerCase()) && ownerChatId !== chatId.toString()) {
+              isOwnedElsewhere = true;
+              break;
+            }
+          }
+
+          if (isOwnedElsewhere) {
+            console.log(`[Telegram] Мейн-бот ${config.username} уже привязан к другому Telegram аккаунту. Привязка отклонена.`);
+            return;
+          }
+
+          if (!mainsApproved[chatId]) mainsApproved[chatId] = [];
+          if (mainsApproved[chatId].length >= 1) {
+            console.log(`[Telegram] Лимит (1 мейн-аккаунт) исчерпан для чата ${chatId}. Привязка отклонена.`);
+            return;
+          }
+
+          const alreadyLinked = mainsApproved[chatId].some(b => b.toLowerCase() === config.username.toLowerCase());
+          if (!alreadyLinked) {
+            mainsApproved[chatId].push(config.username);
+            set('mains_approved', mainsApproved);
+          }
+
+          console.log(`[Telegram] Мейн-бот ${config.username} успешно привязан к Telegram Chat ID: ${chatId}`);
+
+          if (process.env.TG_BOT_TOKEN) {
+            fetch(`https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: chatId,
+                text: `✅ Мейн-бот *${config.username}* успешно запущен и привязан!`,
+                parse_mode: 'Markdown'
+              })
+            }).catch(() => {});
+          }
+        }
+      } catch (e) {}
+
       // ponytail: восстановление спама из файла с задержкой 10с (после логина)
       reloadSpamTasks(10000);
       

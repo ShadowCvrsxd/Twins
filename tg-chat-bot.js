@@ -18,6 +18,7 @@ if (!TOKEN) {
 }
 
 const APPROVED_FILE = 'links_approved';
+const MAINS_APPROVED_FILE = 'mains_approved';
 const STATUS_FILE = 'bots_status';
 const STREAMING_FILE = 'chat_streaming';
 const ALIASES_FILE = 'bot_aliases';
@@ -94,21 +95,29 @@ async function sendMessage(chatId, text) {
 
 async function resolveBot(chatId, targetArg) {
   const approved = await readJSON(APPROVED_FILE);
-  const userBots = approved[chatId] || [];
+  const userTwins = approved[chatId] || [];
+  const mainsApproved = await readJSON(MAINS_APPROVED_FILE);
+  const userMains = mainsApproved[chatId] || [];
   const aliases = (await readJSON(ALIASES_FILE))[chatId] || {};
   const searchKey = targetArg.toLowerCase();
 
   if (aliases[searchKey]) {
     return aliases[searchKey];
   }
-  if (searchKey === 'bot1' && userBots[0]) {
-    return userBots[0];
+  if (searchKey === 'main' && userMains[0]) {
+    return userMains[0];
   }
-  if (searchKey === 'bot2' && userBots[1]) {
-    return userBots[1];
+  if (searchKey === 'bot1' && userTwins[0]) {
+    return userTwins[0];
   }
-  const found = userBots.find(b => b.toLowerCase() === searchKey);
-  return found || null;
+  if (searchKey === 'bot2' && userTwins[1]) {
+    return userTwins[1];
+  }
+  const foundTwin = userTwins.find(b => b.toLowerCase() === searchKey);
+  if (foundTwin) return foundTwin;
+  const foundMain = userMains.find(b => b.toLowerCase() === searchKey);
+  if (foundMain) return foundMain;
+  return null;
 }
 
 async function initBotMenu() {
@@ -141,7 +150,10 @@ async function poll() {
         const cmd = parts[0].toLowerCase();
 
         const approved = await readJSON(APPROVED_FILE);
-        const userBots = approved[chatId] || [];
+        const userTwins = approved[chatId] || [];
+        const mainsApproved = await readJSON(MAINS_APPROVED_FILE);
+        const userMains = mainsApproved[chatId] || [];
+        const userBots = [...userMains, ...userTwins];
 
         if (!text.startsWith('/')) {
           if (userBots.length === 0) {
@@ -197,10 +209,10 @@ async function poll() {
           }
           let resolved = null;
           if (target === 'main') {
-            resolved = getMainAccount();
+            resolved = userMains[0] || getMainAccount();
           } else {
             const index = parseInt(target) - 1;
-            resolved = userBots[index];
+            resolved = userTwins[index];
             if (!resolved) {
               await sendMessage(chatId, `❌ У тебя нет ${target}-го твинка.`);
               continue;
@@ -280,7 +292,7 @@ async function poll() {
         }
         else if (cmd === '/status' || cmd === '/list') {
           if (userBots.length === 0) {
-            await sendMessage(chatId, '📭 У тебя нет привязанных твинков. Привяжи их через мейн-бота.');
+            await sendMessage(chatId, '📭 У тебя нет привязанных ботов. Привяжи их через мейн-бота.');
           } else {
             const streaming = await readJSON(STREAMING_FILE);
             const userStream = streaming[chatId] || {};
@@ -289,7 +301,11 @@ async function poll() {
             const currentMode = modes[chatId] || 'alias';
             
             let msg = `💬 *Статус трансляций чата (режим: ${currentMode}):*\n\n`;
-            userBots.forEach((botName, index) => {
+            userMains.forEach((botName) => {
+              const isStreaming = !!userStream[botName.toLowerCase()];
+              msg += `• *${botName}* (мейн-бот)\n   Трансляция в ТГ: ${isStreaming ? '🟢 ВКЛ' : '🔴 ВЫКЛ'}\n\n`;
+            });
+            userTwins.forEach((botName, index) => {
               const isStreaming = !!userStream[botName.toLowerCase()];
               const alias = `bot${index + 1}`;
               const customAliases = Object.entries(aliases)
