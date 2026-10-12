@@ -33,11 +33,9 @@ const apiServer = http.createServer((req, res) => {
         for (const [name, t] of Object.entries(tokens)) {
             if (t === token) { authorizedBot = name; break; }
         }
-        if (!authorizedBot && (token === process.env.TG_BOT_TOKEN || token === process.env.TG_CHAT_BOT_TOKEN || token === TOKEN)) {
-            authorizedBot = 'tg-chat-bot';
-        }
+        const isSystemToken = (token === process.env.TG_BOT_TOKEN || token === process.env.TG_CHAT_BOT_TOKEN || token === TOKEN);
 
-        if (!authorizedBot) {
+        if (!authorizedBot && !isSystemToken) {
             res.writeHead(403); res.end('Forbidden'); return;
         }
 
@@ -46,7 +44,11 @@ const apiServer = http.createServer((req, res) => {
         req.on('end', () => {
             try {
                 const command = JSON.parse(body);
-                if (sendCommand(authorizedBot, command)) {
+                const targetBot = isSystemToken ? command.targetBot : (command.targetBot || authorizedBot);
+                if (!targetBot) {
+                    res.writeHead(400); res.end('Missing targetBot'); return;
+                }
+                if (sendCommand(targetBot, command)) {
                     res.writeHead(200); res.end('OK');
                 } else {
                     res.writeHead(404); res.end('Bot offline');

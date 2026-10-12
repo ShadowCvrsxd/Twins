@@ -169,7 +169,7 @@ async function poll() {
             onlineBots.sort((a, b) => (statuses[a.toLowerCase()].onlineSince || 0) - (statuses[b.toLowerCase()].onlineSince || 0));
             targetBot = onlineBots[0];
           }
-          await fetch('http://localhost:8089/command', {
+          const resp = await fetch('http://localhost:8089/command', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -177,6 +177,14 @@ async function poll() {
             },
             body: JSON.stringify({ targetBot: targetBot.toLowerCase(), action: 'chat', text: text })
           });
+          if (!resp.ok) {
+            if (resp.status === 404) {
+              await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
+            } else {
+              await sendMessage(chatId, `❌ Ошибка отправки сообщения боту *${targetBot}* (статус ${resp.status}).`);
+            }
+            continue;
+          }
           await sendMessage(chatId, `✉️ Отправлено от *${targetBot}*: ${text}`);
           continue;
         }
