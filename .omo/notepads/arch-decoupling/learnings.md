@@ -25,3 +25,5 @@ _Auto-scaffolded by /start-work. Append new entries below - never overwrite._
 - Verified: WebSocket connections functional - bot1 successfully connects to `ws://localhost:8089?token=...&bot=bot1`, messages delivered via `sendCommand()`.
 - Verified: HTTP POST to `http://localhost:8089/command` returns proper auth responses (401 unauthenticated, 403 forbidden, 200 OK with valid bot token).
 - Verified: All main command categories deliver via WebSocket: start/stop twin (`/starttwin`/`/stoptwin`), spam (`/addspam`/`/delspam`), clicker (`/autoclickon`/`/autoclickoff`), and all other actions (`/chat`, `/setswing`, `/pos`, `/players`, `/testserver`, `/mainserver`).
+- Enhanced `/pos` command routing: passes `chatId` in WebSocket payload from `tg-hub.js` to `bot-base.js`, enabling direct response delivery via `bot_response_<username>` DB key without requiring chat streaming to be enabled.
+- World name detection in `/pos`: analyzes `lastTabHeader` and `lastTabFooter` to detect the current world (`Мир ферм`, `Мир построек`, `Мир артов`), reporting Overworld (X, Y, Z) and Nether (X/8, Z/8) coordinates.

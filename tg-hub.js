@@ -121,7 +121,7 @@ const ALIASES_FILE = 'bot_aliases';
 const LOCK_FILE = 'registration_lock';
 const MEOW_FILE = 'meow_settings';
 const AUTORESPECT_FILE = 'autorespect_settings';
-const reqFile = 'bot_requests';
+
 
 const ADMIN_ID = process.env.ADMIN_TG_ID ? process.env.ADMIN_TG_ID.trim() : '';
 
@@ -252,7 +252,6 @@ async function initBotMenu() {
       { command: 'testserver', description: 'На тестовый сервер (админ)' },
       { command: 'mainserver', description: 'На основной сервер (админ)' },
        { command: 'setserver', description: 'Сменить сервер (админ) (/setserver <ip> <port>)' },
-       { command: 'vote', description: 'Запустить автоголосование (админ)' },
         { command: 'voice', description: 'Управление Discord-войсом (/voice <1|2> <on|off|reconnect|channel|status>)' },
         { command: 'mainstreamon', description: 'Вкл. дублирование чата мейна (/mainstreamon)' },
         { command: 'mainstreamoff', description: 'Выкл. дублирование чата мейна (/mainstreamoff)' },
@@ -296,7 +295,7 @@ async function poll() {
         if (cmd === '/start') {
           let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/gettoken` - получить токен для подключения\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/startmain` - запустить мейн-бота\n`/stopmain` - остановить мейн-бота\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/meowcd <алиас> <время>` - кулдаун мяуканья\n`/autorepon <алиас>` - вкл. авто-респекты\n`/autorepoff <алиас>` - выкл. авто-респекты\n`/spamlist <алиас>` - список спам-задач\n`/addspam <алиас> <сек> <текст>` - добавить спам-задачу\n`/delspam <алиас> <номер>` - удалить спам-задачу\n`/autoclickon <алиас>` - вкл. автокликер\n`/autoclickoff <алиас>` - выкл. автокликер\n`/setswing <алиас> <мс|auto>` - тайминг удара\n`/pos <алиас>` - координаты твинка\n`/mainstreamallon` - дублировать ВЕСЬ чат мейна\n`/mainstreamalloff` - только сообщения с ником мейна\n`/stopspam` - остановить спам';
           if (isAdmin(chatId)) {
-            msg += '\n\n👑 *Админ-панель:*\nСтатус регистрации: ' + (isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта') + '\n`/lock` - заблокировать\n`/unlock` - разблокировать\n`/users` - список юзеров\n`/testserver` - на тестовый\n`/mainserver` - на основной\n`/setserver <ip> <port>` - сменить сервер\n`/vote` - автоголосование';
+            msg += '\n\n👑 *Админ-панель:*\nСтатус регистрации: ' + (isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта') + '\n`/lock` - заблокировать\n`/unlock` - разблокировать\n`/users` - список юзеров\n`/testserver` - на тестовый\n`/mainserver` - на основной\n`/setserver <ip> <port>` - сменить сервер';
           }
           await sendMessage(chatId, msg);
         }
@@ -494,7 +493,6 @@ async function poll() {
             continue;
           }
 
-          const reqs = readJSONArray(reqFile);
           const approved = readJSON(APPROVED_FILE);
           let allBots = [];
           for (const bots of Object.values(approved)) {
@@ -520,7 +518,6 @@ async function poll() {
           const host = process.env.MAIN_SERVER_HOST || '5.83.140.251';
           const port = process.env.MAIN_SERVER_PORT || 25809;
 
-          const reqs = readJSONArray(reqFile);
           const approved = readJSON(APPROVED_FILE);
           let allBots = [];
           for (const bots of Object.values(approved)) {
@@ -538,22 +535,7 @@ async function poll() {
 
           await sendMessage(chatId, `🚀 Команда переключения на основной сервер (${host}:${port}) отправлена для всех ботов!`);
         }
-        else if (cmd === '/vote') {
-          if (!isAdmin(chatId)) {
-            await sendMessage(chatId, '❌ У вас нет прав администратора.');
-            continue;
-          }
-          await sendMessage(chatId, '🚀 Запускаю автоголосование:\n1. Мейн (без VPN)\n2. Твинки (с ротацией VPN)...');
-          const { exec } = require('child_process');
-          exec(`node ${path.join(__dirname, 'vote_vpn.js')}`, (err, stdout, stderr) => {
-            if (err) {
-              sendMessage(chatId, `❌ Ошибка голосования:\n\`\`\`\n${err.message.slice(-800)}\n\`\`\``);
-            } else {
-              const cleaned = stdout.replace(/\u001b\[\d+m/g, '');
-              sendMessage(chatId, `✅ Автоголосование завершено!\n\`\`\`\n${cleaned.slice(-1000)}\n\`\`\``);
-            }
-          });
-        }
+
         else if (cmd === '/voice') {
           if (!isAdmin(chatId)) {
             await sendMessage(chatId, '❌ Нет прав.');
