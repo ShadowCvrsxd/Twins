@@ -940,7 +940,7 @@ async function poll() {
         await sendMessage(chatId, `❌ Твинк '${parts[1]}' не найден.`);
         continue;
       }
-      sendCommand(targetBot, { action: 'pos' });
+      sendCommand(targetBot, { action: 'pos', chatId: chatId });
       await sendMessage(chatId, `✅ Запрашиваю координаты *${targetBot}*...`);
     }
     else if (cmd === '/players' || cmd === '/tab') {

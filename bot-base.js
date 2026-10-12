@@ -303,9 +303,37 @@ function startBot(envPath, configOverrides) {
             if (botInstance && botInstance.entity && botInstance.entity.position) {
               const p = botInstance.entity.position;
               const f = (n) => Math.floor(n);
-              const text = `Координаты: X ${f(p.x)} Y ${f(p.y)} Z ${f(p.z)} | Ад: X ${f(p.x / 8)} Z ${f(p.z / 8)}`;
-              sendTelegramNotification(config.username, text);
-              console.log(`[${config.username}] Координаты отправлены в Telegram`);
+              const x = f(p.x);
+              const y = f(p.y);
+              const z = f(p.z);
+              const netherX = f(p.x / 8);
+              const netherZ = f(p.z / 8);
+
+              const cleanHeader = lastTabHeader ? lastTabHeader.replace(/§[0-9a-fk-or]/gi, '').replace(/[\ufffd\uFFFD]/g, '') : '';
+              const cleanFooter = lastTabFooter ? lastTabFooter.replace(/§[0-9a-fk-or]/gi, '').replace(/[\ufffd\uFFFD]/g, '') : '';
+              const tabText = `${cleanHeader} ${cleanFooter}`;
+              let worldName = 'Неизвестный мир';
+              if (tabText.includes('Мир ферм')) worldName = 'Мир ферм';
+              else if (tabText.includes('Мир построек')) worldName = 'Мир построек';
+              else if (tabText.includes('Мир артов')) worldName = 'Мир артов';
+
+              const msg = `📍 *Координаты твинка ${config.username}*\nМир: ${worldName}\n\n🌍 Обычный мир: X: ${x}, Y: ${y}, Z: ${z}\n🔥 Ад (Nether): X: ${netherX}, Z: ${netherZ}`;
+
+              if (command.chatId) {
+                const respKey = `bot_response_${config.username.toLowerCase()}`;
+                set(respKey, { msg, chatId: command.chatId });
+              } else {
+                sendTelegramNotification(config.username, msg);
+              }
+              console.log(`[${config.username}] Координаты отправлены`);
+            } else {
+              const msg = `❌ Твинк ${config.username} не спавнился или координаты недоступны.`;
+              if (command.chatId) {
+                const respKey = `bot_response_${config.username.toLowerCase()}`;
+                set(respKey, { msg, chatId: command.chatId });
+              } else {
+                sendTelegramNotification(config.username, msg);
+              }
             }
         } else if (command.action === 'autoclickon') {
             setClickerState(botInstance, { enabled: true });
