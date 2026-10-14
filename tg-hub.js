@@ -34,6 +34,7 @@ const apiServer = http.createServer((req, res) => {
             if (t === token) { authorizedBot = name; break; }
         }
         const isSystemToken = (token === process.env.TG_BOT_TOKEN || token === process.env.TG_CHAT_BOT_TOKEN || token === TOKEN);
+        console.log(`[API] /command auth check: authorizedBot=${authorizedBot}, isSystemToken=${isSystemToken}`);
 
         if (!authorizedBot && !isSystemToken) {
             res.writeHead(403); res.end('Forbidden'); return;

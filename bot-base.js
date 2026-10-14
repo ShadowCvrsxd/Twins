@@ -259,6 +259,23 @@ function startBot(envPath, configOverrides) {
     const url = `ws://${host}:${port}?token=${token}&bot=${botName}`;
     const ws = new WebSocket(url);
 
+    let chatQueue = [];
+    let isSendingChat = false;
+
+    function processChatQueue() {
+      if (isSendingChat || chatQueue.length === 0) return;
+      isSendingChat = true;
+      const text = chatQueue.shift();
+      try {
+        botInstance.chat(text);
+        console.log(`[Telegram Chat] Отправлено в игру: "${text}"`);
+      } catch (e) {}
+      setTimeout(() => {
+        isSendingChat = false;
+        processChatQueue();
+      }, 700);
+    }
+
     ws.on('open', () => {
       console.log(`[WebSocket] Бот ${botName} подключен к Hub.`);
     });
@@ -267,8 +284,8 @@ function startBot(envPath, configOverrides) {
       try {
         const command = JSON.parse(data);
         if (command.action === 'chat') {
-          botInstance.chat(command.text);
-          console.log(`[Telegram Chat] Отправлено в игру: "${command.text}"`);
+          chatQueue.push(command.text);
+          processChatQueue();
         } else if (command.action === 'players') {
             const players = Object.keys(botInstance.players || {});
             let msg = `👥 Игроки онлайн (${players.length}): ${players.join(', ')}`;
