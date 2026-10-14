@@ -166,7 +166,7 @@ process.on('unhandledRejection', (reason) => {
 function startBot(envPath, configOverrides) {
   console.log('--- [DEBUG] Запуск инициализации startBot ---');
   require('dotenv').config();
-  require('dotenv').config({ path: envPath, override: true });
+  require('dotenv').config({ path: fs.existsSync(envPath) ? envPath : '.env', override: true });
   
   if (!process.env.USERNAME || !process.env.PASSWORD) {
     console.error('--- [DEBUG] ОШИБКА: Не найдены USERNAME или PASSWORD в .env ---');
