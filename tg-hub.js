@@ -400,6 +400,11 @@ async function poll() {
             continue;
           }
 
+          if (!clients.has(targetBot.toLowerCase())) {
+            await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
+            continue;
+          }
+
            const enabled = cmd === '/autorepon';
            let settings = readJSON(AUTORESPECT_FILE);
            
@@ -423,6 +428,11 @@ async function poll() {
           const targetBot = resolveBot(chatId, targetArg);
           if (!targetBot) {
             await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден.`);
+            continue;
+          }
+
+          if (!clients.has(targetBot.toLowerCase())) {
+            await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
             continue;
           }
 
@@ -452,6 +462,11 @@ async function poll() {
           const targetBot = resolveBot(chatId, targetArg);
           if (!targetBot) {
             await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден.`);
+            continue;
+          }
+
+          if (!clients.has(targetBot.toLowerCase())) {
+            await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
             continue;
           }
 
@@ -850,6 +865,11 @@ async function poll() {
             continue;
           }
 
+          if (!clients.has(targetBot.toLowerCase())) {
+            await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
+            continue;
+          }
+
           console.log(`[Bridge Debug] Попытка отправить команду боту ${targetBot.toLowerCase()}. Активные сокеты:`, Array.from(clients.keys()));
           if (sendCommand(targetBot, { action: 'start' })) {
             await sendMessage(chatId, `🟢 Команда запуска отправлена твинку *${targetBot}* через WebSocket.`);
@@ -869,6 +889,11 @@ async function poll() {
             continue;
           }
 
+          if (!clients.has(targetBot.toLowerCase())) {
+            await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
+            continue;
+          }
+
           console.log(`[Bridge Debug] Попытка отправить команду боту ${targetBot.toLowerCase()}. Активные сокеты:`, Array.from(clients.keys()));
           if (sendCommand(targetBot, { action: 'stoptwin' })) {
             await sendMessage(chatId, `🔴 Команда остановки отправлена твинку *${targetBot}* через WebSocket.`);
@@ -878,17 +903,31 @@ async function poll() {
         }
         else if (cmd === '/startmain' || cmd === '/mainon') {
           if (!isAdmin(chatId)) { await sendMessage(chatId, '❌ Нет прав.'); continue; }
-          const cmdStr = process.env.USER_SYSTEMD === 'true' ? 'systemctl --user start twins-main' : 'sudo systemctl start twins-main';
-          require('child_process').exec(cmdStr, (err) => {
-            sendMessage(chatId, err ? `❌ Ошибка запуска мейн-бота: ${err.message}` : '🟢 Мейн-бот запущен.');
-          });
+          const mainsApproved = readJSON(MAINS_APPROVED_FILE);
+          const targetBot = (mainsApproved[chatId]?.[0]) || 'main';
+          if (clients.has(targetBot.toLowerCase())) {
+            sendCommand(targetBot, { action: 'start' });
+            await sendMessage(chatId, `🟢 Команда запуска отправлена мейн-боту *${targetBot}* через WebSocket.`);
+          } else {
+            const cmdStr = process.env.USER_SYSTEMD === 'true' ? 'systemctl --user start twins-main' : 'sudo systemctl start twins-main';
+            require('child_process').exec(cmdStr, (err) => {
+              sendMessage(chatId, err ? `❌ Ошибка запуска мейн-бота: ${err.message}` : '🟢 Мейн-бот запущен.');
+            });
+          }
         }
         else if (cmd === '/stopmain' || cmd === '/mainoff') {
           if (!isAdmin(chatId)) { await sendMessage(chatId, '❌ Нет прав.'); continue; }
-          const cmdStr = process.env.USER_SYSTEMD === 'true' ? 'systemctl --user stop twins-main' : 'sudo systemctl stop twins-main';
-          require('child_process').exec(cmdStr, (err) => {
-            sendMessage(chatId, err ? `❌ Ошибка остановки мейн-бота: ${err.message}` : '🔴 Мейн-бот остановлен.');
-          });
+          const mainsApproved = readJSON(MAINS_APPROVED_FILE);
+          const targetBot = (mainsApproved[chatId]?.[0]) || 'main';
+          if (clients.has(targetBot.toLowerCase())) {
+            sendCommand(targetBot, { action: 'stoptwin' });
+            await sendMessage(chatId, `🔴 Команда остановки отправлена мейн-боту *${targetBot}* через WebSocket.`);
+          } else {
+            const cmdStr = process.env.USER_SYSTEMD === 'true' ? 'systemctl --user stop twins-main' : 'sudo systemctl stop twins-main';
+            require('child_process').exec(cmdStr, (err) => {
+              sendMessage(chatId, err ? `❌ Ошибка остановки мейн-бота: ${err.message}` : '🔴 Мейн-бот остановлен.');
+            });
+          }
         }
         else if (cmd === '/status' || cmd === '/list') {
           const approved = readJSON(APPROVED_FILE);
@@ -934,6 +973,11 @@ async function poll() {
             continue;
           }
 
+          if (!clients.has(targetBot.toLowerCase())) {
+            await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
+            continue;
+          }
+
            if (sendCommand(targetBot, { action: 'chat', text: messageText })) {
              await sendMessage(chatId, `✅ Сообщение отправлено боту *${targetBot}*.`);
            } else {
@@ -944,6 +988,10 @@ async function poll() {
         else if (cmd === '/spamlist') {
           const targetBot = resolveBot(chatId, parts[1]);
           if (!targetBot) { await sendMessage(chatId, '❌ Неизвестный бот. /spamlist <алиас>'); continue; }
+          if (!clients.has(targetBot.toLowerCase())) {
+            await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
+            continue;
+          }
           const tasks = get('spam_tasks_' + targetBot.toLowerCase(), []);
           if (!tasks.length) { await sendMessage(chatId, `📋 У бота *${targetBot}* нет активных спам-задач.`); continue; }
           const lines = tasks.map((t, i) => `${i + 1}:${t.msg} - ${t.delay} сек`);
@@ -956,6 +1004,10 @@ async function poll() {
           
           if (!targetBot || isNaN(delay) || delay <= 0 || !msg) {
             await sendMessage(chatId, '❌ Использование: /addspam <алиас> <время> <текст> (время: 30, 30s, 5m, 1h)');
+            continue;
+          }
+          if (!clients.has(targetBot.toLowerCase())) {
+            await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
             continue;
           }
           const key = 'spam_tasks_' + targetBot.toLowerCase();
@@ -972,6 +1024,10 @@ async function poll() {
       const taskNum = parseInt(parts[2], 10);
       if (!targetBot || isNaN(taskNum) || taskNum <= 0) {
         await sendMessage(chatId, '❌ Использование: /delspam <алиас> <номер> (номер из /spamlist)');
+        continue;
+      }
+      if (!clients.has(targetBot.toLowerCase())) {
+        await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
         continue;
       }
       const key = 'spam_tasks_' + targetBot.toLowerCase();
@@ -992,6 +1048,10 @@ async function poll() {
         await sendMessage(chatId, `❌ Укажи твинка: \`${cmd} <алиас или ник>\``);
         continue;
       }
+      if (!clients.has(targetBot.toLowerCase())) {
+        await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
+        continue;
+      }
       const action = cmd === '/autoclickon' ? 'autoclickon' : 'autoclickoff';
       sendCommand(targetBot, { action: action });
       await sendMessage(chatId, `✅ Автокликер ${cmd === '/autoclickon' ? 'включен' : 'выключен'} для *${targetBot}*`);
@@ -1004,6 +1064,10 @@ async function poll() {
       }
       if (!targetBot) {
         await sendMessage(chatId, `❌ Твинк '${parts[1]}' не найден.`);
+        continue;
+      }
+      if (!clients.has(targetBot.toLowerCase())) {
+        await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
         continue;
       }
       let ms = null;
@@ -1031,6 +1095,10 @@ async function poll() {
         await sendMessage(chatId, `❌ Твинк '${parts[1]}' не найден.`);
         continue;
       }
+      if (!clients.has(targetBot.toLowerCase())) {
+        await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
+        continue;
+      }
       sendCommand(targetBot, { action: 'pos', chatId: chatId });
       await sendMessage(chatId, `✅ Запрашиваю координаты *${targetBot}*...`);
     }
@@ -1049,15 +1117,25 @@ async function poll() {
               await sendMessage(chatId, `❌ У тебя нет привязанных твинков.`);
               continue;
             }
-            const statuses = readJSON(STATUS_FILE);
-            const onlineBots = userBots.filter(b => statuses[b.toLowerCase()] && statuses[b.toLowerCase()].online);
-            if (onlineBots.length > 0) {
-              // ponytail: sort by onlineSince to find highest uptime
-              onlineBots.sort((a, b) => (statuses[a.toLowerCase()].onlineSince || 0) - (statuses[b.toLowerCase()].onlineSince || 0));
-              targetBot = onlineBots[0];
+            const connectedBots = userBots.filter(b => clients.has(b.toLowerCase()));
+            if (connectedBots.length > 0) {
+              targetBot = connectedBots[0];
             } else {
-              targetBot = resolveBot(chatId, 'bot1') || userBots[0];
+              const statuses = readJSON(STATUS_FILE);
+              const onlineBots = userBots.filter(b => statuses[b.toLowerCase()] && statuses[b.toLowerCase()].online);
+              if (onlineBots.length > 0) {
+                // ponytail: sort by onlineSince to find highest uptime
+                onlineBots.sort((a, b) => (statuses[a.toLowerCase()].onlineSince || 0) - (statuses[b.toLowerCase()].onlineSince || 0));
+                targetBot = onlineBots[0];
+              } else {
+                targetBot = resolveBot(chatId, 'bot1') || userBots[0];
+              }
             }
+          }
+
+          if (!clients.has(targetBot.toLowerCase())) {
+            await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
+            continue;
           }
 
           sendCommand(targetBot, { action: 'players', chatId: chatId });
