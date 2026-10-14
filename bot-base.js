@@ -6,21 +6,6 @@ const WebSocket = require('ws');
 const { get, set } = require('./db.js');
 
 // ponytail: автокликер
-let autoClickTimer = null;
-let autoClickBot = null;
-
-function getClickerState(bot) {
-  const settings = get('clicker_settings', {});
-  return settings[bot.username.toLowerCase()] || { enabled: false };
-}
-
-function setClickerState(bot, patch) {
-  const settings = get('clicker_settings', {});
-  const name = bot.username.toLowerCase();
-  settings[name] = { ...(settings[name] || { enabled: false }), ...patch };
-  set('clicker_settings', settings);
-}
-
 function getAttackSpeed(bot) {
   try {
     if (!bot.heldItem) return 1.6;
@@ -57,43 +42,6 @@ function getAttackSpeed(bot) {
   }
   return 1.6;
 }
-
-function startAutoClick(bot) {
-  if (autoClickTimer && autoClickBot === bot) return;
-  if (autoClickTimer) stopAutoClick();
-  autoClickBot = bot;
-    const tick = () => {
-    if (!bot || !bot.entity) { autoClickTimer = setTimeout(tick, 500); return; }
-    const st = getClickerState(bot);
-    if (!st.enabled) { stopAutoClick(); return; }
-    const baseDelay = st.manualCooldownMs || Math.round(1000 / getAttackSpeed(bot));
-    const jitter = Math.floor(Math.random() * 200) - 100; // от -100 до +100 мс
-    const delay = Math.max(200, baseDelay + jitter);
-      try {
-        const target = bot.nearestEntity((e) => {
-          if (!e || !e.position) return false;
-          if (e.name !== 'armor_stand') return false;
-          return bot.entity.position.distanceTo(e.position) <= 3.0;
-        });
-        
-        if (target) {
-          bot.attack(target);
-        }
-      } catch (e) {
-    }
-    autoClickTimer = setTimeout(tick, delay);
-  };
-  const st = getClickerState(bot);
-  autoClickTimer = setTimeout(tick, st.manualCooldownMs || Math.round(1000 / getAttackSpeed(bot)));
-}
-
-function stopAutoClick() {
-  if (autoClickTimer) {
-    clearTimeout(autoClickTimer);
-    autoClickTimer = null;
-    autoClickBot = null;
-  }
-}
 const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification, sendMainTelegramNotification } = require('./utils.js');
 
 
@@ -125,36 +73,7 @@ function formatTabComponent(comp) {
   return text;
 }
 
-function checkMeow(bot, message, sender) {
-  const msg = message.toLowerCase();
-  if (!msg.includes('мяу')) return;
 
-  const now = Date.now();
-  if (bot._lastMeowMsg === message && now - (bot._lastMeowTime || 0) < 3000) {
-    return;
-  }
-  bot._lastMeowMsg = message;
-  bot._lastMeowTime = now;
-
-  const settings = get('meow_settings', {});
-  const botNameLower = bot.username.toLowerCase();
-  const botSettings = settings[botNameLower] || { enabled: false, lastMeowed: 0 };
-  
-  if (!botSettings.enabled) {
-    return;
-  }
-  const timeSinceLast = now - botSettings.lastMeowed;
-  const cooldownMs = botSettings.cooldownMs || (5 * 60 * 1000);
-  if (timeSinceLast < cooldownMs) {
-    return;
-  }
-
-  botSettings.lastMeowed = now;
-  settings[botNameLower] = botSettings;
-  set('meow_settings', settings);
-
-  setTimeout(() => bot.chat('!мяу'), Math.random() * 2000 + 500);
-}
 
 process.on('uncaughtException', (err) => {
   console.error('[Uncaught Exception]:', err.message);
@@ -250,6 +169,71 @@ function startBot(envPath, configOverrides) {
   const RESOURCE_PACK_RESPONSE_NAMES = ['resource_pack_receive', 'resource_pack_response', 'resource_pack_status'];
   const RESULT_SUCCESS = 0;
 
+  let clickerState = { enabled: false, manualCooldownMs: null };
+  let meowState = { enabled: false, cooldownMs: 5 * 60 * 1000, lastMeowed: 0 };
+  let autoRespectEnabled = false;
+
+  let autoClickTimer = null;
+  let autoClickBot = null;
+
+  function startAutoClick(botInstance) {
+    if (autoClickTimer && autoClickBot === botInstance) return;
+    if (autoClickTimer) stopAutoClick();
+    autoClickBot = botInstance;
+    const tick = () => {
+      if (!botInstance || !botInstance.entity) { autoClickTimer = setTimeout(tick, 500); return; }
+      if (!clickerState.enabled) { stopAutoClick(); return; }
+      const baseDelay = clickerState.manualCooldownMs || Math.round(1000 / getAttackSpeed(botInstance));
+      const jitter = Math.floor(Math.random() * 200) - 100;
+      const delay = Math.max(200, baseDelay + jitter);
+      try {
+        const target = botInstance.nearestEntity((e) => {
+          if (!e || !e.position) return false;
+          if (e.name !== 'armor_stand') return false;
+          return botInstance.entity.position.distanceTo(e.position) <= 3.0;
+        });
+        if (target) {
+          botInstance.attack(target);
+        }
+      } catch (e) {}
+      autoClickTimer = setTimeout(tick, delay);
+    };
+    const baseDelay = clickerState.manualCooldownMs || Math.round(1000 / getAttackSpeed(botInstance));
+    autoClickTimer = setTimeout(tick, baseDelay);
+  }
+
+  function stopAutoClick() {
+    if (autoClickTimer) {
+      clearTimeout(autoClickTimer);
+      autoClickTimer = null;
+      autoClickBot = null;
+    }
+  }
+
+  function checkMeow(botInstance, message, sender) {
+    const msg = message.toLowerCase();
+    if (!msg.includes('мяу')) return;
+
+    const now = Date.now();
+    if (botInstance._lastMeowMsg === message && now - (botInstance._lastMeowTime || 0) < 3000) {
+      return;
+    }
+    botInstance._lastMeowMsg = message;
+    botInstance._lastMeowTime = now;
+
+    if (!meowState.enabled) {
+      return;
+    }
+    const timeSinceLast = now - meowState.lastMeowed;
+    const cooldownMs = meowState.cooldownMs || (5 * 60 * 1000);
+    if (timeSinceLast < cooldownMs) {
+      return;
+    }
+
+    meowState.lastMeowed = now;
+    setTimeout(() => botInstance.chat('!мяу'), Math.random() * 2000 + 500);
+  }
+
   // ponytail: WebSocket соединение для получения команд из хаба
   function connectToHub(botInstance) {
     const botName = config.username.toLowerCase();
@@ -282,7 +266,11 @@ function startBot(envPath, configOverrides) {
 
     ws.on('message', (data) => {
       try {
-        const command = JSON.parse(data);
+        const rawStr = data.toString();
+        const command = JSON.parse(rawStr);
+        console.log(`[WebSocket Debug] [${config.username}] Received raw WS message:`, rawStr);
+        console.log(`[WebSocket Debug] [${config.username}] Parsed command object:`, JSON.stringify(command, null, 2));
+
         if (command.action === 'chat') {
           chatQueue.push(command.text);
           processChatQueue();
@@ -315,9 +303,32 @@ function startBot(envPath, configOverrides) {
         } else if (command.action === 'reloadSpam') {
             reloadSpamTasks(1000);
             console.log(`[${config.username}] Перезагрузка спама из хаба`);
-        } else if (command.action === 'setswing') {
-            setClickerState(botInstance, { manualCooldownMs: command.ms || null });
-            console.log(`[${config.username}] Тайминг удара установлен: ${command.ms || 'авто'}`);
+        } else if (command.action === 'setSwing' || command.action === 'setswing') {
+            const manualCooldownMs = command.manualCooldownMs !== undefined ? command.manualCooldownMs : (command.ms !== undefined ? command.ms : null);
+            clickerState.manualCooldownMs = manualCooldownMs;
+            console.log(`[${config.username}] [Command Received] setSwing / setswing: manualCooldownMs=${manualCooldownMs}`);
+        } else if (command.action === 'setMeow') {
+            if (command.enabled !== undefined) {
+              meowState.enabled = command.enabled;
+            }
+            if (command.cooldownMs !== undefined) {
+              meowState.cooldownMs = command.cooldownMs;
+            }
+            console.log(`[${config.username}] [Command Received] setMeow: enabled=${meowState.enabled}, cooldownMs=${meowState.cooldownMs}`);
+        } else if (command.action === 'setAutoRespect') {
+            if (command.enabled !== undefined) {
+              autoRespectEnabled = command.enabled;
+            }
+            console.log(`[${config.username}] [Command Received] setAutoRespect: enabled=${autoRespectEnabled}`);
+        } else if (command.action === 'setAutoClick' || command.action === 'autoclickon' || command.action === 'autoclickoff') {
+            const enabled = command.enabled !== undefined ? command.enabled : (command.action === 'autoclickon');
+            clickerState.enabled = enabled;
+            if (enabled) {
+              startAutoClick(botInstance);
+            } else {
+              stopAutoClick();
+            }
+            console.log(`[${config.username}] [Command Received] setAutoClick: enabled=${clickerState.enabled}`);
         } else if (command.action === 'pos') {
             if (botInstance && botInstance.entity && botInstance.entity.position) {
               const p = botInstance.entity.position;
@@ -354,12 +365,7 @@ function startBot(envPath, configOverrides) {
                 sendTelegramNotification(config.username, msg);
               }
             }
-        } else if (command.action === 'autoclickon') {
-            setClickerState(botInstance, { enabled: true });
-            startAutoClick(botInstance);
-        } else if (command.action === 'autoclickoff') {
-            setClickerState(botInstance, { enabled: false });
-            stopAutoClick(botInstance);
+
         } else if (command.action === 'start') {
             if (!bot) {
                 isManualQuit = false;
@@ -396,9 +402,7 @@ function startBot(envPath, configOverrides) {
     setTimeout(() => {
       if (bot) {
         try {
-          const autoSettings = get('autorespect_settings', {});
-          const isAuto = autoSettings[config.username]?.enabled || false;
-          if (isAuto && Date.now() >= nextRespectTime) {
+          if (autoRespectEnabled && Date.now() >= nextRespectTime) {
             tryRespect(getMainAccount(), true);
           }
         } catch(e){}
@@ -413,17 +417,17 @@ function startBot(envPath, configOverrides) {
     const command = parts[0].toLowerCase();
     const replyCmd = replyTarget ? `/m ${replyTarget}` : '/r';
     if (command === 'autoclickon') {
-      if (getClickerState(botInstance).enabled) {
+      if (clickerState.enabled) {
         botInstance.chat(`${replyCmd} Автокликер уже включен`);
       } else {
-        setClickerState(botInstance, { enabled: true });
+        clickerState.enabled = true;
         startAutoClick(botInstance);
         botInstance.chat(`${replyCmd} Автокликер включен`);
       }
       return true;
     }
     if (command === 'autoclickoff') {
-      setClickerState(botInstance, { enabled: false });
+      clickerState.enabled = false;
       stopAutoClick();
       botInstance.chat(`${replyCmd} Автокликер выключен`);
       return true;
@@ -431,7 +435,7 @@ function startBot(envPath, configOverrides) {
     if (command === 'setswing') {
       const val = parts[1];
       if (!val || val.toLowerCase() === 'auto' || val === '0') {
-        setClickerState(botInstance, { manualCooldownMs: null });
+        clickerState.manualCooldownMs = null;
         botInstance.chat(`${replyCmd} Тайминг удара: авто (по оружию)`);
       } else {
         const ms = parseInt(val, 10);
@@ -439,7 +443,7 @@ function startBot(envPath, configOverrides) {
           botInstance.chat(`${replyCmd} Ошибка: укажи мс > 0 или auto`);
           return false;
         }
-        setClickerState(botInstance, { manualCooldownMs: ms });
+        clickerState.manualCooldownMs = ms;
         botInstance.chat(`${replyCmd} Тайминг удара: ${ms} мс (вручную)`);
       }
       return true;
@@ -650,8 +654,7 @@ function startBot(envPath, configOverrides) {
       updateBotStatus(config.username, true);
 
       // ponytail: проверка состояния кликера
-      const st = getClickerState(bot);
-      if (st.enabled) {
+      if (clickerState.enabled) {
         startAutoClick(bot);
       }
 
@@ -720,7 +723,7 @@ function startBot(envPath, configOverrides) {
       reloadSpamTasks(10000);
       
       setTimeout(() => {
-        if (bot && getClickerState(bot).enabled) startAutoClick(bot);
+        if (bot && clickerState.enabled) startAutoClick(bot);
       }, 10000);
 
       // ponytail: уведомление об обновлении (если файл обновлен менее 2 минут назад)

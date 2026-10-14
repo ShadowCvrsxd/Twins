@@ -406,10 +406,7 @@ async function poll() {
           }
 
            const enabled = cmd === '/autorepon';
-           let settings = readJSON(AUTORESPECT_FILE);
-           
-           settings[targetBot] = { ...settings[targetBot], enabled: enabled };
-           writeJSON(AUTORESPECT_FILE, settings);
+           sendCommand(targetBot, { action: 'setAutoRespect', enabled });
 
            await sendMessage(chatId, `✅ Авто-выдача респектов для твинка *${targetBot}* ${enabled ? 'ВКЛ' : 'ВЫКЛ'}.`);
         }
@@ -437,10 +434,7 @@ async function poll() {
           }
 
            const enabled = cmd === '/meowon';
-           let settings = readJSON(MEOW_FILE);
-           
-           settings[targetBot.toLowerCase()] = { ...settings[targetBot.toLowerCase()], enabled: enabled };
-           writeJSON(MEOW_FILE, settings);
+           sendCommand(targetBot, { action: 'setMeow', enabled });
 
            await sendMessage(chatId, `✅ Режим "мяу" для твинка *${targetBot}* ${enabled ? 'ВКЛ' : 'ВЫКЛ'}.`);
 
@@ -477,12 +471,7 @@ async function poll() {
           }
 
           const cooldownMs = seconds * 1000;
-          let settings = readJSON(MEOW_FILE);
-          settings[targetBot.toLowerCase()] = {
-            ...settings[targetBot.toLowerCase()],
-            cooldownMs
-          };
-          writeJSON(MEOW_FILE, settings);
+          sendCommand(targetBot, { action: 'setMeow', cooldownMs });
 
           await sendMessage(chatId, `✅ Кулдаун "мяу" для твинка *${targetBot}* установлен на ${timeArg} (${seconds} сек).`);
         }
@@ -1052,9 +1041,9 @@ async function poll() {
         await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
         continue;
       }
-      const action = cmd === '/autoclickon' ? 'autoclickon' : 'autoclickoff';
-      sendCommand(targetBot, { action: action });
-      await sendMessage(chatId, `✅ Автокликер ${cmd === '/autoclickon' ? 'включен' : 'выключен'} для *${targetBot}*`);
+      const enabled = cmd === '/autoclickon';
+      sendCommand(targetBot, { action: 'setAutoClick', enabled });
+      await sendMessage(chatId, `✅ Автокликер ${enabled ? 'включен' : 'выключен'} для *${targetBot}*`);
     }
     else if (cmd === '/setswing') {
       const targetBot = resolveBot(chatId, parts[1]);
@@ -1070,19 +1059,20 @@ async function poll() {
         await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
         continue;
       }
-      let ms = null;
+      let manualCooldownMs = null;
       if (parts[2] && parts[2].toLowerCase() !== 'auto' && parts[2] !== '0') {
-        ms = parseInt(parts[2], 10);
+        const ms = parseInt(parts[2], 10);
         if (isNaN(ms) || ms <= 0) {
           await sendMessage(chatId, '❌ Укажи интервал в мс (число > 0) или auto');
           continue;
         }
+        manualCooldownMs = ms;
       }
-      sendCommand(targetBot, { action: 'setswing', ms });
-      if (ms === null) {
+      sendCommand(targetBot, { action: 'setSwing', manualCooldownMs });
+      if (manualCooldownMs === null) {
         await sendMessage(chatId, `✅ Тайминг удара для *${targetBot}*: авто (по оружию)`);
       } else {
-        await sendMessage(chatId, `✅ Тайминг удара для *${targetBot}*: ${ms} мс (вручную)`);
+        await sendMessage(chatId, `✅ Тайминг удара для *${targetBot}*: ${manualCooldownMs} мс (вручную)`);
       }
     }
     else if (cmd === '/pos') {
