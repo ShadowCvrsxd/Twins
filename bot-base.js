@@ -662,56 +662,7 @@ function startBot(envPath, configOverrides) {
         }
       }, 3000);
 
-      // ponytail: проверка и автопривязка к Telegram через БД
-      try {
-        const pending = get('links_pending', {});
-        const uname = config.username.toLowerCase();
-        if (pending[uname]) {
-          const { chatId } = pending[uname];
-          delete pending[uname];
-          set('links_pending', pending);
 
-          const approved = get('links_approved', {});
-
-          let isOwnedElsewhere = false;
-          for (const [ownerChatId, bots] of Object.entries(approved)) {
-            if (bots.some(b => b.toLowerCase() === config.username.toLowerCase()) && ownerChatId !== chatId.toString()) {
-              isOwnedElsewhere = true;
-              break;
-            }
-          }
-
-          if (isOwnedElsewhere) {
-            console.log(`[Telegram] Бот ${config.username} уже привязан к другому Telegram аккаунту. Привязка отклонена.`);
-            return;
-          }
-
-          if (!approved[chatId]) approved[chatId] = [];
-          const alreadyLinked = approved[chatId].some(b => b.toLowerCase() === config.username.toLowerCase());
-          if (!alreadyLinked && approved[chatId].length >= 2) {
-            console.log(`[Telegram] Лимит (2 твинка) исчерпан для чата ${chatId}. Привязка отклонена.`);
-            return;
-          }
-          if (!alreadyLinked) {
-            approved[chatId].push(config.username);
-            set('links_approved', approved);
-          }
-
-          console.log(`[Telegram] Бот ${config.username} успешно привязан к Telegram Chat ID: ${chatId}`);
-
-          if (process.env.TG_BOT_TOKEN) {
-            fetch(`https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}/sendMessage`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                chat_id: chatId,
-                text: `✅ Бот *${config.username}* успешно запущен и привязан!`,
-                parse_mode: 'Markdown'
-              })
-            }).catch(() => {});
-          }
-        }
-      } catch (e) {}
 
       // ponytail: проверка и автопривязка мейн-бота к Telegram через БД
       try {

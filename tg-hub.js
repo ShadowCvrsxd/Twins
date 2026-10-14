@@ -170,7 +170,6 @@ function sendCommand(botName, command) {
   return false;
 }
 
-const PENDING_FILE = 'links_pending';
 const APPROVED_FILE = 'links_approved';
 const MAINS_PENDING_FILE = 'mains_pending';
 const MAINS_APPROVED_FILE = 'mains_approved';
@@ -756,12 +755,14 @@ async function poll() {
             continue;
           }
 
-          const code = Math.floor(100000 + Math.random() * 900000).toString();
-          const pending = readJSON(PENDING_FILE);
-          pending[username.toLowerCase()] = { code, chatId };
-          writeJSON(PENDING_FILE, pending);
-
-          await sendMessage(chatId, `🔗 Запрос на привязку твинка *${username}* добавлен.\n\nЗапусти этого твинка локально — при входе в игру он автоматически привяжется к твоему Telegram!`);
+          if (!alreadyLinked) {
+            if (!approved[chatId]) approved[chatId] = [];
+            approved[chatId].push(username);
+            writeJSON(APPROVED_FILE, approved);
+            await sendMessage(chatId, `✅ Твинк *${username}* успешно привязан!`);
+          } else {
+            await sendMessage(chatId, `ℹ️ Твинк *${username}* уже привязан к твоему аккаунту.`);
+          }
         }
         else if (cmd === '/deltwin' || cmd === '/removetwin') {
           const username = parts[1];
