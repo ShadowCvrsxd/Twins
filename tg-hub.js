@@ -109,9 +109,23 @@ apiServer.listen(8089, '0.0.0.0', () => {
 const wss = new WebSocket.Server({ server: apiServer });
 console.log('[Bridge] WebSocket-сервер запущен на порту 8089 (через API Server)');
 
+const heartbeatInterval = setInterval(() => {
+    wss.clients.forEach((ws) => {
+        if (ws.isAlive === false) {
+            console.log(`[Bridge] Клиент ${ws.botName || 'unknown'} не ответил на ping, обрываем соединение.`);
+            return ws.terminate();
+        }
+        ws.isAlive = false;
+        ws.ping();
+    });
+}, 30000);
+
+wss.on('close', () => {
+    clearInterval(heartbeatInterval);
+});
+
 wss.on('connection', (socket, req) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
-    const token = url.searchParams.get('token');
     const botName = url.searchParams.get('bot');
 
     if (!botName) {
@@ -143,21 +157,71 @@ wss.on('connection', (socket, req) => {
         return;
     }
 
-    const userTokens = get('user_tokens', {});
-    if (token !== userTokens[ownerId]) {
-        console.log(`[Bridge] Отклонено: неверный токен для бота ${botName}.`);
-        socket.close();
-        return;
-    }
-
-    // Сохраняем сокет для отправки команд
     socket.botName = botName.toLowerCase();
-    clients.set(socket.botName, socket);
-    console.log(`[Bridge] Бот ${socket.botName} подключен.`);
+    socket.ownerId = ownerId;
+    socket.isAuthed = false;
+    socket.isAlive = true;
+
+    socket.on('pong', () => {
+        socket.isAlive = true;
+    });
+
+    const authTimeout = setTimeout(() => {
+        if (!socket.isAuthed) {
+            console.log(`[Bridge] Таймаут авторизации для бота ${socket.botName}.`);
+            socket.close();
+        }
+    }, 5000);
+
+    socket.on('message', (data) => {
+        try {
+            const message = JSON.parse(data.toString());
+            if (!socket.isAuthed) {
+                if (message.type === 'auth') {
+                    const userTokens = get('user_tokens', {});
+                    if (message.token !== userTokens[ownerId]) {
+                        console.log(`[AUTH DEBUG] Получен токен: ${message.token}, Ожидался: ${userTokens[ownerId]}, OwnerId: ${ownerId}`);
+                        console.log(`[Bridge] Отклонено: неверный токен для бота ${socket.botName}.`);
+                        clearTimeout(authTimeout);
+                        socket.close();
+                        return;
+                    }
+                    socket.isAuthed = true;
+                    clearTimeout(authTimeout);
+                    clients.set(socket.botName, socket);
+                    console.log(`[Bridge] Бот ${socket.botName} авторизован и подключен.`);
+                    return;
+                } else {
+                    console.log(`[Bridge] Ожидалось сообщение авторизации от ${socket.botName}, получено:`, message);
+                    clearTimeout(authTimeout);
+                    socket.close();
+                    return;
+                }
+            }
+
+            if (message.action === 'response') {
+                console.log(`[Bridge Debug] Received 'response' action from bot ${socket.botName}:`, message);
+                const chatId = message.chatId || socket.ownerId;
+                if (chatId && message.text) {
+                    sendMessage(chatId, message.text, message.parseMode || null);
+                } else {
+                    console.log(`[Bridge] Warning: 'response' action missing chatId or text. socket.ownerId=${socket.ownerId}, message:`, message);
+                }
+                return;
+            }
+        } catch (e) {
+            console.error('[Bridge] Ошибка обработки сообщения:', e);
+        }
+    });
 
     socket.on('close', () => {
-        clients.delete(socket.botName);
-        console.log(`[Bridge] Бот ${socket.botName} отключен.`);
+        clearTimeout(authTimeout);
+        if (clients.get(socket.botName) === socket) {
+            clients.delete(socket.botName);
+            console.log(`[Bridge] Бот ${socket.botName} отключен.`);
+        } else {
+            console.log(`[Bridge] Устаревшее соединение бота ${socket.botName} закрыто.`);
+        }
     });
 });
 
