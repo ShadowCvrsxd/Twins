@@ -175,6 +175,7 @@ wss.on('connection', (socket, req) => {
     }, 5000);
 
     socket.on('message', (data) => {
+        console.log('[DEBUG MESSAGE]', data.toString());
         try {
             const message = JSON.parse(data.toString());
             if (!socket.isAuthed) {
