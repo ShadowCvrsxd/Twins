@@ -269,6 +269,22 @@ function writeJSON(key, data) {
   set(key, data);
 }
 
+function generateToken(chatId) {
+  try {
+    const token = execSync('openssl rand -hex 32').toString().trim();
+    const userTokens = get('user_tokens', {});
+    userTokens[chatId] = token;
+    set('user_tokens', userTokens);
+    return token;
+  } catch (e) {
+    const token = crypto.randomBytes(32).toString('hex');
+    const userTokens = get('user_tokens', {});
+    userTokens[chatId] = token;
+    set('user_tokens', userTokens);
+    return token;
+  }
+}
+
 let offset = 0;
 
 async function telegramAPI(method, body = {}) {
@@ -432,13 +448,9 @@ async function poll() {
           await sendMessage(chatId, msg);
         }
         else if (cmd === '/gettoken') {
-            // ponytail: using openssl as requested; crypto.randomBytes(32).toString('hex') is the stdlib alternative.
             try {
                 console.log('[TokenDebug] Команда /gettoken вызвана для:', chatId);
-                const token = execSync('openssl rand -hex 32').toString().trim();
-                const userTokens = get('user_tokens', {});
-                userTokens[chatId] = token;
-                set('user_tokens', userTokens);
+                const token = generateToken(chatId);
                 console.log('[TokenDebug] Токен сохранен:', token);
                 await sendMessage(chatId, `🔑 Твой токен: \`${token}\``);
             } catch (e) {
@@ -827,7 +839,8 @@ async function poll() {
             if (!approved[chatId]) approved[chatId] = [];
             approved[chatId].push(username);
             writeJSON(APPROVED_FILE, approved);
-            await sendMessage(chatId, `✅ Твинк *${username}* успешно привязан!`);
+            const token = generateToken(chatId);
+            await sendMessage(chatId, `✅ Твинк *${username}* успешно привязан!\n\n🔑 Твой новый токен для .env: \`${token}\``);
           } else {
             await sendMessage(chatId, `ℹ️ Твинк *${username}* уже привязан к твоему аккаунту.`);
           }
@@ -855,7 +868,8 @@ async function poll() {
                 writeJSON(ALIASES_FILE, aliases);
               }
 
-              await sendMessage(chatId, `🗑 Твинк *${username}* успешно отвязан.`);
+              const token = generateToken(chatId);
+              await sendMessage(chatId, `🗑 Твинк *${username}* успешно отвязан.\n\n🔑 Твой новый токен для .env: \`${token}\``);
             } else {
               await sendMessage(chatId, `❌ Твинк *${username}* не найден в твоем списке.`);
             }
