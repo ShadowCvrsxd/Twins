@@ -16,3 +16,9 @@ list_models.js
 friend_dist.zip
 
 friend_dist/
+.omo/
+watchdog.sh
+setup-warp.sh
+*.zip
+*.bat
+
