@@ -262,6 +262,7 @@ function startBot(envPath, configOverrides) {
 
     ws.on('open', () => {
       console.log(`[WebSocket] Бот ${botName} подключен к Hub.`);
+      ws.send(JSON.stringify({ type: 'auth', token }));
     });
 
     ws.on('message', (data) => {
