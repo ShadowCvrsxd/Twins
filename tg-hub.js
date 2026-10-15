@@ -170,8 +170,6 @@ wss.on('connection', (socket, req) => {
 
     const authTimeout = setTimeout(() => {
         if (!socket.isAuthed) {
-            console.log(`[Bridge] Таймаут авторизации для бота ${socket.botName}.`);
-            console.log('[Socket Close Stack]:', new Error().stack);
             socket.close();
         }
     }, 5000);
