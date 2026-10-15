@@ -42,7 +42,7 @@ function getAttackSpeed(bot) {
   }
   return 1.6;
 }
-const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification, sendMainTelegramNotification } = require('./utils.js');
+const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, getTraffic, shouldSend } = require('./utils.js');
 
 
 function formatTabComponent(comp) {
@@ -121,6 +121,7 @@ function startBot(envPath, configOverrides) {
   const PASSWORD = process.env.PASSWORD;
 
   let bot;
+  let hubSocket = null;
   let isManualQuit = false;
   let isScheduledOffline = false; // ponytail: флаг планового отключения
   let schedulerInterval;
@@ -234,6 +235,15 @@ function startBot(envPath, configOverrides) {
     setTimeout(() => botInstance.chat('!мяу'), Math.random() * 2000 + 500);
   }
 
+  function sendToHub(payload) {
+    if (!shouldSend(hubSocket)) return;
+    try {
+      hubSocket.send(typeof payload === 'string' ? payload : JSON.stringify(payload));
+    } catch (e) {
+      console.error('[WebSocket] Ошибка отправки в хаб:', e);
+    }
+  }
+
   // ponytail: WebSocket соединение для получения команд из хаба
   function connectToHub(botInstance) {
     const botName = config.username.toLowerCase();
@@ -242,6 +252,7 @@ function startBot(envPath, configOverrides) {
     const port = process.env.HUB_PORT || '8089';
     const url = `ws://${host}:${port}?token=${token}&bot=${botName}`;
     const ws = new WebSocket(url);
+    hubSocket = ws;
 
     let chatQueue = [];
     let isSendingChat = false;
@@ -286,8 +297,7 @@ function startBot(envPath, configOverrides) {
               const cleanFooter = lastTabFooter.replace(/[\ufffd\uFFFD]/g, '');
               msg = msg + `\n\n📌 Footer: ${cleanFooter}`;
             }
-            const respKey = `bot_response_${config.username.toLowerCase()}`;
-            set(respKey, { msg, chatId: command.chatId });
+            sendToHub({ type: 'response', text: msg, chatId: command.chatId });
         } else if (command.action === 'switchServer') {
             const { host, port } = command;
             if (host && port) {
@@ -351,19 +361,17 @@ function startBot(envPath, configOverrides) {
               const msg = `📍 *Координаты твинка ${config.username}*\nМир: ${worldName}\n\n🌍 Обычный мир: X: ${x}, Y: ${y}, Z: ${z}\n🔥 Ад (Nether): X: ${netherX}, Z: ${netherZ}`;
 
               if (command.chatId) {
-                const respKey = `bot_response_${config.username.toLowerCase()}`;
-                set(respKey, { msg, chatId: command.chatId });
+                sendToHub({ type: 'response', text: msg, chatId: command.chatId });
               } else {
-                sendTelegramNotification(config.username, msg);
+                sendToHub({ type: 'response', text: msg });
               }
               console.log(`[${config.username}] Координаты отправлены`);
             } else {
               const msg = `❌ Твинк ${config.username} не спавнился или координаты недоступны.`;
               if (command.chatId) {
-                const respKey = `bot_response_${config.username.toLowerCase()}`;
-                set(respKey, { msg, chatId: command.chatId });
+                sendToHub({ type: 'response', text: msg, chatId: command.chatId });
               } else {
-                sendTelegramNotification(config.username, msg);
+                sendToHub({ type: 'response', text: msg });
               }
             }
 
@@ -385,6 +393,7 @@ function startBot(envPath, configOverrides) {
     });
 
     ws.on('close', () => {
+      if (hubSocket === ws) hubSocket = null;
       console.log(`[WebSocket] Бот ${botName} отключен. Реконнект через 5 сек...`);
       setTimeout(() => connectToHub(botInstance), 5000);
     });
@@ -571,6 +580,7 @@ function startBot(envPath, configOverrides) {
   scheduleNextRestart();
 
   function createBotInstance() {
+    hubSocket = null;
     console.log(`[Система] Попытка создания бота для ${config.username}...`);
     
     // ponytail: Watchdog таймер
@@ -652,7 +662,7 @@ function startBot(envPath, configOverrides) {
 
     bot.on('spawn', () => {
       clearTimeout(spawnTimeout); // ponytail: вход успешный, watchdog не нужен
-      updateBotStatus(config.username, true);
+      sendToHub({ type: 'status', online: true, username: config.username });
 
       // ponytail: проверка состояния кликера
       if (clickerState.enabled) {
@@ -777,11 +787,7 @@ function startBot(envPath, configOverrides) {
         respectTarget = null;
       } else {
         if (!msg.startsWith('/login') && !msg.startsWith('/register')) {
-          if (config.isMain) {
-            sendMainTelegramNotification(message);
-          } else {
-            sendTelegramNotification(bot.username, message);
-          }
+          sendToHub({ type: 'chat', isMain: !!config.isMain, text: message });
         }
       }
     });
@@ -793,7 +799,7 @@ function startBot(envPath, configOverrides) {
       }
       clearTimeout(spawnTimeout);
       if (bot) {
-          updateBotStatus(bot.username || config.username, false);
+          sendToHub({ type: 'status', online: false, username: bot.username || config.username });
       }
       bot = null;
       console.log(`[Система] Соединение закрыто. Причина: ${reason}`);
