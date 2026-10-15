@@ -168,6 +168,50 @@ function sendMainTelegramNotification(text) {
   } catch(e){}
 }
 
+function relayChatToTelegram({ ownerId, botName, text, isMain }, deps) {
+  const { get, set, sendChatMessage, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks } = deps;
+  try {
+    const cleanedText = cleanMinecraftText(text);
+    if (!cleanedText) return;
+
+    if (isMain) {
+      const streaming = get('main_chat_streaming', {});
+      const streamAll = get('main_chat_stream_all', {});
+      const approved = get('links_approved', {});
+      const mainsApproved = get('mains_approved', {});
+      const mainNick = getMainAccount().toLowerCase();
+      const cleanedLower = cleanedText.toLowerCase();
+      const senderMatch = cleanedLower.match(/(?:^|\|)\s*([^\s›|]+)\s*›/);
+      const sender = senderMatch ? senderMatch[1] : '';
+      const isTwinMsg = sender && getTwinks().some(t => t.toLowerCase() === sender);
+
+      const allApproved = { ...approved };
+      for (const [chatId, mains] of Object.entries(mainsApproved)) {
+        if (!allApproved[chatId]) allApproved[chatId] = [];
+        allApproved[chatId].push(...mains);
+      }
+      for (const [chatId, bots] of Object.entries(allApproved)) {
+        if (!streaming[chatId]) continue;
+        if (!streamAll[chatId]) {
+          const isMention = cleanedLower.includes(mainNick);
+          if (!isMention || isTwinMsg) continue;
+        }
+        sendChatMessage(chatId, `💬 [мейн] ${cleanedText}`);
+      }
+      return;
+    }
+
+    const streaming = get('chat_streaming', {});
+    const userStream = streaming[ownerId];
+    if (!userStream || !userStream[botName.toLowerCase()]) {
+        return;
+    }
+    const displayName = getBotDisplayName(ownerId, botName);
+    const prefix = displayName ? `[${displayName}] ` : '';
+    sendChatMessage(ownerId, `💬 ${prefix}${cleanedText}`);
+  } catch (e) {}
+}
+
 function updateTraffic(username, bytes) {
     const stats = get('traffic_stats', {});
     stats[username] = (stats[username] || 0) + bytes;
@@ -178,4 +222,29 @@ function getTraffic() {
     return get('traffic_stats', {});
 }
 
-module.exports = { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification, sendMainTelegramNotification };
+function shouldSend(socket) {
+  return !!(socket && socket.readyState === 1);
+}
+
+function forwardResponse(message, socket, deps) {
+  const { sendMessage } = deps;
+  const chatId = message.chatId || (socket && socket.ownerId);
+  const text = message.text || message.msg;
+  if (!chatId || !text) return false;
+  sendMessage(chatId, text, message.parseMode || null);
+  return true;
+}
+
+function applyBotStatus(message, socket, deps) {
+  const { get, set } = deps;
+  const botName = (socket && socket.botName) || message.botName;
+  const statuses = get('bots_status', {});
+  statuses[botName] = {
+    online: !!message.online,
+    onlineSince: message.online ? Date.now() : null,
+    username: message.username || botName
+  };
+  set('bots_status', statuses);
+}
+
+module.exports = { getTwinks, getMainAccount, getBotDisplayName, cleanMinecraftText, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification, sendMainTelegramNotification, relayChatToTelegram, shouldSend, forwardResponse, applyBotStatus };

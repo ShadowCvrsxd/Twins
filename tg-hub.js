@@ -4,6 +4,7 @@ const WebSocket = require('ws');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
 const { get, set } = require('./db.js');
+const { relayChatToTelegram, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks, forwardResponse, applyBotStatus } = require('./utils.js');
 
 const clients = new Map();
 
@@ -13,6 +14,16 @@ const TOKEN = process.env.TG_BOT_TOKEN;
 if (!TOKEN) {
   console.log('[Telegram] TG_BOT_TOKEN не задан в .env. Телеграм-хаб отключен.');
   process.exit(0);
+}
+
+function sendChatMessage(chatId, text) {
+  const chatToken = process.env.TG_CHAT_BOT_TOKEN || process.env.TG_BOT_TOKEN;
+  if (!chatToken) return;
+  fetch(`https://api.telegram.org/bot${chatToken}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text })
+  }).catch(() => {});
 }
 
 const http = require('http');
@@ -198,14 +209,21 @@ wss.on('connection', (socket, req) => {
                 }
             }
 
-            if (message.action === 'response') {
-                console.log(`[Bridge Debug] Received 'response' action from bot ${socket.botName}:`, message);
-                const chatId = message.chatId || socket.ownerId;
-                if (chatId && message.text) {
-                    sendMessage(chatId, message.text, message.parseMode || null);
-                } else {
-                    console.log(`[Bridge] Warning: 'response' action missing chatId or text. socket.ownerId=${socket.ownerId}, message:`, message);
-                }
+            if (message.type === 'chat' || message.action === 'chat') {
+                relayChatToTelegram(
+                    { ownerId: socket.ownerId, botName: socket.botName, text: message.text, isMain: !!message.isMain },
+                    { get, set, sendChatMessage, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks }
+                );
+                return;
+            }
+
+            if (message.type === 'response' || message.action === 'response') {
+                forwardResponse(message, socket, { sendMessage });
+                return;
+            }
+
+            if (message.type === 'status') {
+                applyBotStatus(message, socket, { get, set });
                 return;
             }
         } catch (e) {
@@ -218,6 +236,7 @@ wss.on('connection', (socket, req) => {
         if (clients.get(socket.botName) === socket) {
             clients.delete(socket.botName);
             console.log(`[Bridge] Бот ${socket.botName} отключен.`);
+            applyBotStatus({ online: false }, socket, { get, set });
         } else {
             console.log(`[Bridge] Устаревшее соединение бота ${socket.botName} закрыто.`);
         }
@@ -1204,20 +1223,6 @@ async function poll() {
   }
   setTimeout(poll, 1000);
 }
-
-setInterval(async () => {
-  const approved = readJSON(APPROVED_FILE);
-  for (const [chatId, bots] of Object.entries(approved)) {
-    for (const botName of bots) {
-      const respKey = `bot_response_${botName.toLowerCase()}`;
-      const response = get(respKey, null);
-      if (response && response.msg && response.chatId) {
-        set(respKey, null); // Clear immediately to avoid re-sending
-        await sendMessage(response.chatId, response.msg, null);
-      }
-    }
-  }
-}, 1000);
 
 console.log('[Bridge Debug] Вызываю функцию poll()...');
 poll();
