@@ -367,7 +367,6 @@ async function initBotMenu() {
   await telegramAPI('setMyCommands', {
     commands: [
       { command: 'start', description: 'Главное меню' },
-      { command: 'gettoken', description: 'Получить токен' },
       { command: 'addmain', description: 'Привязать мейн-бота (/addmain <ник>)' },
       { command: 'delmain', description: 'Отвязать мейн-бота (/delmain <ник>)' },
       { command: 'addtwin', description: 'Привязать твинка (/addtwin <ник>)' },
@@ -441,22 +440,11 @@ async function poll() {
         const cmd = parts[0].toLowerCase();
 
         if (cmd === '/start') {
-          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/gettoken` - получить токен для подключения\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/startmain` - запустить мейн-бота\n`/stopmain` - остановить мейн-бота\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/meowcd <алиас> <время>` - кулдаун мяуканья\n`/autorepon <алиас>` - вкл. авто-респекты\n`/autorepoff <алиас>` - выкл. авто-респекты\n`/spamlist <алиас>` - список спам-задач\n`/addspam <алиас> <сек> <текст>` - добавить спам-задачу\n`/delspam <алиас> <номер>` - удалить спам-задачу\n`/autoclickon <алиас>` - вкл. автокликер\n`/autoclickoff <алиас>` - выкл. автокликер\n`/setswing <алиас> <мс|auto>` - тайминг удара\n`/pos <алиас>` - координаты твинка\n`/mainstreamallon` - дублировать ВЕСЬ чат мейна\n`/mainstreamalloff` - только сообщения с ником мейна\n`/stopspam` - остановить спам';
+          let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/startmain` - запустить мейн-бота\n`/stopmain` - остановить мейн-бота\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/meowcd <алиас> <время>` - кулдаун мяуканья\n`/autorepon <алиас>` - вкл. авто-респекты\n`/autorepoff <алиас>` - выкл. авто-респекты\n`/spamlist <алиас>` - список спам-задач\n`/addspam <алиас> <сек> <текст>` - добавить спам-задачу\n`/delspam <алиас> <номер>` - удалить спам-задачу\n`/autoclickon <алиас>` - вкл. автокликер\n`/autoclickoff <алиас>` - выкл. автокликер\n`/setswing <алиас> <мс|auto>` - тайминг удара\n`/pos <алиас>` - координаты твинка\n`/mainstreamallon` - дублировать ВЕСЬ чат мейна\n`/mainstreamalloff` - только сообщения с ником мейна\n`/stopspam` - остановить спам';
           if (isAdmin(chatId)) {
             msg += '\n\n👑 *Админ-панель:*\nСтатус регистрации: ' + (isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта') + '\n`/lock` - заблокировать\n`/unlock` - разблокировать\n`/users` - список юзеров\n`/testserver` - на тестовый\n`/mainserver` - на основной\n`/setserver <ip> <port>` - сменить сервер';
           }
           await sendMessage(chatId, msg);
-        }
-        else if (cmd === '/gettoken') {
-            try {
-                console.log('[TokenDebug] Команда /gettoken вызвана для:', chatId);
-                const token = generateToken(chatId);
-                console.log('[TokenDebug] Токен сохранен:', token);
-                await sendMessage(chatId, `🔑 Твой токен: \`${token}\``);
-            } catch (e) {
-                console.error('[TokenDebug] Ошибка:', e);
-                await sendMessage(chatId, '❌ Ошибка при генерации токена.');
-            }
         }
         else if (cmd === '/autorepon' || cmd === '/autorepoff') {
           const userBots = (readJSON(APPROVED_FILE)[chatId] || []);
@@ -840,7 +828,7 @@ async function poll() {
             approved[chatId].push(username);
             writeJSON(APPROVED_FILE, approved);
             const token = generateToken(chatId);
-            await sendMessage(chatId, `✅ Твинк *${username}* успешно привязан!\n\n🔑 Твой новый токен для .env: \`${token}\``);
+            await sendMessage(chatId, `✅ Твинк *${username}* успешно привязан!\n\n🔑 Твой новый токен для .env: ||${token}||`);
           } else {
             await sendMessage(chatId, `ℹ️ Твинк *${username}* уже привязан к твоему аккаунту.`);
           }
@@ -869,7 +857,7 @@ async function poll() {
               }
 
               const token = generateToken(chatId);
-              await sendMessage(chatId, `🗑 Твинк *${username}* успешно отвязан.\n\n🔑 Твой новый токен для .env: \`${token}\``);
+              await sendMessage(chatId, `🗑 Твинк *${username}* успешно отвязан.\n\n🔑 Твой новый токен для .env: ||${token}||`);
             } else {
               await sendMessage(chatId, `❌ Твинк *${username}* не найден в твоем списке.`);
             }
