@@ -129,6 +129,7 @@ wss.on('connection', (socket, req) => {
     const botName = url.searchParams.get('bot');
 
     if (!botName) {
+        console.log('[Socket Close Stack]:', new Error().stack);
         socket.close();
         return;
     }
@@ -153,6 +154,7 @@ wss.on('connection', (socket, req) => {
 
     if (!ownerId) {
         console.log(`[Bridge] Отклонено: бот ${botName} не привязан.`);
+        console.log('[Socket Close Stack]:', new Error().stack);
         socket.close();
         return;
     }
@@ -169,6 +171,7 @@ wss.on('connection', (socket, req) => {
     const authTimeout = setTimeout(() => {
         if (!socket.isAuthed) {
             console.log(`[Bridge] Таймаут авторизации для бота ${socket.botName}.`);
+            console.log('[Socket Close Stack]:', new Error().stack);
             socket.close();
         }
     }, 5000);
@@ -183,6 +186,7 @@ wss.on('connection', (socket, req) => {
                         console.log(`[AUTH DEBUG] Получен токен: ${message.token}, Ожидался: ${userTokens[ownerId]}, OwnerId: ${ownerId}`);
                         console.log(`[Bridge] Отклонено: неверный токен для бота ${socket.botName}.`);
                         clearTimeout(authTimeout);
+                        console.log('[Socket Close Stack]:', new Error().stack);
                         socket.close();
                         return;
                     }
@@ -194,6 +198,7 @@ wss.on('connection', (socket, req) => {
                 } else {
                     console.log(`[Bridge] Ожидалось сообщение авторизации от ${socket.botName}, получено:`, message);
                     clearTimeout(authTimeout);
+                    console.log('[Socket Close Stack]:', new Error().stack);
                     socket.close();
                     return;
                 }
