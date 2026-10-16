@@ -25,3 +25,5 @@ setup-warp.sh
 *.zip
 *.bat
 
+test/
+
