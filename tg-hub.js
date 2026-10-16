@@ -303,6 +303,22 @@ function generateToken(chatId) {
   }
 }
 
+function ensureToken(chatId) {
+  const userTokens = get('user_tokens', {});
+  if (userTokens[chatId]) {
+    return userTokens[chatId];
+  }
+  return generateToken(chatId);
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 let offset = 0;
 
 async function telegramAPI(method, body = {}) {
@@ -389,6 +405,7 @@ async function initBotMenu() {
       { command: 'delmain', description: 'Отвязать мейн-бота (/delmain <ник>)' },
       { command: 'addtwin', description: 'Привязать твинка (/addtwin <ник>)' },
       { command: 'deltwin', description: 'Отвязать твинка (/deltwin <ник>)' },
+      { command: 'resettoken', description: 'Перевыпустить токен (/resettoken)' },
       { command: 'alias', description: 'Задать алиас (/alias <бот> <алиас>)' },
       { command: 'unalias', description: 'Удалить алиас (/unalias <алиас>)' },
       { command: 'starttwin', description: 'Запустить твинка (/starttwin <алиас>)' },
@@ -781,11 +798,15 @@ async function poll() {
             continue;
           }
 
-          const pending = readJSON(MAINS_PENDING_FILE);
-          pending[username.toLowerCase()] = { chatId };
-          writeJSON(MAINS_PENDING_FILE, pending);
-
-          await sendMessage(chatId, `🔗 Запрос на привязку мейн-бота *${username}* добавлен.\n\nЗапусти этого мейн-бота локально — при входе в игру он автоматически привяжется к твоему Telegram!`);
+          if (!alreadyLinked) {
+            if (!mainsApproved[chatId]) mainsApproved[chatId] = [];
+            mainsApproved[chatId].push(username);
+            writeJSON(MAINS_APPROVED_FILE, mainsApproved);
+            const token = ensureToken(chatId);
+            await sendMessage(chatId, `✅ Мейн-бот <b>${escapeHtml(username)}</b> успешно привязан!\n\n🔑 Твой токен для .env: <tg-spoiler>${token}</tg-spoiler>`, 'HTML');
+          } else {
+            await sendMessage(chatId, `ℹ️ Мейн-бот <b>${escapeHtml(username)}</b> уже привязан к твоему аккаунту.`, 'HTML');
+          }
         }
         else if (cmd === '/delmain') {
           const username = parts[1];
@@ -799,9 +820,9 @@ async function poll() {
             if (index !== -1) {
               mainsApproved[chatId].splice(index, 1);
               writeJSON(MAINS_APPROVED_FILE, mainsApproved);
-              await sendMessage(chatId, `🗑 Мейн-бот *${username}* успешно отвязан.`);
+              await sendMessage(chatId, `🗑 Мейн-бот <b>${escapeHtml(username)}</b> успешно отвязан.`, 'HTML');
             } else {
-              await sendMessage(chatId, `❌ Мейн-бот *${username}* не найден в твоем списке.`);
+              await sendMessage(chatId, `❌ Мейн-бот <b>${escapeHtml(username)}</b> не найден в твоем списке.`, 'HTML');
             }
           } else {
             await sendMessage(chatId, `❌ У тебя нет привязанных мейн-ботов.`);
@@ -845,10 +866,10 @@ async function poll() {
             if (!approved[chatId]) approved[chatId] = [];
             approved[chatId].push(username);
             writeJSON(APPROVED_FILE, approved);
-            const token = generateToken(chatId);
-            await sendMessage(chatId, `✅ Твинк *${username}* успешно привязан!\n\n🔑 Твой новый токен для .env: ||${token}||`);
+            const token = ensureToken(chatId);
+            await sendMessage(chatId, `✅ Твинк <b>${escapeHtml(username)}</b> успешно привязан!\n\n🔑 Твой токен для .env: <tg-spoiler>${token}</tg-spoiler>`, 'HTML');
           } else {
-            await sendMessage(chatId, `ℹ️ Твинк *${username}* уже привязан к твоему аккаунту.`);
+            await sendMessage(chatId, `ℹ️ Твинк <b>${escapeHtml(username)}</b> уже привязан к твоему аккаунту.`, 'HTML');
           }
         }
         else if (cmd === '/deltwin' || cmd === '/removetwin') {
@@ -874,14 +895,17 @@ async function poll() {
                 writeJSON(ALIASES_FILE, aliases);
               }
 
-              const token = generateToken(chatId);
-              await sendMessage(chatId, `🗑 Твинк *${username}* успешно отвязан.\n\n🔑 Твой новый токен для .env: ||${token}||`);
+              await sendMessage(chatId, `🗑 Твинк <b>${escapeHtml(username)}</b> успешно отвязан.`, 'HTML');
             } else {
-              await sendMessage(chatId, `❌ Твинк *${username}* не найден в твоем списке.`);
+              await sendMessage(chatId, `❌ Твинк <b>${escapeHtml(username)}</b> не найден в твоем списке.`, 'HTML');
             }
           } else {
             await sendMessage(chatId, `❌ У тебя нет привязанных твинков.`);
           }
+        }
+        else if (cmd === '/resettoken') {
+          const token = generateToken(chatId);
+          await sendMessage(chatId, `🔄 Токен успешно перевыпущен!\n\n🔑 Твой новый токен для .env: <tg-spoiler>${token}</tg-spoiler>\n\n⚠️ Внимание: старый токен аннулирован. Не забудь обновить его во всех подключенных ботах!`, 'HTML');
         }
         else if (cmd === '/alias') {
           const targetArg = parts[1];
@@ -1005,31 +1029,45 @@ async function poll() {
         else if (cmd === '/status' || cmd === '/list') {
           const approved = readJSON(APPROVED_FILE);
           const userBots = approved[chatId] || [];
-          if (userBots.length === 0) {
-            await sendMessage(chatId, '📭 У тебя нет привязанных твинков. Используй `/addtwin <ник>`.');
+          const mainsApproved = readJSON(MAINS_APPROVED_FILE);
+          const userMains = mainsApproved[chatId] || [];
+
+          if (userBots.length === 0 && userMains.length === 0) {
+            await sendMessage(chatId, '📭 У тебя нет привязанных ботов или твинков. Используй `/addtwin <ник>` или `/addmain <ник>`.');
           } else {
             const statuses = readJSON(STATUS_FILE);
             const streaming = readJSON(STREAMING_FILE);
             const aliases = readJSON(ALIASES_FILE)[chatId] || {};
             
-            let msg = `📋 *Твои привязанные твинки (${userBots.length}/2):*\n\n`;
-            userBots.forEach((botName, index) => {
-              const st = statuses[botName.toLowerCase()];
-              const alias = `bot${index + 1}`;
-              
-              const customAliases = Object.entries(aliases)
-                .filter(([al, rb]) => rb.toLowerCase() === botName.toLowerCase())
-                .map(([al]) => al);
-
+            let msg = '';
+            if (userMains.length > 0) {
+              const mainName = userMains[0];
+              const st = statuses[mainName.toLowerCase()];
+              const alias = 'main';
               const onlineStr = (st && st.online) ? `🟢 Онлайн (в сети ${st.onlineSince ? formatUptime(Date.now() - st.onlineSince) : 'недавно'})` : `🔴 Офлайн`;
-              
-              msg += `• *${botName}* (системный: \`${alias}\``;
-              if (customAliases.length > 0) {
-                msg += `, алиасы: \`${customAliases.join(', ')}\``;
-              }
-              msg += `)\n   Статус: ${onlineStr}\n\n`;
-            });
-            await sendMessage(chatId, msg);
+              msg += `👑 <b>Мейн:</b> <b>${escapeHtml(userMains[0])}</b> (системный: <code>${escapeHtml(alias)}</code>)\n   Статус: ${onlineStr}\n\n`;
+            }
+
+            if (userBots.length > 0) {
+              msg += `📋 <b>Твои привязанные твинки (${userBots.length}/2):</b>\n\n`;
+              userBots.forEach((botName, index) => {
+                const st = statuses[botName.toLowerCase()];
+                const alias = `bot${index + 1}`;
+                
+                const customAliases = Object.entries(aliases)
+                  .filter(([al, rb]) => rb.toLowerCase() === botName.toLowerCase())
+                  .map(([al]) => al);
+
+                const onlineStr = (st && st.online) ? `🟢 Онлайн (в сети ${st.onlineSince ? formatUptime(Date.now() - st.onlineSince) : 'недавно'})` : `🔴 Офлайн`;
+                
+                msg += `• <b>${escapeHtml(botName)}</b> (системный: <code>${escapeHtml(alias)}</code>`;
+                if (customAliases.length > 0) {
+                  msg += `, алиасы: <code>${escapeHtml(customAliases.join(', '))}</code>`;
+                }
+                msg += `)\n   Статус: ${onlineStr}\n\n`;
+              });
+            }
+            await sendMessage(chatId, msg, 'HTML');
           }
         }
         else if (cmd === '/chat') {
