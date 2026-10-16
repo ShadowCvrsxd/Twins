@@ -1065,10 +1065,7 @@ async function poll() {
             await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
             continue;
           }
-          const tasks = get('spam_tasks_' + targetBot.toLowerCase(), []);
-          if (!tasks.length) { await sendMessage(chatId, `📋 У бота *${targetBot}* нет активных спам-задач.`); continue; }
-          const lines = tasks.map((t, i) => `${i + 1}:${t.msg} - ${t.delay} сек`);
-          await sendMessage(chatId, `📋 Спам-задачи *${targetBot}*:\n${lines.join('\n')}`);
+          sendCommand(targetBot, { action: 'getSpamList', chatId });
         }
         else if (cmd === '/addspam') {
           const targetBot = resolveBot(chatId, parts[1]);
@@ -1083,15 +1080,9 @@ async function poll() {
             await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
             continue;
           }
-          const key = 'spam_tasks_' + targetBot.toLowerCase();
-          const tasks = get(key, []);
-          if (tasks.length >= 20) { await sendMessage(chatId, `❌ У бота *${targetBot}* уже 20 задач. Удали лишние.`); continue; }
-          tasks.push({ msg, delay });
-          set(key, tasks);
-          // сигнал боту перечитать список на лету
-          sendCommand(targetBot, { action: 'reloadSpam' });
-      await sendMessage(chatId, `✅ Спам #${tasks.length} добавлен для *${targetBot}*: "${msg}" (каждые ${delay} с)`);
-    }
+          sendCommand(targetBot, { action: 'addSpam', delay, msg, chatId });
+          await sendMessage(chatId, `✅ Спам добавлен для *${targetBot}*: "${msg}" (каждые ${delay} с)`);
+        }
     else if (cmd === '/delspam') {
       const targetBot = resolveBot(chatId, parts[1]);
       const taskNum = parseInt(parts[2], 10);
@@ -1103,17 +1094,20 @@ async function poll() {
         await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
         continue;
       }
-      const key = 'spam_tasks_' + targetBot.toLowerCase();
-      const tasks = get(key, []);
-      const index = taskNum - 1;
-      if (index < 0 || index >= tasks.length) {
-        await sendMessage(chatId, `❌ У бота *${targetBot}* нет задачи #${taskNum}. Список: /spamlist <алиас>`);
-        continue;
+      sendCommand(targetBot, { action: 'delSpam', index: taskNum, chatId });
+      await sendMessage(chatId, `🗑 Команда удаления спам-задачи #${taskNum} отправлена боту *${targetBot}*`);
+    }
+    else if (cmd === '/stopspam') {
+      const approved = readJSON(APPROVED_FILE);
+      const userBots = approved[chatId] || [];
+      let sent = 0;
+      for (const botName of userBots) {
+        if (clients.has(botName.toLowerCase())) {
+          sendCommand(botName, { action: 'stopSpam', chatId });
+          sent++;
+        }
       }
-      const removed = tasks.splice(index, 1)[0];
-      set(key, tasks);
-      sendCommand(targetBot, { action: 'reloadSpam' });
-      await sendMessage(chatId, `🗑 Спам-задача #${taskNum} ("${removed.msg}") удалена у *${targetBot}*`);
+      await sendMessage(chatId, sent > 0 ? `✅ Спам остановлен для ${sent} ботов.` : '❌ Нет активных ботов для остановки спама.');
     }
     else if (cmd === '/autoclickon' || cmd === '/autoclickoff') {
       const targetBot = resolveBot(chatId, parts[1]);
