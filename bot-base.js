@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const WebSocket = require('ws');
 const { get, set } = require('./db.js');
+const { loadFeatureState, saveFeatureState, sanitizeSpamTasks, formatSpamList } = require('./feature-state.js');
 
 // ponytail: автокликер
 function getAttackSpeed(bot) {
@@ -159,6 +160,18 @@ function startBot(envPath, configOverrides) {
     }, initialDelayMs);
   }
 
+  function replaceSpamTasks(list) {
+    spamTasks.forEach(t => clearInterval(t.interval));
+    spamTasks = [];
+    const clean = sanitizeSpamTasks(list);
+    clean.forEach(st => {
+      const delayMs = Math.max(1000, parseInt(st.delay) * 1000);
+      const interval = setInterval(() => { if (bot) { try { bot.chat(st.msg); } catch (e) {} } }, delayMs);
+      spamTasks.push({ msg: st.msg, interval, delay: st.delay });
+    });
+    saveSpamTasks(spamTasks);
+  }
+
 
   let nextRespectTime = 0;
   let respectTarget = null;
@@ -170,9 +183,10 @@ function startBot(envPath, configOverrides) {
   const RESOURCE_PACK_RESPONSE_NAMES = ['resource_pack_receive', 'resource_pack_response', 'resource_pack_status'];
   const RESULT_SUCCESS = 0;
 
-  let clickerState = { enabled: false, manualCooldownMs: null };
-  let meowState = { enabled: false, cooldownMs: 5 * 60 * 1000, lastMeowed: 0 };
-  let autoRespectEnabled = false;
+  const featureState = loadFeatureState(config.username);
+  let clickerState = featureState.clicker;
+  let meowState = { ...featureState.meow, lastMeowed: 0 };
+  let autoRespectEnabled = featureState.autoRespectEnabled;
 
   let autoClickTimer = null;
   let autoClickBot = null;
@@ -314,9 +328,39 @@ function startBot(envPath, configOverrides) {
         } else if (command.action === 'reloadSpam') {
             reloadSpamTasks(1000);
             console.log(`[${config.username}] Перезагрузка спама из хаба`);
+        } else if (command.action === 'addSpam') {
+            if (spamTasks.length >= 20) {
+                sendToHub({ type: 'response', text: '❌ Лимит спама: 20 задач.', chatId: command.chatId });
+            } else {
+                const interval = setInterval(()=>{if(bot){try{bot.chat(command.msg)}catch(e){}}}, Math.max(1000, parseInt(command.delay||10)*1000));
+                spamTasks.push({ msg: command.msg, interval, delay: command.delay||10 });
+                saveSpamTasks(spamTasks);
+                sendToHub({ type: 'response', text: formatSpamList(spamTasks), chatId: command.chatId });
+            }
+        } else if (command.action === 'delSpam') {
+            const index = parseInt(command.index);
+            if (isNaN(index) || index < 1 || index > spamTasks.length) {
+                sendToHub({ type: 'response', text: '❌ Неверный номер задачи.', chatId: command.chatId });
+            } else {
+                clearInterval(spamTasks[index-1].interval);
+                spamTasks.splice(index-1,1);
+                saveSpamTasks(spamTasks);
+                sendToHub({ type: 'response', text: formatSpamList(spamTasks), chatId: command.chatId });
+            }
+        } else if (command.action === 'setSpamTasks') {
+            replaceSpamTasks(command.tasks);
+            sendToHub({ type: 'response', text: formatSpamList(spamTasks), chatId: command.chatId });
+        } else if (command.action === 'getSpamList') {
+            sendToHub({ type: 'response', text: formatSpamList(spamTasks), chatId: command.chatId });
+        } else if (command.action === 'stopSpam') {
+            spamTasks.forEach(t=>clearInterval(t.interval));
+            spamTasks=[];
+            saveSpamTasks([]);
+            sendToHub({ type: 'response', text: '✅ Спам остановлен.', chatId: command.chatId });
         } else if (command.action === 'setSwing' || command.action === 'setswing') {
             const manualCooldownMs = command.manualCooldownMs !== undefined ? command.manualCooldownMs : (command.ms !== undefined ? command.ms : null);
             clickerState.manualCooldownMs = manualCooldownMs;
+            saveFeatureState(config.username, { clicker: clickerState, meow: { enabled: meowState.enabled, cooldownMs: meowState.cooldownMs }, autoRespectEnabled });
             console.log(`[${config.username}] [Command Received] setSwing / setswing: manualCooldownMs=${manualCooldownMs}`);
         } else if (command.action === 'setMeow') {
             if (command.enabled !== undefined) {
@@ -325,15 +369,18 @@ function startBot(envPath, configOverrides) {
             if (command.cooldownMs !== undefined) {
               meowState.cooldownMs = command.cooldownMs;
             }
+            saveFeatureState(config.username, { clicker: clickerState, meow: { enabled: meowState.enabled, cooldownMs: meowState.cooldownMs }, autoRespectEnabled });
             console.log(`[${config.username}] [Command Received] setMeow: enabled=${meowState.enabled}, cooldownMs=${meowState.cooldownMs}`);
         } else if (command.action === 'setAutoRespect') {
             if (command.enabled !== undefined) {
               autoRespectEnabled = command.enabled;
             }
+            saveFeatureState(config.username, { clicker: clickerState, meow: { enabled: meowState.enabled, cooldownMs: meowState.cooldownMs }, autoRespectEnabled });
             console.log(`[${config.username}] [Command Received] setAutoRespect: enabled=${autoRespectEnabled}`);
         } else if (command.action === 'setAutoClick' || command.action === 'autoclickon' || command.action === 'autoclickoff') {
             const enabled = command.enabled !== undefined ? command.enabled : (command.action === 'autoclickon');
             clickerState.enabled = enabled;
+            saveFeatureState(config.username, { clicker: clickerState, meow: { enabled: meowState.enabled, cooldownMs: meowState.cooldownMs }, autoRespectEnabled });
             if (enabled) {
               startAutoClick(botInstance);
             } else {
@@ -431,6 +478,7 @@ function startBot(envPath, configOverrides) {
         botInstance.chat(`${replyCmd} Автокликер уже включен`);
       } else {
         clickerState.enabled = true;
+        saveFeatureState(config.username, { clicker: clickerState, meow: { enabled: meowState.enabled, cooldownMs: meowState.cooldownMs }, autoRespectEnabled });
         startAutoClick(botInstance);
         botInstance.chat(`${replyCmd} Автокликер включен`);
       }
@@ -438,6 +486,7 @@ function startBot(envPath, configOverrides) {
     }
     if (command === 'autoclickoff') {
       clickerState.enabled = false;
+      saveFeatureState(config.username, { clicker: clickerState, meow: { enabled: meowState.enabled, cooldownMs: meowState.cooldownMs }, autoRespectEnabled });
       stopAutoClick();
       botInstance.chat(`${replyCmd} Автокликер выключен`);
       return true;
@@ -446,6 +495,7 @@ function startBot(envPath, configOverrides) {
       const val = parts[1];
       if (!val || val.toLowerCase() === 'auto' || val === '0') {
         clickerState.manualCooldownMs = null;
+        saveFeatureState(config.username, { clicker: clickerState, meow: { enabled: meowState.enabled, cooldownMs: meowState.cooldownMs }, autoRespectEnabled });
         botInstance.chat(`${replyCmd} Тайминг удара: авто (по оружию)`);
       } else {
         const ms = parseInt(val, 10);
@@ -454,6 +504,7 @@ function startBot(envPath, configOverrides) {
           return false;
         }
         clickerState.manualCooldownMs = ms;
+        saveFeatureState(config.username, { clicker: clickerState, meow: { enabled: meowState.enabled, cooldownMs: meowState.cooldownMs }, autoRespectEnabled });
         botInstance.chat(`${replyCmd} Тайминг удара: ${ms} мс (вручную)`);
       }
       return true;
