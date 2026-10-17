@@ -28,6 +28,9 @@ function sendChatMessage(chatId, text) {
 
 const http = require('http');
 
+// Security: exact least-privilege allowlist for HTTP /state reads (see tg-chat-bot.js apiGet/apiSet surface); secrets/unknown -> 403.
+const STATE_KEY_ALLOWLIST = new Set(['links_approved','mains_approved','bots_status','chat_streaming','bot_aliases','chat_display_mode','chat_global_mode','chat_sender_selection']);
+
 // API Server (Port 8089) - initialized explicitly for visibility
 const apiServer = http.createServer((req, res) => {
     const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
@@ -86,6 +89,9 @@ const apiServer = http.createServer((req, res) => {
             const key = parsedUrl.searchParams.get('key');
             if (!key) {
                 res.writeHead(400); res.end('Missing key'); return;
+            }
+            if (!STATE_KEY_ALLOWLIST.has(key)) {
+                res.writeHead(403); res.end('Forbidden'); return;
             }
             const value = get(key, {});
             res.writeHead(200, { 'Content-Type': 'application/json' });
