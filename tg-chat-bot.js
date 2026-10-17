@@ -17,6 +17,16 @@ if (!TOKEN) {
   process.exit(0);
 }
 
+const HUB_API_TOKEN = process.env.HUB_API_TOKEN;
+
+function hubAuthHeader() {
+  if (!HUB_API_TOKEN) {
+    console.error('[API] HUB_API_TOKEN not set');
+    return null;
+  }
+  return `Bearer ${HUB_API_TOKEN}`;
+}
+
 const APPROVED_FILE = 'links_approved';
 const MAINS_APPROVED_FILE = 'mains_approved';
 const STATUS_FILE = 'bots_status';
@@ -26,11 +36,13 @@ const DISPLAY_MODE_FILE = 'chat_display_mode';
 const GLOBAL_MODE_FILE = 'chat_global_mode';
 
 async function apiGet(key, defaultValue = {}) {
+  const auth = hubAuthHeader();
+  if (!auth) return defaultValue;
   try {
     const res = await fetch(`http://localhost:8089/state?key=${encodeURIComponent(key)}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${TOKEN}`
+        'Authorization': auth
       }
     });
     if (!res.ok) return defaultValue;
@@ -43,12 +55,14 @@ async function apiGet(key, defaultValue = {}) {
 }
 
 async function apiSet(key, value) {
+  const auth = hubAuthHeader();
+  if (!auth) return;
   try {
     await fetch(`http://localhost:8089/state`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${TOKEN}`
+        'Authorization': auth
       },
       body: JSON.stringify({ key, value })
     });
@@ -248,11 +262,16 @@ async function poll() {
             onlineBots.sort((a, b) => (statuses[a.toLowerCase()].onlineSince || 0) - (statuses[b.toLowerCase()].onlineSince || 0));
             targetBot = onlineBots[0];
           }
+          const hubAuth = hubAuthHeader();
+          if (!hubAuth) {
+            await sendMessage(chatId, '❌ HUB_API_TOKEN не задан.');
+            continue;
+          }
           const resp = await fetch('http://localhost:8089/command', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${TOKEN}`
+              'Authorization': hubAuth
             },
             body: JSON.stringify({ targetBot: targetBot.toLowerCase(), action: 'chat', text: messageToSend })
           });

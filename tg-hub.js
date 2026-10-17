@@ -16,6 +16,10 @@ if (!TOKEN) {
   process.exit(0);
 }
 
+// HTTP bearer for the port-8089 API. Telegram tokens (TG_BOT_TOKEN/TG_CHAT_BOT_TOKEN) are
+// NOT HTTP credentials anymore; bot_tokens stay scoped to /command only.
+const HUB_API_TOKEN = process.env.HUB_API_TOKEN;
+
 function sendChatMessage(chatId, text) {
   const chatToken = process.env.TG_CHAT_BOT_TOKEN || process.env.TG_BOT_TOKEN;
   if (!chatToken) return;
@@ -47,7 +51,7 @@ const apiServer = http.createServer((req, res) => {
         for (const [name, t] of Object.entries(tokens)) {
             if (t === token) { authorizedBot = name; break; }
         }
-        const isSystemToken = (token === process.env.TG_BOT_TOKEN || token === process.env.TG_CHAT_BOT_TOKEN || token === TOKEN);
+        const isSystemToken = (token === HUB_API_TOKEN);
         console.log(`[API] /command auth check: authorizedBot=${authorizedBot}, isSystemToken=${isSystemToken}`);
 
         if (!authorizedBot && !isSystemToken) {
@@ -78,8 +82,7 @@ const apiServer = http.createServer((req, res) => {
             res.writeHead(401); res.end('Unauthorized'); return;
         }
         const token = auth.split(' ')[1];
-        const tokens = get('bot_tokens', {});
-        const isValidToken = Object.values(tokens).includes(token) || token === process.env.TG_BOT_TOKEN || token === process.env.TG_CHAT_BOT_TOKEN || token === TOKEN;
+        const isValidToken = (token === HUB_API_TOKEN);
 
         if (!isValidToken) {
             res.writeHead(403); res.end('Forbidden'); return;
