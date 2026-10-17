@@ -1,16 +1,15 @@
 const path = require('path');
 const fs = require('fs');
 
-const dbPath = path.join(__dirname, 'twins.db');
+const dbPath = process.env.DB_PATH || path.join(__dirname, 'twins.db');
 let db;
 
 try {
-  const Database = require('better-sqlite3');
-  db = new Database(dbPath);
+  const { DatabaseSync } = require('node:sqlite');
+  db = new DatabaseSync(dbPath);
 } catch (e) {
-  // Если better-sqlite3 не установлен или не собрался,
-  // используем встроенное SQLite-подобное хранилище на JSON без падений
-  console.warn('[DB Warning] better-sqlite3 not available, using JSON store fallback.');
+  // node:sqlite недоступен (старый Node) — используем JSON-хранилище без падений
+  console.warn('[DB] node:sqlite unavailable, JSON fallback');
 }
 
 if (db) {
@@ -76,7 +75,7 @@ try {
 } catch (e) {}
 
 // JSON fallback store если C++ бинарник недоступен
-const jsonStoreFile = path.join(__dirname, 'twins_store.json');
+const jsonStoreFile = process.env.DB_JSON_PATH || path.join(__dirname, 'twins_store.json');
 function loadJsonStore() {
   if (!fs.existsSync(jsonStoreFile)) return {};
   try { return JSON.parse(fs.readFileSync(jsonStoreFile, 'utf8')); } catch(e) { return {}; }
