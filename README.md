@@ -7,7 +7,7 @@ Framework for managing Minecraft accounts ("twins") via Telegram with a distribu
 - **Hub & Chat Bot**: Central Telegram interface (`tg-hub.js`, `tg-chat-bot.js`) deployed on VPS.
 - **API Gateway & WebSocket Bridge**: Operates on port 8089 (`tg-hub.js`) for real-time command dispatch and telemetry.
 - **Client Bots**: Mineflayer-based bots (`bot.js`, `bot-2.js`, `bot-main.js`) running on local client machines connecting to the Hub via WebSocket.
-- **Storage**: SQLite via `better-sqlite3` (`db.js`) with fallback to JSON store.
+- **Storage**: SQLite via the builtin `node:sqlite` (`db.js`) with fallback to a JSON store.
 
 ## Startup Commands
 
