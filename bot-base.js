@@ -664,6 +664,14 @@ function startBot(envPath, configOverrides) {
 
   function createBotInstance() {
     console.log(`[Система] Попытка создания бота для ${config.username}...`);
+    // ponytail: старый живой инстанс должен закончиться до создания нового — иначе
+    // сервер кикает новый ("You are already connected to this proxy!").
+    if (bot) {
+      isManualQuit = true;
+      try { bot.quit(); } catch (e) {}
+      bot = null;
+      isManualQuit = false;
+    }
     
     // ponytail: Watchdog таймер
     const spawnTimeout = setTimeout(() => {
@@ -676,6 +684,7 @@ function startBot(envPath, configOverrides) {
 
     try {
       bot = mineflayer.createBot(config);
+      const self = bot;
       connectToHub(bot);
       bot.physicsEnabled = false; // ponytail: отключаем физику до спавна (1.21 config phase)
       
@@ -875,6 +884,7 @@ function startBot(envPath, configOverrides) {
     });
 
     bot.on('end', (reason) => {
+      if (bot !== null && self !== bot) return; // ponytail: 'end' от устаревшего инстанса — новый уже живёт
       stopAutoClick();
       // ponytail: принудительно убиваем сокет, чтобы сервер не держал соединение
       if (bot && bot._client) {
@@ -888,7 +898,7 @@ function startBot(envPath, configOverrides) {
       console.log(`[Система] Соединение закрыто. Причина: ${reason}`);
       if (!isManualQuit) {
         console.log('[Система] Запуск реконнекта через 30 сек...');
-        setTimeout(() => { try { createBotInstance(); } catch (e) {} }, 30000);
+        setTimeout(() => { if (!bot) { try { createBotInstance(); } catch (e) {} } }, 30000);
       }
     });
 
