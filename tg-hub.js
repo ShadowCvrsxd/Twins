@@ -199,8 +199,7 @@ wss.on('connection', (socket, req) => {
             if (!socket.isAuthed) {
                 if (message.type === 'auth') {
                     const userTokens = get('user_tokens', {});
-                    if (message.token !== userTokens[ownerId]) {
-                        console.log(`[AUTH DEBUG] Получен токен: ${message.token}, Ожидался: ${userTokens[ownerId]}, OwnerId: ${ownerId}`);
+                    if (!userTokens[ownerId] || typeof message.token !== 'string' || message.token !== userTokens[ownerId]) {
                         console.log(`[Bridge] Отклонено: неверный токен для бота ${socket.botName}.`);
                         clearTimeout(authTimeout);
                         socket.close();
