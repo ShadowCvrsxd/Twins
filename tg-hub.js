@@ -9,7 +9,7 @@ const { relayChatToTelegram, getBotDisplayName, cleanMinecraftText, getMainAccou
 
 const clients = new Map();
 
-require('dotenv').config({ override: false });
+require('dotenv').config();
 
 const TOKEN = process.env.TG_BOT_TOKEN;
 if (!TOKEN) {
