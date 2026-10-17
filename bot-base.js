@@ -672,10 +672,11 @@ function startBot(envPath, configOverrides) {
       bot = null;
       isManualQuit = false;
     }
+    let self = null; // ponytail: идентичность своего инстанса — для догорающих 'end' и watchdog'а
     
     // ponytail: Watchdog таймер
     const spawnTimeout = setTimeout(() => {
-        if (bot) {
+        if (bot && bot === self) { // ponytail: свой подвисший инстанс убиваем только если он всё ещё текущий
             console.log('[Watchdog] Бот завис при входе. Принудительный перезапуск.');
             bot.quit();
             bot = null;
@@ -684,7 +685,7 @@ function startBot(envPath, configOverrides) {
 
     try {
       bot = mineflayer.createBot(config);
-      const self = bot;
+      self = bot;
       connectToHub(bot);
       bot.physicsEnabled = false; // ponytail: отключаем физику до спавна (1.21 config phase)
       
