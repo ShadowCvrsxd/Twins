@@ -4,6 +4,7 @@ const WebSocket = require('ws');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
 const { get, set } = require('./db.js');
+const { resolveCommandTarget } = require('./hub-util.js');
 const { relayChatToTelegram, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks, forwardResponse, applyBotStatus } = require('./utils.js');
 
 const clients = new Map();
@@ -63,7 +64,7 @@ const apiServer = http.createServer((req, res) => {
         req.on('end', () => {
             try {
                 const command = JSON.parse(body);
-                const targetBot = isSystemToken ? command.targetBot : (command.targetBot || authorizedBot);
+                const targetBot = resolveCommandTarget({ isSystemToken, authorizedBot, command });
                 if (!targetBot) {
                     res.writeHead(400); res.end('Missing targetBot'); return;
                 }
