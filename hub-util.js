@@ -14,4 +14,15 @@ function shouldScheduleReconnect({ hubSocketState, hasOpenSocket, isManualQuit, 
   return hubSocketState !== 1 && hubSocketState !== 0;
 }
 
-module.exports = { resolveCommandTarget, shouldScheduleReconnect };
+// T11: drop every alias of chatId pointing (case-insensitively) at username so a
+// deleted bot cannot resolve through a stale alias; mutates and returns aliases.
+function removeAliasesForBot(aliases, chatId, username) {
+  if (aliases[chatId]) {
+    for (const [alias, realName] of Object.entries(aliases[chatId])) {
+      if (realName.toLowerCase() === username.toLowerCase()) delete aliases[chatId][alias];
+    }
+  }
+  return aliases;
+}
+
+module.exports = { resolveCommandTarget, shouldScheduleReconnect, removeAliasesForBot };

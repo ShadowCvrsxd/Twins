@@ -4,7 +4,7 @@ const WebSocket = require('ws');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
 const { get, set } = require('./db.js');
-const { resolveCommandTarget } = require('./hub-util.js');
+const { resolveCommandTarget, removeAliasesForBot } = require('./hub-util.js');
 const { relayChatToTelegram, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks, forwardResponse, applyBotStatus } = require('./utils.js');
 
 const clients = new Map();
@@ -831,6 +831,13 @@ async function poll() {
             if (index !== -1) {
               mainsApproved[chatId].splice(index, 1);
               writeJSON(MAINS_APPROVED_FILE, mainsApproved);
+
+              const aliases = readJSON(ALIASES_FILE);
+              if (aliases[chatId]) {
+                removeAliasesForBot(aliases, chatId, username);
+                writeJSON(ALIASES_FILE, aliases);
+              }
+
               await sendMessage(chatId, `🗑 Мейн-бот <b>${escapeHtml(username)}</b> успешно отвязан.`, 'HTML');
             } else {
               await sendMessage(chatId, `❌ Мейн-бот <b>${escapeHtml(username)}</b> не найден в твоем списке.`, 'HTML');
