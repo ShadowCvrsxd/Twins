@@ -138,6 +138,7 @@ function startBot(envPath, configOverrides) {
 
   let bot;
   let hubSocket = null;
+  let hubSocketBot = null;
   let isManualQuit = false;
   let isScheduledOffline = false; // ponytail: флаг планового отключения
   let schedulerInterval;
@@ -265,8 +266,14 @@ function startBot(envPath, configOverrides) {
   // ponytail: WebSocket соединение для получения команд из хаба
   function connectToHub(botInstance) {
     if (hubSocket && (hubSocket.readyState === WebSocket.OPEN || hubSocket.readyState === WebSocket.CONNECTING)) {
-      console.log(`[WebSocket] Соединение с Hub уже активно (readyState=${hubSocket.readyState}). Новый сокет не создаётся.`);
-      return hubSocket;
+      if (hubSocketBot === botInstance) {
+        console.log(`[WebSocket] Соединение с Hub уже активно (readyState=${hubSocket.readyState}). Новый сокет не создаётся.`);
+        return hubSocket;
+      }
+      // ponytail: stale socket bound to a previous botInstance — its handlers would operate on a dead bot
+      try { hubSocket.close(); } catch (e) {}
+      hubSocket = null;
+      hubSocketBot = null;
     }
     const botName = config.username.toLowerCase();
     const token = process.env.BOT_TOKEN || '';
@@ -275,6 +282,7 @@ function startBot(envPath, configOverrides) {
     const url = `ws://${host}:${port}?bot=${botName}`;
     const ws = new WebSocket(url);
     hubSocket = ws;
+    hubSocketBot = botInstance;
 
     let chatQueue = [];
     let isSendingChat = false;
@@ -449,7 +457,7 @@ function startBot(envPath, configOverrides) {
     });
 
     ws.on('close', () => {
-      if (hubSocket === ws) hubSocket = null;
+      if (hubSocket === ws) { hubSocket = null; hubSocketBot = null; }
       const hasOpenSocket = !!(hubSocket && (hubSocket.readyState === WebSocket.OPEN || hubSocket.readyState === WebSocket.CONNECTING));
       if (!shouldScheduleReconnect({ hubSocketState: hubSocket && hubSocket.readyState, hasOpenSocket, isManualQuit, reconnectScheduled })) {
         console.log(`[WebSocket] Бот ${botName} отключен. Реконнект не требуется.`);
