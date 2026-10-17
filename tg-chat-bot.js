@@ -11,9 +11,9 @@ process.on('unhandledRejection', (reason) => {
   console.error('[Telegram Chat Bot Unhandled Rejection]:', reason);
 });
 
-const TOKEN = process.env.TG_CHAT_BOT_TOKEN || process.env.TG_BOT_TOKEN;
+const TOKEN = process.env.TG_CHAT_BOT_TOKEN;
 if (!TOKEN) {
-  console.log('[Telegram Chat Bot] Токен не задан. Чат-бот отключен.');
+  console.error('[Chat] TG_CHAT_BOT_TOKEN не задан — чат-бот не стартует (во избежание дубля getUpdates с хабом).');
   process.exit(0);
 }
 
