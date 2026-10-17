@@ -9,7 +9,7 @@ const { relayChatToTelegram, getBotDisplayName, cleanMinecraftText, getMainAccou
 
 const clients = new Map();
 
-require('dotenv').config();
+require('dotenv').config({ override: false });
 
 const TOKEN = process.env.TG_BOT_TOKEN;
 if (!TOKEN) {
@@ -123,12 +123,14 @@ const apiServer = http.createServer((req, res) => {
     }
 });
 
-apiServer.listen(8089, '0.0.0.0', () => {
-    console.log('[API] Шлюз запущен на порту 8089');
+const PORT = parseInt(process.env.HUB_PORT || '8089', 10);
+
+apiServer.listen(PORT, '0.0.0.0', () => {
+    console.log(`[API] Шлюз запущен на порту ${PORT}`);
 });
 
 const wss = new WebSocket.Server({ server: apiServer });
-console.log('[Bridge] WebSocket-сервер запущен на порту 8089 (через API Server)');
+console.log(`[Bridge] WebSocket-сервер запущен на порту ${PORT} (через API Server)`);
 
 const heartbeatInterval = setInterval(() => {
     wss.clients.forEach((ws) => {
