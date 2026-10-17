@@ -102,8 +102,8 @@ const apiServer = http.createServer((req, res) => {
             req.on('end', () => {
                 try {
                     const { key, value } = JSON.parse(body);
-                    if (!key) {
-                        res.writeHead(400); res.end('Missing key'); return;
+                    if (!key || !STATE_KEY_ALLOWLIST.has(key)) {
+                        res.writeHead(403); res.end('Forbidden'); return;
                     }
                     set(key, value);
                     res.writeHead(200); res.end('OK');
