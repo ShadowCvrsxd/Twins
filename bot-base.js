@@ -265,6 +265,10 @@ function startBot(envPath, configOverrides) {
 
   // ponytail: WebSocket соединение для получения команд из хаба
   function connectToHub(botInstance) {
+    // ponytail: всегда привязываем сокет к ЖИВОМУ инстансу — таймер реконнекта (ниже) замыкается
+    // на старый botInstance и иначе закрывает здоровый сокет ради мёртвого бота.
+    botInstance = bot;
+    if (!botInstance) return null;
     if (hubSocket && (hubSocket.readyState === WebSocket.OPEN || hubSocket.readyState === WebSocket.CONNECTING)) {
       if (hubSocketBot === botInstance) {
         console.log(`[WebSocket] Соединение с Hub уже активно (readyState=${hubSocket.readyState}). Новый сокет не создаётся.`);
@@ -294,7 +298,9 @@ function startBot(envPath, configOverrides) {
       try {
         botInstance.chat(text);
         console.log(`[Telegram Chat] Отправлено в игру: "${text}"`);
-      } catch (e) {}
+      } catch (e) {
+        console.error(`[Telegram Chat] ОШИБКА отправки в игру "${text}": ${e.message}`);
+      }
       setTimeout(() => {
         isSendingChat = false;
         processChatQueue();
