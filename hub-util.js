@@ -6,4 +6,12 @@ function resolveCommandTarget({ isSystemToken, authorizedBot, command }) {
   return isSystemToken ? command.targetBot : authorizedBot;
 }
 
-module.exports = { resolveCommandTarget };
+// T10: WS reconnect guard — at most one reconnect scheduled, never while a
+// socket is already open/connecting or the quit was manual.
+// hubSocketState is a ws readyState: 0=CONNECTING, 1=OPEN.
+function shouldScheduleReconnect({ hubSocketState, hasOpenSocket, isManualQuit, reconnectScheduled } = {}) {
+  if (isManualQuit || reconnectScheduled || hasOpenSocket) return false;
+  return hubSocketState !== 1 && hubSocketState !== 0;
+}
+
+module.exports = { resolveCommandTarget, shouldScheduleReconnect };

@@ -44,6 +44,21 @@ function getAttackSpeed(bot) {
   return 1.6;
 }
 const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, getTraffic, shouldSend } = require('./utils.js');
+const { shouldScheduleReconnect } = require('./hub-util.js');
+
+// ponytail: one bot instance per process (documented), so timer state lives at
+// module scope — testable via require('./bot-base') without calling startBot.
+let autoClickTimer = null;
+let autoClickBot = null;
+let reconnectScheduled = false;
+
+function stopAutoClick() {
+  if (autoClickTimer) {
+    clearTimeout(autoClickTimer);
+    autoClickTimer = null;
+    autoClickBot = null;
+  }
+}
 
 
 function formatTabComponent(comp) {
@@ -188,9 +203,6 @@ function startBot(envPath, configOverrides) {
   let meowState = { ...featureState.meow, lastMeowed: 0 };
   let autoRespectEnabled = featureState.autoRespectEnabled;
 
-  let autoClickTimer = null;
-  let autoClickBot = null;
-
   function startAutoClick(botInstance) {
     if (autoClickTimer && autoClickBot === botInstance) return;
     if (autoClickTimer) stopAutoClick();
@@ -215,14 +227,6 @@ function startBot(envPath, configOverrides) {
     };
     const baseDelay = clickerState.manualCooldownMs || Math.round(1000 / getAttackSpeed(botInstance));
     autoClickTimer = setTimeout(tick, baseDelay);
-  }
-
-  function stopAutoClick() {
-    if (autoClickTimer) {
-      clearTimeout(autoClickTimer);
-      autoClickTimer = null;
-      autoClickBot = null;
-    }
   }
 
   function checkMeow(botInstance, message, sender) {
@@ -260,6 +264,10 @@ function startBot(envPath, configOverrides) {
 
   // ponytail: WebSocket соединение для получения команд из хаба
   function connectToHub(botInstance) {
+    if (hubSocket && (hubSocket.readyState === WebSocket.OPEN || hubSocket.readyState === WebSocket.CONNECTING)) {
+      console.log(`[WebSocket] Соединение с Hub уже активно (readyState=${hubSocket.readyState}). Новый сокет не создаётся.`);
+      return hubSocket;
+    }
     const botName = config.username.toLowerCase();
     const token = process.env.BOT_TOKEN || '';
     const host = process.env.HUB_HOST || 'localhost';
@@ -286,6 +294,7 @@ function startBot(envPath, configOverrides) {
     }
 
     ws.on('open', () => {
+      reconnectScheduled = false;
       console.log(`[WebSocket] Бот ${botName} подключен к Hub.`);
       ws.send(JSON.stringify({ type: 'auth', token }));
     });
@@ -441,8 +450,17 @@ function startBot(envPath, configOverrides) {
 
     ws.on('close', () => {
       if (hubSocket === ws) hubSocket = null;
+      const hasOpenSocket = !!(hubSocket && (hubSocket.readyState === WebSocket.OPEN || hubSocket.readyState === WebSocket.CONNECTING));
+      if (!shouldScheduleReconnect({ hubSocketState: hubSocket && hubSocket.readyState, hasOpenSocket, isManualQuit, reconnectScheduled })) {
+        console.log(`[WebSocket] Бот ${botName} отключен. Реконнект не требуется.`);
+        return;
+      }
+      reconnectScheduled = true;
       console.log(`[WebSocket] Бот ${botName} отключен. Реконнект через 5 сек...`);
-      setTimeout(() => connectToHub(botInstance), 5000);
+      setTimeout(() => {
+        reconnectScheduled = false;
+        connectToHub(botInstance);
+      }, 5000);
     });
 
     ws.on('error', (e) => {
@@ -631,7 +649,6 @@ function startBot(envPath, configOverrides) {
   scheduleNextRestart();
 
   function createBotInstance() {
-    hubSocket = null;
     console.log(`[Система] Попытка создания бота для ${config.username}...`);
     
     // ponytail: Watchdog таймер
@@ -844,6 +861,7 @@ function startBot(envPath, configOverrides) {
     });
 
     bot.on('end', (reason) => {
+      stopAutoClick();
       // ponytail: принудительно убиваем сокет, чтобы сервер не держал соединение
       if (bot && bot._client) {
           try { bot._client.end(); } catch (e) {}
@@ -900,4 +918,4 @@ function startBot(envPath, configOverrides) {
   createBotInstance();
 }
 
-module.exports = { startBot };
+module.exports = { startBot, stopAutoClick, getAutoClickTimer: () => autoClickTimer };
