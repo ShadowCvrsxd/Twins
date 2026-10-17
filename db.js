@@ -21,7 +21,25 @@ if (db) {
   `);
 }
 
-// Миграция старых JSON файлов
+// JSON fallback store. Объявлено ДО миграции: миграция использует load/saveJsonStore
+// в fallback-режиме (иначе TDZ ReferenceError).
+const jsonStoreFile = process.env.DB_JSON_PATH || path.join(__dirname, 'twins_store.json');
+function loadJsonStore() {
+  if (!fs.existsSync(jsonStoreFile)) return {};
+  try { return JSON.parse(fs.readFileSync(jsonStoreFile, 'utf8')); }
+  catch (e) {
+    console.error('[DB] loadJsonStore:', e.message);
+    return {};
+  }
+}
+function saveJsonStore(store) {
+  try { fs.writeFileSync(jsonStoreFile, JSON.stringify(store, null, 2)); }
+  catch (e) { console.error('[DB] saveJsonStore:', e.message); }
+}
+
+// Миграция старых JSON файлов. Источник удаляем ТОЛЬКО после подтверждённого переноса
+// в активный стор. В SQLite — строка есть/вставлена. В fallback (db пуст) данные
+// копируются в twins_store.json, но исходный файл остаётся (без потери данных).
 const migrationFiles = {
   'meow_settings.json': 'meow_settings',
   'autorespect_settings.json': 'autorespect_settings',
@@ -39,49 +57,56 @@ const migrationFiles = {
 
 for (const [file, key] of Object.entries(migrationFiles)) {
   const filePath = path.join(__dirname, file);
-  if (fs.existsSync(filePath)) {
-    try {
-      const content = fs.readFileSync(filePath, 'utf8');
-      const data = JSON.parse(content);
-      if (db) {
-        const existing = db.prepare('SELECT value FROM kv WHERE key = ?').get(key);
-        if (!existing) {
-          db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run(key, JSON.stringify(data));
-        }
+  if (!fs.existsSync(filePath)) continue;
+  try {
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    if (db) {
+      const existing = db.prepare('SELECT value FROM kv WHERE key = ?').get(key);
+      if (!existing) {
+        db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run(key, JSON.stringify(data));
       }
+      // строка подтверждена в активном SQLite — теперь файл можно удалить
       fs.unlinkSync(filePath);
-    } catch (e) {}
+    } else {
+      const store = loadJsonStore();
+      if (store[key] === undefined) {
+        store[key] = data;
+        saveJsonStore(store);
+      }
+    }
+  } catch (e) {
+    console.error('[DB] migration', file, e.message);
   }
 }
 
 try {
   const files = fs.readdirSync(__dirname);
   for (const file of files) {
-    if (file.startsWith('spam_tasks_') && file.endsWith('.json')) {
-      const filePath = path.join(__dirname, file);
-      const username = file.replace('spam_tasks_', '').replace('.json', '');
-      const key = `spam_tasks_${username.toLowerCase()}`;
-      const content = fs.readFileSync(filePath, 'utf8');
-      const data = JSON.parse(content);
+    if (!file.startsWith('spam_tasks_') || !file.endsWith('.json')) continue;
+    const filePath = path.join(__dirname, file);
+    const username = file.replace('spam_tasks_', '').replace('.json', '');
+    const key = `spam_tasks_${username.toLowerCase()}`;
+    try {
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
       if (db) {
         const existing = db.prepare('SELECT value FROM kv WHERE key = ?').get(key);
         if (!existing) {
           db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run(key, JSON.stringify(data));
         }
+        fs.unlinkSync(filePath);
+      } else {
+        const store = loadJsonStore();
+        if (store[key] === undefined) {
+          store[key] = data;
+          saveJsonStore(store);
+        }
       }
-      fs.unlinkSync(filePath);
+    } catch (e) {
+      console.error('[DB] migration', file, e.message);
     }
   }
-} catch (e) {}
-
-// JSON fallback store если C++ бинарник недоступен
-const jsonStoreFile = process.env.DB_JSON_PATH || path.join(__dirname, 'twins_store.json');
-function loadJsonStore() {
-  if (!fs.existsSync(jsonStoreFile)) return {};
-  try { return JSON.parse(fs.readFileSync(jsonStoreFile, 'utf8')); } catch(e) { return {}; }
-}
-function saveJsonStore(store) {
-  try { fs.writeFileSync(jsonStoreFile, JSON.stringify(store, null, 2)); } catch(e) {}
+} catch (e) {
+  console.error('[DB] readdir', e.message);
 }
 
 function get(key, defaultValue = {}) {
@@ -91,6 +116,7 @@ function get(key, defaultValue = {}) {
       if (!row) return defaultValue;
       return JSON.parse(row.value);
     } catch (e) {
+      console.error('[DB] get', key, e.message);
       return defaultValue;
     }
   } else {
@@ -103,7 +129,9 @@ function set(key, data) {
   if (db) {
     try {
       db.prepare('INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)').run(key, JSON.stringify(data));
-    } catch (e) {}
+    } catch (e) {
+      console.error('[DB] set', key, e.message);
+    }
   } else {
     const store = loadJsonStore();
     store[key] = data;
