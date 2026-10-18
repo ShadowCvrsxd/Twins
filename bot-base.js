@@ -52,6 +52,12 @@ let autoClickTimer = null;
 let autoClickBot = null;
 let reconnectScheduled = false;
 
+// ponytail: общий случайный пул мяу для всех твинов; per-bot пулы — если вдруг станет скучно.
+const MEOW_VARIANTS = ['мяу', 'мяяу', 'мур', 'мрр', 'мяу~', 'мя-мяу', 'мур-мур', 'мяу-мур', 'мяуу', 'муррр'];
+function pickMeow() {
+  return MEOW_VARIANTS[Math.floor(Math.random() * MEOW_VARIANTS.length)];
+}
+
 function stopAutoClick() {
   if (autoClickTimer) {
     clearTimeout(autoClickTimer);
@@ -252,7 +258,7 @@ function startBot(envPath, configOverrides) {
     }
 
     meowState.lastMeowed = now;
-    setTimeout(() => botInstance.chat('!мяу'), Math.random() * 2000 + 500);
+    setTimeout(() => botInstance.chat(`!${pickMeow()}`), Math.random() * 2000 + 500);
   }
 
   function sendToHub(payload) {
@@ -934,4 +940,4 @@ function startBot(envPath, configOverrides) {
   createBotInstance();
 }
 
-module.exports = { startBot, stopAutoClick, getAutoClickTimer: () => autoClickTimer };
+module.exports = { startBot, stopAutoClick, getAutoClickTimer: () => autoClickTimer, pickMeow, MEOW_VARIANTS };
