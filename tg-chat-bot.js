@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const { getMainAccount } = require('./utils.js');
 
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
 require('dotenv').config();
 
 process.on('uncaughtException', (err) => {
@@ -374,9 +376,16 @@ async function relayMediaMessage(message) {
     return;
   }
 
-  const replyText = caption || (replyNick ? `${isGlobal ? '!' : ''}(отвечая "${replyNick}")` : '');
-  if (replyText) await sendToGame(chatId, replyText);
-  await sendToGame(chatId, isGlobal ? `!${url}` : url);
+  let out;
+  if (caption) {
+    await sendToGame(chatId, caption);
+    await sleep(1100);                       // dodge 'Wait 1 sec.' throttle between two sends
+    out = isGlobal ? `!${url}` : url;
+  } else {
+    const marker = replyNick ? ` (отвечая "${replyNick}")` : '';
+    out = `${isGlobal ? '!' : ''}${url}${marker}`;
+  }
+  await sendToGame(chatId, out);
 }
 
 async function initBotMenu() {
