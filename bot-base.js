@@ -505,10 +505,10 @@ function startBot(envPath, configOverrides) {
   }
   scheduleAutoRespectCheck();
 
-  function handleCommand(botInstance, input, replyTarget = null) {
+  function handleCommand(botInstance, input) {
     const parts = input.split(' ');
     const command = parts[0].toLowerCase();
-    const replyCmd = replyTarget ? `/m ${replyTarget}` : '/r';
+    const replyCmd = '/r'; // ponytail: после T16 команды только с терминала — ответ в последний ЛС
     if (command === 'autoclickon') {
       if (clickerState.enabled) {
         botInstance.chat(`${replyCmd} Автокликер уже включен`);
