@@ -141,6 +141,7 @@ function startBot(envPath, configOverrides) {
   let hubSocketBot = null;
   let isManualQuit = false;
   let isScheduledOffline = false; // ponytail: флаг планового отключения
+  let reconnectDelayMs = 30000; // ponytail: backoff реконнекта, сброс на успешном спавне
   let schedulerInterval;
   let spamTasks = [];
   const spamKey = `spam_tasks_${config.username.toLowerCase()}`;
@@ -749,6 +750,7 @@ function startBot(envPath, configOverrides) {
 
     bot.on('spawn', () => {
       clearTimeout(spawnTimeout); // ponytail: вход успешный, watchdog не нужен
+      reconnectDelayMs = 30000;
       sendToHub({ type: 'status', online: true, username: config.username });
 
       // ponytail: проверка состояния кликера
@@ -893,8 +895,9 @@ function startBot(envPath, configOverrides) {
       bot = null;
       console.log(`[Система] Соединение закрыто. Причина: ${reason}`);
       if (!isManualQuit) {
-        console.log('[Система] Запуск реконнекта через 30 сек...');
-        setTimeout(() => { if (!bot) { try { createBotInstance(); } catch (e) {} } }, 30000);
+        console.log(`[Система] Запуск реконнекта через ${reconnectDelayMs / 1000} сек...`);
+        setTimeout(() => { if (!bot) { try { createBotInstance(); } catch (e) {} } }, reconnectDelayMs);
+        reconnectDelayMs = Math.min(reconnectDelayMs * 2, 240000);
       }
     });
 
