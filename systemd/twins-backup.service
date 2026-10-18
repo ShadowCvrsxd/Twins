@@ -1,0 +1,6 @@
+[Unit]
+Description=Twins DB backup
+
+[Service]
+Type=oneshot
+ExecStart=/root/Twins/scripts/backup-db.sh

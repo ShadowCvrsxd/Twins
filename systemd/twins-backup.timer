@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily Twins DB backup (04:00 MSK-safe server time)
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

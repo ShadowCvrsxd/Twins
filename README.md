@@ -9,6 +9,19 @@ Framework for managing Minecraft accounts ("twins") via Telegram with a distribu
 - **Client Bots**: Mineflayer-based bots (`bot.js`, `bot-2.js`, `bot-main.js`) running on local client machines connecting to the Hub via WebSocket.
 - **Storage**: SQLite via the builtin `node:sqlite` (`db.js`) with fallback to a JSON store.
 
+## Backups
+
+Daily backup of the SQLite KV DB (`twins.db`) and JSON fallback (`twins_store.json`),
+keeping the last 14 `twins.db.*` copies in `backups/`.
+
+```
+cp systemd/twins-backup.service systemd/twins-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now twins-backup.timer
+```
+
+The `ExecStart` path in `twins-backup.service` must match the deploy directory (e.g. `/root/Twins`).
+
 ## Startup Commands
 
 - `npm run hub` — Start central Telegram hub & port 8089 API/WebSocket gateway
