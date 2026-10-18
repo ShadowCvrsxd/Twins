@@ -374,7 +374,7 @@ async function relayMediaMessage(message) {
     return;
   }
 
-  const replyText = caption || (replyNick ? `(отвечая "${replyNick}")` : '');
+  const replyText = caption || (replyNick ? `${isGlobal ? '!' : ''}(отвечая "${replyNick}")` : '');
   if (replyText) await sendToGame(chatId, replyText);
   await sendToGame(chatId, isGlobal ? `!${url}` : url);
 }
