@@ -318,8 +318,11 @@ function startBot(envPath, configOverrides) {
       try {
         const rawStr = data.toString();
         const command = JSON.parse(rawStr);
-        console.log(`[WebSocket Debug] [${config.username}] Received raw WS message:`, rawStr);
-        console.log(`[WebSocket Debug] [${config.username}] Parsed command object:`, JSON.stringify(command, null, 2));
+        // ponytail: по умолчанию молчим — сырые дампы WS только при DEBUG_WS=1
+        if (process.env.DEBUG_WS) {
+          console.log(`[WebSocket Debug] [${config.username}] Received raw WS message:`, rawStr);
+          console.log(`[WebSocket Debug] [${config.username}] Parsed command object:`, JSON.stringify(command, null, 2));
+        }
 
         if (command.action === 'chat') {
           chatQueue.push(command.text);
