@@ -725,11 +725,6 @@ function startBot(envPath, configOverrides) {
         console.log('[Система] Успешный логин.');
     });
 
-    bot.on('whisper', (username, message) => {
-        console.log(`[ЛС от ${username}]: ${message}`);
-        handleCommand(bot, message, username);
-    });
-
     bot.on('tabHeader', (header, footer) => {
       try {
         lastTabHeader = header ? formatTabComponent(header) : null;
@@ -917,7 +912,6 @@ function startBot(envPath, configOverrides) {
           const isFromMain = senderFull.includes(getMainAccount());
           const isFromTwin = getTwinks().some(t => senderFull.includes(t));
           if (content.toLowerCase().includes('respect') && (isFromMain || isFromTwin)) tryRespect();
-          else if (isFromMain) handleCommand(bot, content);
         }
       } else if (text.startsWith('<') && text.includes('> ')) {
         // ponytail: формат "<Имя> Сообщение"
