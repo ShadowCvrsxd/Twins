@@ -46,4 +46,4 @@ Copy environment template files (e.g., `.env.main.example`, `.env.twin1`, `.env.
 
 ### Chat Bot Features
 
-- Гифки из ТГ → файл хостится самим VPS (`MEDIA_BASE_URL/media/…`), ссылка уходит в игровой чат.
+- Гифки из ТГ → ссылка uguu.se (живёт ~3 ч, эмбеддится в ДС); при недоступности uguu — вечная ссылка с нашего хаба (`MEDIA_BASE_URL/media/…`).

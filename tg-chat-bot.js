@@ -273,6 +273,21 @@ async function uploadToHub(buffer, ext) {
   }
 }
 
+// ponytail: uguu удалить файл ~через 3ч — для пермалинков есть загрузка на хуб (fallback ниже).
+async function uploadToUguu(buffer, ext) {
+  try {
+    const form = new FormData();
+    form.append('files[]', new Blob([buffer]), `file.${ext}`);
+    const res = await fetch('https://uguu.se/upload?output=json', { method: 'POST', body: form, signal: AbortSignal.timeout(20000) });
+    if (!res.ok) { console.error('[Chat] media upload failed: HTTP', res.status); return null; }
+    let data;
+    try { data = await res.json(); } catch (e) { console.error('[Chat] media upload: bad response body'); return null; }
+    const url = data.files && data.files[0] && data.files[0].url;
+    if (typeof url !== 'string' || !/^https:\/\/[A-Za-z0-9.-]+\/[A-Za-z0-9._-]+\.(gif|mp4)$/.test(url)) { console.error('[Chat] media upload: bad response body'); return null; }
+    return url;
+  } catch (e) { console.error('[Chat] media upload failed:', e.cause?.code || e.cause || e.message); return null; }
+}
+
 async function sendToGame(chatId, text) {
   const approved = await readJSON(APPROVED_FILE);
   const userTwins = approved[chatId] || [];
@@ -352,7 +367,7 @@ async function relayMediaMessage(message) {
     await sendMessage(chatId, '❌ Не удалось скачать гифку.');
     return;
   }
-  const url = await uploadToHub(buffer, media.ext);
+  const url = await uploadToUguu(buffer, media.ext) || await uploadToHub(buffer, media.ext);
   if (!url) {
     await sendMessage(chatId, '❌ Хостинг гифок недоступен, попробуй позже.');
     return;
@@ -575,4 +590,4 @@ async function poll() {
 
 if (require.main === module) poll();
 
-module.exports = { detectMedia, mediaExt, buildCaption, uploadToHub };
+module.exports = { detectMedia, mediaExt, buildCaption, uploadToHub, uploadToUguu };
