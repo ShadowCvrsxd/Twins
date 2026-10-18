@@ -4,7 +4,7 @@ const WebSocket = require('ws');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
 const { get, set } = require('./db.js');
-const { resolveCommandTarget, removeAliasesForBot } = require('./hub-util.js');
+const { resolveCommandTarget, removeAliasesForBot, handleMediaUpload, handleMediaGet } = require('./hub-util.js');
 const { relayChatToTelegram, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks, forwardResponse, applyBotStatus } = require('./utils.js');
 
 const clients = new Map();
@@ -20,6 +20,10 @@ if (!TOKEN) {
 // HTTP bearer for the port-8089 API. Telegram tokens (TG_BOT_TOKEN/TG_CHAT_BOT_TOKEN) are
 // NOT HTTP credentials anymore; bot_tokens stay scoped to /command only.
 const HUB_API_TOKEN = process.env.HUB_API_TOKEN;
+
+if (!process.env.MEDIA_BASE_URL) {
+  console.warn('[Media] MEDIA_BASE_URL не задан — аплоад гифок отвечает 500');
+}
 
 function sendChatMessage(chatId, text) {
   const chatToken = process.env.TG_CHAT_BOT_TOKEN || process.env.TG_BOT_TOKEN;
@@ -41,7 +45,11 @@ const apiServer = http.createServer((req, res) => {
     const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
     const pathname = parsedUrl.pathname;
 
-    if (pathname === '/command' && req.method === 'POST') {
+    if (pathname === '/media-upload' && req.method === 'POST') {
+        handleMediaUpload(req, res);
+    } else if (pathname.startsWith('/media/') && req.method === 'GET') {
+        handleMediaGet(req, res, pathname);
+    } else if (pathname === '/command' && req.method === 'POST') {
         const auth = req.headers['authorization'];
         if (!auth || !auth.startsWith('Bearer ')) {
             res.writeHead(401); res.end('Unauthorized'); return;

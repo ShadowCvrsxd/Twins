@@ -40,9 +40,10 @@ Copy environment template files (e.g., `.env.main.example`, `.env.twin1`, `.env.
 - `TG_BOT_TOKEN` — Telegram bot token used by the Hub. Required to start the Hub.
 - `TG_CHAT_BOT_TOKEN` — separate Telegram bot token for the chat bot (`tg-chat-bot.js`), so it does not share `getUpdates` with the Hub.
 - `HUB_API_TOKEN` — **dedicated bearer token for the Hub's HTTP API on port 8089** (`/state`, `/command`). This is the only HTTP credential: Telegram tokens are no longer accepted as HTTP bearers. If unset, the chat bot logs `[API] HUB_API_TOKEN not set` and skips its HTTP calls.
+- `MEDIA_BASE_URL` — публичная база вида `http://<VPS_IP>:8089`; без неё аплоад гифок выключен (500). Файлы отдаются хабом по `MEDIA_BASE_URL/media/<name>.<ext>`.
 - `bot_tokens` (stored via `db.js`, not env) — per-bot tokens accepted only on `/command`, scoping the caller to its own bot.
 - `DEBUG_WS=1` — подробный дамп WS-команд в лог (по умолчанию выкл).
 
 ### Chat Bot Features
 
-- Гифки из ТГ → прямой URL в игровой чат (перезалив catbox.moe).
+- Гифки из ТГ → файл хостится самим VPS (`MEDIA_BASE_URL/media/…`), ссылка уходит в игровой чат.

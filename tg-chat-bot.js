@@ -18,6 +18,7 @@ if (!TOKEN) {
 }
 
 const HUB_API_TOKEN = process.env.HUB_API_TOKEN;
+const HUB_MEDIA_BASE = (process.env.MEDIA_BASE_URL || '').replace(/\/+$/, '');
 
 function hubAuthHeader() {
   if (!HUB_API_TOKEN) {
@@ -208,11 +209,6 @@ function detectMedia(message) {
   return null;
 }
 
-function isValidCatboxUrl(text) {
-  if (typeof text !== 'string') return false;
-  return /^https:\/\/files\.catbox\.moe\/[A-Za-z0-9._-]+\.(gif|mp4)$/.test(text.trim());
-}
-
 function buildCaption(caption, replyNick, isGlobal) {
   let out = caption || '';
   if (out && replyNick) out = `${out} (отвечая "${replyNick}")`;
@@ -237,21 +233,46 @@ async function downloadTelegramMedia(fileId) {
   }
 }
 
-async function uploadToCatbox(buffer, ext) {
+async function uploadToHub(buffer, ext) {
+  if (!HUB_MEDIA_BASE) {
+    console.error('[Chat] media upload failed: MEDIA_BASE_URL not set');
+    return null;
+  }
   try {
-    const form = new FormData();
-    form.append('reqtype', 'fileupload');
-    form.append('fileToUpload', new Blob([buffer]), `file.${ext}`);
-    const res = await fetch('https://catbox.moe/user/api.php', {
+    const res = await fetch(`${HUB_MEDIA_BASE}/media-upload`, {
       method: 'POST',
-      body: form,
+      headers: {
+        'Authorization': `Bearer ${HUB_API_TOKEN}`,
+        'Content-Type': ext === 'mp4' ? 'video/mp4' : 'image/gif'
+      },
+      body: buffer,
       signal: AbortSignal.timeout(20000)
     });
-    if (!res.ok) return null;
-    const text = (await res.text()).trim();
-    return isValidCatboxUrl(text) ? text : null;
+    if (!res.ok) {
+      console.error('[Chat] media upload failed: HTTP', res.status);
+      return null;
+    }
+    let data;
+    try {
+      data = await res.json();
+    } catch (e) {
+      console.error('[Chat] media upload: bad response body');
+      return null;
+    }
+    const url = data && data.url;
+    try {
+      const parsed = new URL(url);
+      if (!/^\/media\/[A-Za-z0-9._-]+\.(gif|mp4)$/.test(parsed.pathname)) {
+        console.error('[Chat] media upload: bad response body');
+        return null;
+      }
+    } catch (e) {
+      console.error('[Chat] media upload: bad response body');
+      return null;
+    }
+    return url;
   } catch (e) {
-    console.error('[Chat] catbox upload failed');
+    console.error('[Chat] media upload failed:', e.message);
     return null;
   }
 }
@@ -335,7 +356,7 @@ async function relayMediaMessage(message) {
     await sendMessage(chatId, '❌ Не удалось скачать гифку.');
     return;
   }
-  const url = await uploadToCatbox(buffer, media.ext);
+  const url = await uploadToHub(buffer, media.ext);
   if (!url) {
     await sendMessage(chatId, '❌ Хостинг гифок недоступен, попробуй позже.');
     return;
@@ -558,4 +579,4 @@ async function poll() {
 
 if (require.main === module) poll();
 
-module.exports = { detectMedia, mediaExt, isValidCatboxUrl, buildCaption };
+module.exports = { detectMedia, mediaExt, buildCaption, uploadToHub };
