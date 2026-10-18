@@ -15,4 +15,5 @@ fi
 [ -f twins_store.json ] && cp twins_store.json "$BACKUP_DIR/twins_store.json.$ts"
 # ponytail: O(n) хвост за раз — объём копий конечен (14), сортированный ls дёшев
 ls -1t "$BACKUP_DIR"/twins.db.* 2>/dev/null | tail -n +15 | xargs -r rm --
+ls -1t "$BACKUP_DIR"/twins_store.json.* 2>/dev/null | tail -n +15 | xargs -r rm --
 echo "[Backup] OK: $ts"
