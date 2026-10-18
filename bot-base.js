@@ -495,6 +495,7 @@ function startBot(envPath, configOverrides) {
     setTimeout(() => {
       if (bot) {
         try {
+          console.log('[Respect] auto tick: enabled=' + autoRespectEnabled + ', cdLeftMin=' + Math.max(0, Math.ceil((nextRespectTime - Date.now()) / 60000)));
           if (autoRespectEnabled && Date.now() >= nextRespectTime) {
             tryRespect(getMainAccount(), true);
           }
@@ -633,6 +634,7 @@ function startBot(envPath, configOverrides) {
     }
 
     try {
+      console.log('[Respect] attempt:', username, 'auto=' + isAuto);
       respectTarget = { username, isAuto };
       bot.chat(`/respect ${username}`);
     } catch (err) { 
@@ -864,6 +866,7 @@ function startBot(envPath, configOverrides) {
           respectTarget = null;
         }
         nextRespectTime = Date.now() + RESPECT_COOLDOWN;
+        console.log('[Respect] success confirmed, next CD=60m');
       } else if (
         msg.includes('ʀ | вы сможете отправить следующий /respect') ||
         msg.includes('ʀ | через')
@@ -871,6 +874,7 @@ function startBot(envPath, configOverrides) {
         const cdMs = parseCooldown(message);
         nextRespectTime = Date.now() + (cdMs || RESPECT_COOLDOWN);
         respectTarget = null;
+        console.log('[Respect] cooldown set +' + Math.round(cdMs / 60000) + ' min');
       } else {
         if (!msg.startsWith('/login') && !msg.startsWith('/register')) {
           sendToHub({ type: 'chat', isMain: !!config.isMain, text: message });
