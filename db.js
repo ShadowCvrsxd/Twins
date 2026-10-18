@@ -7,6 +7,7 @@ let db;
 try {
   const { DatabaseSync } = require('node:sqlite');
   db = new DatabaseSync(dbPath);
+  db.exec('PRAGMA busy_timeout = 5000'); // ponytail: 'database is locked' уходит — операции ждут до 5с
 } catch (e) {
   // node:sqlite недоступен (старый Node) — используем JSON-хранилище без падений
   console.warn('[DB] node:sqlite unavailable, JSON fallback');
