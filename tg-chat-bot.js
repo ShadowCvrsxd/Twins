@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { execFile } = require('child_process');
 const { getMainAccount } = require('./utils.js');
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -235,6 +236,36 @@ async function downloadTelegramMedia(fileId) {
   }
 }
 
+function isRealGif(buffer) {
+  return buffer.length >= 6 && (buffer.slice(0, 6).toString('latin1') === 'GIF87a' || buffer.slice(0, 6).toString('latin1') === 'GIF89a');
+}
+
+// ponytail: ffmpeg subprocess, 60s ceiling — big mp4 → native mp4 link (cleaner than a giant GIF).
+// Ceilings: 15s (-t) + 480px + 12fps keep TG mp4-animations under ~15MB at typical sizes,
+// staying well below uguu's 128MB and hub's 25MB caps, and capping CPU. Fail → null → caller keeps mp4.
+async function mp4ToGif(buffer) {
+  const tmpIn = `/tmp/tg-media-${Date.now()}-${Math.random().toString(16).slice(2)}.mp4`;
+  const tmpOut = tmpIn.replace(/\.mp4$/, '.gif');
+  try {
+    await fs.promises.writeFile(tmpIn, buffer);
+    await new Promise((res, rej) => execFile('ffmpeg', [
+      '-y', '-i', tmpIn,
+      '-vf', 'fps=12,scale=480:-2:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse',
+      '-loop', '0', '-an', '-t', '15',
+      tmpOut
+    ], { timeout: 60000, killSignal: 'SIGKILL' }, (err) => err ? rej(err) : res()));
+    const out = await fs.promises.readFile(tmpOut);
+    if (!out || out.length === 0 || out.length > 20 * 1024 * 1024) return null;
+    return out;
+  } catch (e) {
+    if (e.code === 'ENOENT') console.error('[Chat] ffmpeg not installed — mp4 passthrough');
+    else console.error('[Chat] media convert failed:', e.code || e.message);
+    return null;
+  } finally {
+    for (const f of [tmpIn, tmpOut]) { try { fs.unlinkSync(f); } catch {} }
+  }
+}
+
 async function uploadToHub(buffer, ext) {
   try {
     const res = await fetch(`http://localhost:${HUB_PORT}/media-upload`, {
@@ -365,12 +396,18 @@ async function relayMediaMessage(message) {
   const isGlobal = !!globalModes[chatId];
   const caption = buildCaption(captionRaw, replyNick, isGlobal);
 
-  const buffer = await downloadTelegramMedia(media.fileId);
+  let buffer = await downloadTelegramMedia(media.fileId);
   if (!buffer) {
     await sendMessage(chatId, '❌ Не удалось скачать гифку.');
     return;
   }
-  const url = await uploadToUguu(buffer, media.ext) || await uploadToHub(buffer, media.ext);
+  let ext = media.ext;
+  if (ext !== 'gif' && isRealGif(buffer)) ext = 'gif';          // TG mislabeled a real gif as mp4
+  if (ext === 'mp4' && !isRealGif(buffer)) {                    // mp4 masquerade → convert to real gif
+    const gif = await mp4ToGif(buffer);
+    if (gif) { buffer = gif; ext = 'gif'; }                     // else: keep mp4 — still works
+  }
+  const url = await uploadToUguu(buffer, ext) || await uploadToHub(buffer, ext);
   if (!url) {
     await sendMessage(chatId, '❌ Хостинг гифок недоступен, попробуй позже.');
     return;
@@ -601,4 +638,4 @@ async function poll() {
 
 if (require.main === module) poll();
 
-module.exports = { detectMedia, mediaExt, buildCaption, uploadToHub, uploadToUguu };
+module.exports = { detectMedia, mediaExt, buildCaption, uploadToHub, uploadToUguu, isRealGif, mp4ToGif };
