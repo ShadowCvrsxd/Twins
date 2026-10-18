@@ -25,7 +25,7 @@ setup-warp.sh
 *.zip
 *.bat
 
-test/
+test/artifacts/
 
 media/
 
