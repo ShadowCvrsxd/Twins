@@ -42,3 +42,7 @@ Copy environment template files (e.g., `.env.main.example`, `.env.twin1`, `.env.
 - `HUB_API_TOKEN` — **dedicated bearer token for the Hub's HTTP API on port 8089** (`/state`, `/command`). This is the only HTTP credential: Telegram tokens are no longer accepted as HTTP bearers. If unset, the chat bot logs `[API] HUB_API_TOKEN not set` and skips its HTTP calls.
 - `bot_tokens` (stored via `db.js`, not env) — per-bot tokens accepted only on `/command`, scoping the caller to its own bot.
 - `DEBUG_WS=1` — подробный дамп WS-команд в лог (по умолчанию выкл).
+
+### Chat Bot Features
+
+- Гифки из ТГ → прямой URL в игровой чат (перезалив catbox.moe).

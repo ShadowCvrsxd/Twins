@@ -188,6 +188,163 @@ function extractReplyNick(replyText) {
   return null;
 }
 
+const MAX_MEDIA_BYTES = 20 * 1024 * 1024; // Telegram Bot API getFile hard limit
+
+function mediaExt(mime) {
+  if (mime === 'video/mp4') return 'mp4';
+  if (mime === 'image/gif') return 'gif';
+  return null;
+}
+
+function detectMedia(message) {
+  if (!message) return null;
+  if (message.animation) {
+    return { fileId: message.animation.file_id, ext: mediaExt(message.animation.mime_type) || 'mp4' };
+  }
+  if (message.document) {
+    const ext = mediaExt(message.document.mime_type);
+    return ext ? { fileId: message.document.file_id, ext } : null;
+  }
+  return null;
+}
+
+function isValidCatboxUrl(text) {
+  if (typeof text !== 'string') return false;
+  return /^https:\/\/files\.catbox\.moe\/[A-Za-z0-9._-]+\.(gif|mp4)$/.test(text.trim());
+}
+
+function buildCaption(caption, replyNick, isGlobal) {
+  let out = caption || '';
+  if (out && replyNick) out = `${out} (отвечая "${replyNick}")`;
+  if (out && isGlobal) out = `!${out}`;
+  return out;
+}
+
+async function downloadTelegramMedia(fileId) {
+  const file = await telegramAPI('getFile', { file_id: fileId });
+  if (!file || !file.file_path) return null;
+  if (file.file_size && file.file_size > MAX_MEDIA_BYTES) return null;
+  try {
+    // TOKEN-bearing URL — must never be logged or forwarded.
+    const res = await fetch(`https://api.telegram.org/file/bot${TOKEN}/${file.file_path}`, {
+      signal: AbortSignal.timeout(20000)
+    });
+    if (!res.ok) return null;
+    return Buffer.from(await res.arrayBuffer());
+  } catch (e) {
+    console.error('[Chat] telegram media download failed');
+    return null;
+  }
+}
+
+async function uploadToCatbox(buffer, ext) {
+  try {
+    const form = new FormData();
+    form.append('reqtype', 'fileupload');
+    form.append('fileToUpload', new Blob([buffer]), `file.${ext}`);
+    const res = await fetch('https://catbox.moe/user/api.php', {
+      method: 'POST',
+      body: form,
+      signal: AbortSignal.timeout(20000)
+    });
+    if (!res.ok) return null;
+    const text = (await res.text()).trim();
+    return isValidCatboxUrl(text) ? text : null;
+  } catch (e) {
+    console.error('[Chat] catbox upload failed');
+    return null;
+  }
+}
+
+async function sendToGame(chatId, text) {
+  const approved = await readJSON(APPROVED_FILE);
+  const userTwins = approved[chatId] || [];
+  const mainsApproved = await readJSON(MAINS_APPROVED_FILE);
+  const userMains = mainsApproved[chatId] || [];
+  const userBots = [...userMains, ...userTwins];
+
+  const statuses = await readJSON(STATUS_FILE);
+  const selection = await apiGet('chat_sender_selection', {});
+  let targetBot = null;
+  const selectedLower = selection[chatId];
+  if (selectedLower) {
+    const selStatus = statuses[selectedLower];
+    if (!selStatus || !selStatus.online) {
+      const nick = selectedLower === getMainAccount().toLowerCase() ? 'Мейн' : selectedLower;
+      await sendMessage(chatId, `❌ Бот *${nick}* оффлайн.`);
+      return;
+    }
+    targetBot = selectedLower;
+  } else {
+    const onlineBots = userBots.filter(b => { const st = statuses[b.toLowerCase()]; return st && st.online; });
+    if (onlineBots.length === 0) {
+      await sendMessage(chatId, '❌ Сейчас нет онлайн твинков для отправки сообщения.');
+      return;
+    }
+    onlineBots.sort((a, b) => (statuses[a.toLowerCase()].onlineSince || 0) - (statuses[b.toLowerCase()].onlineSince || 0));
+    targetBot = onlineBots[0];
+  }
+  const hubAuth = hubAuthHeader();
+  if (!hubAuth) {
+    await sendMessage(chatId, '❌ HUB_API_TOKEN не задан.');
+    return;
+  }
+  const resp = await fetch('http://localhost:8089/command', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': hubAuth
+    },
+    body: JSON.stringify({ targetBot: targetBot.toLowerCase(), action: 'chat', text })
+  });
+  if (!resp.ok) {
+    if (resp.status === 404) {
+      await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
+    } else {
+      await sendMessage(chatId, `❌ Ошибка отправки сообщения боту *${targetBot}* (статус ${resp.status}).`);
+    }
+    return;
+  }
+  await sendMessage(chatId, `✉️ Отправлено от *${targetBot}*: ${text}`);
+}
+
+async function relayMediaMessage(message) {
+  const chatId = message.chat.id;
+  const approved = await readJSON(APPROVED_FILE);
+  const userTwins = approved[chatId] || [];
+  const mainsApproved = await readJSON(MAINS_APPROVED_FILE);
+  const userMains = mainsApproved[chatId] || [];
+  if (userTwins.length === 0 && userMains.length === 0) {
+    await sendMessage(chatId, '❌ У тебя нет привязанных твинков.');
+    return;
+  }
+
+  const media = detectMedia(message);
+  if (!media) return;
+
+  const captionRaw = message.caption || '';
+  let replyNick = null;
+  if (captionRaw && message.reply_to_message && message.reply_to_message.text) {
+    replyNick = extractReplyNick(message.reply_to_message.text);
+  }
+  const globalModes = await readJSON(GLOBAL_MODE_FILE);
+  const caption = buildCaption(captionRaw, replyNick, !!globalModes[chatId]);
+
+  const buffer = await downloadTelegramMedia(media.fileId);
+  if (!buffer) {
+    await sendMessage(chatId, '❌ Не удалось скачать гифку.');
+    return;
+  }
+  const url = await uploadToCatbox(buffer, media.ext);
+  if (!url) {
+    await sendMessage(chatId, '❌ Хостинг гифок недоступен, попробуй позже.');
+    return;
+  }
+
+  if (caption) await sendToGame(chatId, caption);
+  await sendToGame(chatId, url);
+}
+
 async function initBotMenu() {
   await telegramAPI('setMyCommands', {
     commands: [
@@ -203,8 +360,10 @@ async function initBotMenu() {
   });
 }
 
-initBotMenu();
-console.log('[Telegram Chat Bot] Запущен и слушает чат-потоки...');
+if (require.main === module) {
+  initBotMenu();
+  console.log('[Telegram Chat Bot] Запущен и слушает чат-потоки...');
+}
 
 async function poll() {
   try {
@@ -212,7 +371,17 @@ async function poll() {
     if (updates && Array.isArray(updates)) {
       for (const update of updates) {
         offset = update.update_id + 1;
-        if (!update.message || !update.message.text) continue;
+        if (!update.message) continue;
+        if (!update.message.text) {
+          if (detectMedia(update.message)) {
+            try {
+              await relayMediaMessage(update.message);
+            } catch (e) {
+              console.error('[Telegram Chat Bot Media Error]:', e.message);
+            }
+          }
+          continue;
+        }
 
         const chatId = update.message.chat.id;
         const text = update.message.text.trim();
@@ -241,49 +410,7 @@ async function poll() {
           if (globalModes[chatId]) {
             messageToSend = `!${messageToSend}`;
           }
-          const statuses = await readJSON(STATUS_FILE);
-          const selection = await apiGet('chat_sender_selection', {});
-          let targetBot = null;
-          const selectedLower = selection[chatId];
-          if (selectedLower) {
-            const selStatus = statuses[selectedLower];
-            if (!selStatus || !selStatus.online) {
-              const nick = selectedLower === getMainAccount().toLowerCase() ? 'Мейн' : selectedLower;
-              await sendMessage(chatId, `❌ Бот *${nick}* оффлайн.`);
-              continue;
-            }
-            targetBot = selectedLower;
-          } else {
-            const onlineBots = userBots.filter(b => { const st = statuses[b.toLowerCase()]; return st && st.online; });
-            if (onlineBots.length === 0) {
-              await sendMessage(chatId, '❌ Сейчас нет онлайн твинков для отправки сообщения.');
-              continue;
-            }
-            onlineBots.sort((a, b) => (statuses[a.toLowerCase()].onlineSince || 0) - (statuses[b.toLowerCase()].onlineSince || 0));
-            targetBot = onlineBots[0];
-          }
-          const hubAuth = hubAuthHeader();
-          if (!hubAuth) {
-            await sendMessage(chatId, '❌ HUB_API_TOKEN не задан.');
-            continue;
-          }
-          const resp = await fetch('http://localhost:8089/command', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': hubAuth
-            },
-            body: JSON.stringify({ targetBot: targetBot.toLowerCase(), action: 'chat', text: messageToSend })
-          });
-          if (!resp.ok) {
-            if (resp.status === 404) {
-              await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
-            } else {
-              await sendMessage(chatId, `❌ Ошибка отправки сообщения боту *${targetBot}* (статус ${resp.status}).`);
-            }
-            continue;
-          }
-          await sendMessage(chatId, `✉️ Отправлено от *${targetBot}*: ${messageToSend}`);
+          await sendToGame(chatId, messageToSend);
           continue;
         }
 
@@ -429,4 +556,6 @@ async function poll() {
   setTimeout(poll, 1000);
 }
 
-poll();
+if (require.main === module) poll();
+
+module.exports = { detectMedia, mediaExt, isValidCatboxUrl, buildCaption };
