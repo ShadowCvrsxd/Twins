@@ -12,6 +12,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: '1'
       - run: |
           set -e
           for f in test/*.test.js; do DB_PATH=/tmp/ci-db-$(basename "$f").db node "$f"; done
