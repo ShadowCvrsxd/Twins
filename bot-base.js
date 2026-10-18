@@ -622,6 +622,7 @@ function startBot(envPath, configOverrides) {
   }
 
   function tryRespect(username = getMainAccount(), isAuto = false) {
+    if (!username) return; // ponytail: env-мейн не задан — молча пропускаем (getMainAccount уже предупредил)
     const now = Date.now();
     if (now < nextRespectTime) {
       if (!isAuto) {
@@ -839,7 +840,8 @@ function startBot(envPath, configOverrides) {
                   bot._hasNotifiedUpdate = true;
                   setTimeout(() => {
                       if (!config.isMain && bot) {
-                          bot.chat(`/msg ${getMainAccount()} Я обновился!`);
+                          const mainAccount = getMainAccount();
+                          if (mainAccount) bot.chat(`/msg ${mainAccount} Я обновился!`);
                       }
                   }, 5000);
               }

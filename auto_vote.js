@@ -233,6 +233,10 @@ async function voteWithFetch(nickname) {
 
 async function run() {
   const targetNick = process.argv[2] || getMainAccount();
+  if (!targetNick) {
+    console.error('[AutoVote] MAIN_ACCOUNT env не задан — нет цели для голосования');
+    process.exit(1);
+  }
   await voteWithFetch(targetNick);
 }
 

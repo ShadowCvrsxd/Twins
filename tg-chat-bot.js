@@ -335,7 +335,8 @@ async function sendToGame(chatId, text) {
   if (selectedLower) {
     const selStatus = statuses[selectedLower];
     if (!selStatus || !selStatus.online) {
-      const nick = selectedLower === getMainAccount().toLowerCase() ? 'Мейн' : selectedLower;
+      const mainAccount = getMainAccount();
+      const nick = mainAccount && selectedLower === mainAccount.toLowerCase() ? 'Мейн' : selectedLower;
       await sendMessage(chatId, `❌ Бот *${nick}* оффлайн.`);
       return;
     }
@@ -510,6 +511,10 @@ async function poll() {
               await sendMessage(chatId, `❌ У тебя нет ${target}-го твинка.`);
               continue;
             }
+          }
+          if (!resolved) {
+            await sendMessage(chatId, '❌ Мейн не настроен (MAIN_ACCOUNT пуст).');
+            continue;
           }
           const selection = await apiGet('chat_sender_selection', {});
           selection[chatId] = resolved.toLowerCase();

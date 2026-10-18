@@ -12,11 +12,24 @@ async function dropAll(bot) {
   }
 }
 
+let warnedTw = false; // ponytail: warn-once per process
 function getTwinks() {
-  return process.env.TWINKS ? process.env.TWINKS.split(',') : ['AlexZTI_Twin', 'AlexZTI_Twin1'];
+  const v = process.env.TWINKS;
+  if (!v) {
+    if (!warnedTw) console.error('[Config] TWINKS env не задан — список твинов пуст');
+    warnedTw = true;
+    return [];
+  }
+  return v.split(',').map(s => s.trim()).filter(Boolean);
 }
+let warnedMain = false; // ponytail: warn-once per process
 function getMainAccount() {
-  return process.env.MAIN_ACCOUNT || 'AlexZTI_';
+  const v = process.env.MAIN_ACCOUNT;
+  if (!v) {
+    if (!warnedMain) console.error('[Config] MAIN_ACCOUNT env не задан — мейн-флоу отключен');
+    warnedMain = true;
+  }
+  return v;
 }
 const RESPECT_COOLDOWN = 60 * 60 * 1000;
 
@@ -130,7 +143,7 @@ function sendMainTelegramNotification(text) {
     const streamAll = get('main_chat_stream_all', {});
     const approved = get('links_approved', {});
     const mainsApproved = get('mains_approved', {});
-    const mainNick = getMainAccount().toLowerCase();
+    const mainNick = (getMainAccount() || '').toLowerCase();
     const cleanedText = cleanMinecraftText(text);
     if (!cleanedText) return;
 
@@ -179,7 +192,7 @@ function relayChatToTelegram({ ownerId, botName, text, isMain }, deps) {
       const streamAll = get('main_chat_stream_all', {});
       const approved = get('links_approved', {});
       const mainsApproved = get('mains_approved', {});
-      const mainNick = getMainAccount().toLowerCase();
+      const mainNick = (getMainAccount() || '').toLowerCase();
       const cleanedLower = cleanedText.toLowerCase();
       const senderMatch = cleanedLower.match(/(?:^|\|)\s*([^\s›|]+)\s*›/);
       const sender = senderMatch ? senderMatch[1] : '';
