@@ -130,4 +130,9 @@ function handleMediaGet(req, res, pathname) {
   });
 }
 
-module.exports = { resolveCommandTarget, shouldScheduleReconnect, removeAliasesForBot, handleMediaUpload, handleMediaGet };
+// T28: cap the JSON bodies accepted by /command and /state (POST) so the public
+// :8089 API cannot accumulate an unbounded request body.
+const MAX_BODY_BYTES = 64 * 1024;
+function isOversizedBody(str) { return str.length > MAX_BODY_BYTES; }
+
+module.exports = { resolveCommandTarget, shouldScheduleReconnect, removeAliasesForBot, handleMediaUpload, handleMediaGet, MAX_BODY_BYTES, isOversizedBody };

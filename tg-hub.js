@@ -4,7 +4,7 @@ const WebSocket = require('ws');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
 const { get, set } = require('./db.js');
-const { resolveCommandTarget, removeAliasesForBot, handleMediaUpload, handleMediaGet } = require('./hub-util.js');
+const { resolveCommandTarget, removeAliasesForBot, handleMediaUpload, handleMediaGet, isOversizedBody } = require('./hub-util.js');
 const { relayChatToTelegram, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks, forwardResponse, applyBotStatus } = require('./utils.js');
 
 const clients = new Map();
@@ -68,7 +68,10 @@ const apiServer = http.createServer((req, res) => {
         }
 
         let body = '';
-        req.on('data', chunk => body += chunk);
+        req.on('data', chunk => {
+            body += chunk;
+            if (isOversizedBody(body)) { req.destroy(); res.writeHead(413); res.end('Payload Too Large'); return; }
+        });
         req.on('end', () => {
             try {
                 const command = JSON.parse(body);
@@ -110,7 +113,10 @@ const apiServer = http.createServer((req, res) => {
             res.end(JSON.stringify(value));
         } else if (req.method === 'POST') {
             let body = '';
-            req.on('data', chunk => body += chunk);
+            req.on('data', chunk => {
+                body += chunk;
+                if (isOversizedBody(body)) { req.destroy(); res.writeHead(413); res.end('Payload Too Large'); return; }
+            });
             req.on('end', () => {
                 try {
                     const { key, value } = JSON.parse(body);
@@ -137,7 +143,7 @@ apiServer.listen(PORT, '0.0.0.0', () => {
     console.log(`[API] Шлюз запущен на порту ${PORT}`);
 });
 
-const wss = new WebSocket.Server({ server: apiServer });
+const wss = new WebSocket.Server({ server: apiServer, maxPayload: 256 * 1024 });
 console.log(`[Bridge] WebSocket-сервер запущен на порту ${PORT} (через API Server)`);
 
 const heartbeatInterval = setInterval(() => {

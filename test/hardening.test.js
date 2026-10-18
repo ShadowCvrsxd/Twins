@@ -127,6 +127,14 @@ let hub = null;
   };
 
   try {
+    // --- T28: request body cap helper (pure, boundary-inclusive) ---
+    const { MAX_BODY_BYTES, isOversizedBody } = require('../hub-util.js');
+    check('T28 cap: empty body ok', isOversizedBody('') === false);
+    check('T28 cap: just under cap ok', isOversizedBody('a'.repeat(MAX_BODY_BYTES - 1)) === false);
+    check('T28 cap: exactly at cap ok', isOversizedBody('a'.repeat(MAX_BODY_BYTES)) === false);
+    check('T28 cap: one over cap oversized', isOversizedBody('a'.repeat(MAX_BODY_BYTES + 1)) === true);
+    check('T28 cap: far over cap oversized', isOversizedBody('a'.repeat(MAX_BODY_BYTES * 2)) === true);
+
     // --- node --check on changed source files ---
     for (const f of CHANGED_FILES) {
       const r = spawnSync('node', ['--check', path.join(ROOT, f)], { encoding: 'utf8' });
