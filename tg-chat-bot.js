@@ -356,7 +356,7 @@ async function relayMediaMessage(message) {
 
   const captionRaw = message.caption || '';
   let replyNick = null;
-  if (captionRaw && message.reply_to_message && message.reply_to_message.text) {
+  if (message.reply_to_message && message.reply_to_message.text) {
     replyNick = extractReplyNick(message.reply_to_message.text);
   }
   const globalModes = await readJSON(GLOBAL_MODE_FILE);
@@ -374,7 +374,8 @@ async function relayMediaMessage(message) {
     return;
   }
 
-  if (caption) await sendToGame(chatId, caption);
+  const replyText = caption || (replyNick ? `(отвечая "${replyNick}")` : '');
+  if (replyText) await sendToGame(chatId, replyText);
   await sendToGame(chatId, isGlobal ? `!${url}` : url);
 }
 
