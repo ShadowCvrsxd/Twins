@@ -18,7 +18,7 @@ if (!TOKEN) {
 }
 
 const HUB_API_TOKEN = process.env.HUB_API_TOKEN;
-const HUB_MEDIA_BASE = (process.env.MEDIA_BASE_URL || '').replace(/\/+$/, '');
+const HUB_PORT = parseInt(process.env.HUB_PORT || '8089', 10);
 
 function hubAuthHeader() {
   if (!HUB_API_TOKEN) {
@@ -234,12 +234,8 @@ async function downloadTelegramMedia(fileId) {
 }
 
 async function uploadToHub(buffer, ext) {
-  if (!HUB_MEDIA_BASE) {
-    console.error('[Chat] media upload failed: MEDIA_BASE_URL not set');
-    return null;
-  }
   try {
-    const res = await fetch(`${HUB_MEDIA_BASE}/media-upload`, {
+    const res = await fetch(`http://localhost:${HUB_PORT}/media-upload`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${HUB_API_TOKEN}`,
@@ -272,7 +268,7 @@ async function uploadToHub(buffer, ext) {
     }
     return url;
   } catch (e) {
-    console.error('[Chat] media upload failed:', e.message);
+    console.error('[Chat] media upload failed:', e.cause?.code || e.cause || e.message);
     return null;
   }
 }
