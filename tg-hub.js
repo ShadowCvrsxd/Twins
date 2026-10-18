@@ -139,7 +139,7 @@ const apiServer = http.createServer((req, res) => {
 
 const PORT = parseInt(process.env.HUB_PORT || '8089', 10);
 
-apiServer.listen(PORT, '0.0.0.0', () => {
+apiServer.listen(PORT, process.env.HUB_BIND || undefined, () => {
     console.log(`[API] Шлюз запущен на порту ${PORT}`);
 });
 

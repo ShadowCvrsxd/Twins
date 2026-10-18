@@ -154,11 +154,11 @@ function authAttempt(msg, waitMs, query = `?bot=${BOT}`) {
 
     // ---- T7: token travels only in the auth message, never in the WS URL ----
     const src = fs.readFileSync(BOT_SRC, 'utf8');
-    const urlTmpl = src.match(/const url = `ws:\/\/[^`]*`/);
-    check('source: connectToHub URL template found', !!urlTmpl, urlTmpl && urlTmpl[0]);
-    check('source: URL template has ?bot=', !!urlTmpl && urlTmpl[0].includes('?bot='));
-    check('source: URL template has NO token=', !!urlTmpl && !urlTmpl[0].includes('token='),
-      urlTmpl && urlTmpl[0]);
+    const urlLine = (src.match(/const url = base \? [^;]+;/) || [])[0];
+    check('source: connectToHub URL template found', !!urlLine, urlLine);
+    check('source: URL template has ?bot=', !!urlLine && urlLine.includes('?bot='));
+    check('source: URL template has NO token=', !!urlLine && !urlLine.includes('token='),
+      urlLine);
 
     db.set('links_approved', { ...origApproved, [OWNER]: [BOT, BOT7] });
     db.set('user_tokens', { ...origTokens, [OWNER]: TOK7 });

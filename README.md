@@ -48,3 +48,26 @@ Copy environment template files (e.g., `.env.main.example`, `.env.twin1`, `.env.
 
 - Гифки из ТГ → ссылка uguu.se (живёт ~3 ч, эмбеддится в ДС); при недоступности uguu — вечная ссылка с нашего хаба (`MEDIA_BASE_URL/media/…`).
 - mp4-«анимации» автоматически конвертируются в настоящий GIF (ffmpeg, 15s/480px/15fps потолки); для конвертации пакет `ffmpeg` должен быть установлен на хосте — без него mp4 уходит как есть.
+
+### TLS (опционально, nginx + nip.io)
+
+Перевод публичного API/WS на HTTPS/WSS без покупки домена. `nip.io`/`sslip.io` — бесплатный wildcard-DNS, отдающий IP из имени.
+
+1. `apt-get install -y nginx certbot python3-certbot-nginx`
+2. nginx: сервер с `server_name <IP>.nip.io`; `nginx -s reload`
+3. Сертификат: `certbot --nginx -d <IP>.nip.io`
+4. В 443-блоке проксирование на локальный хаб (`Upgrade`/`Connection` обязательны для wss):
+   ```
+   proxy_pass http://127.0.0.1:8089;
+   proxy_http_version 1.1;
+   proxy_set_header Upgrade $http_upgrade;
+   proxy_set_header Connection "upgrade";
+   proxy_set_header Host $host;
+   ```
+5. Флипы env: хаб — `HUB_BIND=127.0.0.1` и `MEDIA_BASE_URL=https://<IP>.nip.io`; клиенты — `HUB_WS_URL=wss://<IP>.nip.io`
+6. `ufw deny 8089; ufw allow 443,80/tcp` (если используется ufw)
+7. Рестарт хаба и клиентских ботов ОДНОВРЕМЕННО — клиенты на прямом `ws://<IP>:8089` отвалятся после `HUB_BIND`
+
+Откат: unset `HUB_BIND` → :8089 снова наружу, как раньше.
+
+Discord-эмбеды не меняются — uguu.se остаётся основным (raw-домен нашего хаба не эмбеддится); HTTPS здесь для WS/API и безопасности токенов.
