@@ -360,7 +360,8 @@ async function relayMediaMessage(message) {
     replyNick = extractReplyNick(message.reply_to_message.text);
   }
   const globalModes = await readJSON(GLOBAL_MODE_FILE);
-  const caption = buildCaption(captionRaw, replyNick, !!globalModes[chatId]);
+  const isGlobal = !!globalModes[chatId];
+  const caption = buildCaption(captionRaw, replyNick, isGlobal);
 
   const buffer = await downloadTelegramMedia(media.fileId);
   if (!buffer) {
@@ -374,7 +375,7 @@ async function relayMediaMessage(message) {
   }
 
   if (caption) await sendToGame(chatId, caption);
-  await sendToGame(chatId, url);
+  await sendToGame(chatId, isGlobal ? `!${url}` : url);
 }
 
 async function initBotMenu() {
