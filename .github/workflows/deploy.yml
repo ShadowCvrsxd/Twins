@@ -5,7 +5,18 @@ on:
     branches: [ main ]
 
 jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: |
+          set -e
+          for f in test/*.test.js; do DB_PATH=/tmp/ci-db-$(basename "$f").db node "$f"; done
   deploy:
+    needs: tests
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to VPS via SSH
