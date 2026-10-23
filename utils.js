@@ -31,6 +31,16 @@ function getMainAccount() {
   }
   return v;
 }
+// ponytail: pure KV merge, no write when unchanged — one read+set per private-chat message
+function mergeTgUser(store, chatId, from, chatType) {
+  if (chatType !== 'private' || !from || from.is_bot === true) return null;
+  if (!Number.isInteger(from.id) || from.id <= 0) return null;
+  const entry = { id: from.id, username: from.username || null, firstName: from.first_name || null };
+  const prev = store && store[chatId];
+  if (prev && prev.id === entry.id && prev.username === entry.username && prev.firstName === entry.firstName) return null;
+  return { ...store, [chatId]: entry };
+}
+
 const RESPECT_COOLDOWN = 60 * 60 * 1000;
 
 function parseCooldown(msg) {
@@ -290,4 +300,4 @@ function formatDropResult(username, items) {
   return `🧹 ${username}: выброшено ${items.length} стаков\n${items.map(i => `${i.name}×${i.count}`).join(', ')}`;
 }
 
-module.exports = { getTwinks, getMainAccount, getBotDisplayName, cleanMinecraftText, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, formatDropResult, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification, sendMainTelegramNotification, relayChatToTelegram, shouldSend, forwardResponse, applyBotStatus };
+module.exports = { getTwinks, getMainAccount, getBotDisplayName, cleanMinecraftText, mergeTgUser, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, formatDropResult, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification, sendMainTelegramNotification, relayChatToTelegram, shouldSend, forwardResponse, applyBotStatus };

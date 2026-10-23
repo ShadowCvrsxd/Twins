@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const { execSync } = require('child_process');
 const { get, set } = require('./db.js');
 const { resolveCommandTarget, removeAliasesForBot, handleMediaUpload, handleMediaGet, isOversizedBody } = require('./hub-util.js');
-const { relayChatToTelegram, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks, forwardResponse, applyBotStatus } = require('./utils.js');
+const { relayChatToTelegram, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks, forwardResponse, applyBotStatus, mergeTgUser } = require('./utils.js');
 
 const clients = new Map();
 
@@ -25,13 +25,13 @@ if (!process.env.MEDIA_BASE_URL) {
   console.warn('[Media] MEDIA_BASE_URL не задан — аплоад гифок отвечает 500');
 }
 
-function sendChatMessage(chatId, text) {
+function sendChatMessage(chatId, text, parseMode = null) {
   const chatToken = process.env.TG_CHAT_BOT_TOKEN || process.env.TG_BOT_TOKEN;
   if (!chatToken) return;
   fetch(`https://api.telegram.org/bot${chatToken}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text })
+    body: JSON.stringify({ chat_id: chatId, text, ...(parseMode ? { parse_mode: parseMode } : {}) })
   }).catch(() => {});
 }
 
@@ -495,6 +495,9 @@ async function poll() {
 
         const chatId = update.message.chat.id;
         const text = update.message.text.trim();
+        const tgUsers = readJSON('tg_users');
+        const merged = mergeTgUser(tgUsers, chatId, update.message.from, update.message.chat && update.message.chat.type);
+        if (merged) writeJSON('tg_users', merged);
         console.log('[Bridge Debug] Получено сообщение:', text);
         const parts = text.split(' ');
         const cmd = parts[0].toLowerCase();
