@@ -148,4 +148,133 @@ try {
 }
 console.log('✓ failover transition logging passed');
 
+// (f) main-stream twin filter and DM pings
+const resetStore = () => {
+  for (const k of ['main_chat_streaming', 'main_chat_stream_all', 'links_approved', 'mains_approved', 'chat_streaming', 'tg_users', 'bots_status']) delete store[k];
+  calls.length = 0;
+};
+
+// 1. streamAll on, no twin flag -> one plain call
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+relayChatToTelegram({ isMain: true, text: '| bot1 › hi' }, relayDeps);
+assert.deepStrictEqual(calls, [['chat1', '💬 [мейн] | bot1 › hi', null]]);
+
+// 2. streamAll on, sender's own twin flag on -> no call
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.chat_streaming = { chat1: { bot1: true } };
+relayChatToTelegram({ isMain: true, text: '| bot1 › hi' }, relayDeps);
+assert.strictEqual(calls.length, 0);
+
+// 3. mentions-only, twin stream on -> no call
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.chat_streaming = { chat1: { bot1: true } };
+relayChatToTelegram({ isMain: true, text: '| bot1 › main hi' }, relayDeps);
+assert.strictEqual(calls.length, 0);
+
+// 4. mentions-only, twin stream off -> one call
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.chat_streaming = {};
+relayChatToTelegram({ isMain: true, text: '| bot1 › main hi' }, relayDeps);
+assert.strictEqual(calls.length, 1);
+
+// 5. failover carrier: designated twin offline but streaming -> sender copy not duplicated
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1', 'bot2'] };
+store.chat_streaming = { chat1: { bot1: true } };
+store.bots_status = { bot1: { online: false } };
+relayChatToTelegram({ isMain: true, text: '| bot2 › hi' }, relayDeps);
+assert.strictEqual(calls.length, 0);
+
+// 6. main sender is exempt -> one call
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['main'] };
+relayChatToTelegram({ isMain: true, text: '| main › hi' }, relayDeps);
+assert.strictEqual(calls.length, 1);
+
+// 7. twin copy already delivered in chat2 -> only chat1 gets the line
+resetStore();
+store.main_chat_streaming = { chat1: true, chat2: true };
+store.main_chat_stream_all = { chat1: true, chat2: true };
+store.links_approved = { chat1: ['bot1'], chat2: ['bot1'] };
+store.chat_streaming = { chat2: { bot1: true } };
+relayChatToTelegram({ isMain: true, text: '| bot1 › hi' }, relayDeps);
+assert.strictEqual(calls.length, 1);
+assert.strictEqual(calls[0][0], 'chat1');
+
+// 8. incoming DM with username -> mention, plain mode
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
+relayChatToTelegram({ isMain: true, text: '✉️ |  serphut › main › hi' }, relayDeps);
+assert.deepStrictEqual(calls, [['chat1', '💬 [мейн] @owner ✉️ |  serphut › main › hi', null]]);
+
+// 9. incoming DM without username -> escaped HTML mention
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.tg_users = { chat1: { id: 42, firstName: '<O&>' } };
+relayChatToTelegram({ isMain: true, text: '✉️ | serphut › main › hi' }, relayDeps);
+assert.strictEqual(calls.length, 1);
+assert.strictEqual(calls[0][2], 'HTML');
+assert.ok(calls[0][1].includes('<a href="tg://user?id=42">&lt;O&amp;&gt;</a>'));
+
+// 10. outgoing DM -> no mention, plain mode
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
+relayChatToTelegram({ isMain: true, text: '✉️ | main › serphut › hi' }, relayDeps);
+assert.strictEqual(calls.length, 1);
+assert.ok(!calls[0][1].includes('@owner'));
+assert.strictEqual(calls[0][2], null);
+
+// 11. no tg_users -> incoming DM gets no mention
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+relayChatToTelegram({ isMain: true, text: '✉️ | serphut › main › hi' }, relayDeps);
+assert.strictEqual(calls.length, 1);
+assert.ok(!calls[0][1].includes('@'));
+assert.strictEqual(calls[0][2], null);
+
+// 12. public line containing ✉️ mid-text -> no mention
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
+relayChatToTelegram({ isMain: true, text: 'hi ✉️ there' }, relayDeps);
+assert.strictEqual(calls.length, 1);
+assert.ok(!calls[0][1].includes('@owner'));
+assert.strictEqual(calls[0][2], null);
+
+// 13. mentions-only mode still pings the owner on an incoming DM
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
+relayChatToTelegram({ isMain: true, text: '✉️ |  serphut › main › hi' }, relayDeps);
+assert.strictEqual(calls.length, 1);
+assert.ok(calls[0][1].includes('@owner'));
+console.log('✓ main-stream twin filter and DM pings passed');
+
 console.log('--- All tests passed ---');
