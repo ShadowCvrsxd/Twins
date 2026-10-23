@@ -263,7 +263,7 @@ function startBot(envPath, configOverrides) {
 
   async function handleDropAll(botInstance, chatId) {
     try {
-      if (!botInstance || !botInstance.inventory) {
+      if (!botInstance || botInstance !== bot || !botInstance.inventory) {
         sendToHub({ type: 'response', text: `❌ Твинк ${config.username} не в игре — дропнуть нечего.`, chatId });
         return;
       }
