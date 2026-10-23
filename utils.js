@@ -161,7 +161,6 @@ function sendMainTelegramNotification(text) {
     // Извлекаем отправителя: токен перед '›' в формате '<префикс> |  Nick › текст'
     const senderMatch = cleanedLower.match(/(?:^|\|)\s*([^\s›|]+)\s*›/);
     const sender = senderMatch ? senderMatch[1] : '';
-    const isTwinMsg = sender && getTwinks().some(t => t.toLowerCase() === sender);
 
     const token = process.env.TG_CHAT_BOT_TOKEN || process.env.TG_BOT_TOKEN;
     if (!token) return;
@@ -176,7 +175,7 @@ function sendMainTelegramNotification(text) {
       if (!streaming[chatId]) continue;
       if (!streamAll[chatId]) {
         const isMention = cleanedLower.includes(mainNick);
-        if (!isMention || isTwinMsg) continue;
+        if (!isMention || (sender && getTwinks().some(t => t.toLowerCase() === sender))) continue;
       }
 
       fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -204,11 +203,12 @@ function relayChatToTelegram({ ownerId, botName, text, isMain }, deps) {
       const streamAll = get('main_chat_stream_all', {});
       const approved = get('links_approved', {});
       const mainsApproved = get('mains_approved', {});
+      const botsStatus = get('bots_status', {}) || {};
+      const twinStreaming = get('chat_streaming', {}) || {};
       const mainNick = (getMainAccount() || '').toLowerCase();
       const cleanedLower = cleanedText.toLowerCase();
       const senderMatch = cleanedLower.match(/(?:^|\|)\s*([^\s›|]+)\s*›/);
       const sender = senderMatch ? senderMatch[1] : '';
-      const isTwinMsg = sender && getTwinks().some(t => t.toLowerCase() === sender);
 
       const allApproved = { ...approved };
       for (const [chatId, mains] of Object.entries(mainsApproved)) {
@@ -219,8 +219,12 @@ function relayChatToTelegram({ ownerId, botName, text, isMain }, deps) {
         if (!streaming[chatId]) continue;
         if (!streamAll[chatId]) {
           const isMention = cleanedLower.includes(mainNick);
-          if (!isMention || isTwinMsg) continue;
+          if (!isMention) continue;
         }
+        const approvedTwins = (approved[chatId] || []).map(b => String(b).toLowerCase());
+        const senderIsTwin = !!sender && sender !== mainNick && approvedTwins.includes(sender);
+        const twinCopyDelivered = senderIsTwin && (!!(twinStreaming[chatId] && twinStreaming[chatId][sender]) || Object.keys(twinStreaming[chatId] || {}).some(k => twinStreaming[chatId][k] && k !== sender && !(botsStatus[k] && botsStatus[k].online)));
+        if (twinCopyDelivered) continue;
         sendChatMessage(chatId, `💬 [мейн] ${cleanedText}`);
       }
       return;
