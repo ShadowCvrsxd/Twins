@@ -5,9 +5,9 @@ A distributed Minecraft multi-account ("twins") framework controlled entirely fr
 ## Features
 
 - **Telegram command control** — bind twins and the main account, start/stop them, chat, spam, autoclick and more, all via hub commands (see the command reference below).
-- **Per-twin chat duplication with auto-failover** — when streaming is enabled for a twin and that twin goes offline, the hub automatically streams the chat through another enabled twin of the same owner (the sender must be in `links_approved`). When the original twin reconnects, duplication reverts to it. No configuration needed; the switch is logged to the hub console only. Implemented hub-side in `relayChatToTelegram` (`utils.js`).
+- **Per-twin chat duplication with auto-failover** — when a twin's streaming flag is on but that twin goes offline, the hub automatically streams the chat through an approved sibling twin of the same owner whose own streaming flag is off (the sender must be in `links_approved`). When the original twin reconnects, duplication reverts to it. No configuration needed; the switch is logged to the hub console only. Implemented hub-side in `relayChatToTelegram` (`utils.js`).
 - **Main-account streaming** — duplicate the main account's chat (mentions only, or the whole chat with `/mainstreamallon`).
-- **Auto-respect with cooldown** — `/autorepon` / `/autorepoff` per twin, cooldown tunable with `/meowcd`.
+- **Auto-respect** — `/autorepon` / `/autorepoff` per twin; its cooldown is parsed automatically from server messages (`parseCooldown`), not set manually.
 - **Spam scheduler** — timed repeating chat tasks per alias (`/addspam`, `/delspam`, `/spamlist`, `/stopspam`).
 - **Telegram media relay** — GIFs from Telegram are uploaded to uguu.se (live ~3 h, embeddable in Discord); if uguu is unavailable, the hub serves the file itself via `MEDIA_BASE_URL/media/<name>.<ext>`. mp4 "animations" are converted to real GIFs with ffmpeg (15 s / 480 px / 15 fps caps); without ffmpeg installed the mp4 is sent as is.
 - **Reconnect watchdog** — client bots keep watch on the WebSocket bridge and re-join the server after drops.
@@ -104,7 +104,7 @@ Client-only variables from the templates: `USERNAME`, `PASSWORD` (Minecraft cred
 | `/mainstreamon` / `/mainstreamoff` | Main-chat duplication (mentions only) on/off. |
 | `/mainstreamallon` / `/mainstreamalloff` | Duplicate the ENTIRE main chat on/off. |
 | `/voice <1\|2> <on\|off\|reconnect\|channel\|status>` | Discord voice control. |
-| `/dropall <ник\|алиас>` | Drop all connections for a twin. |
+| `/dropall <ник\|алиас>` | Throw away the twin's entire inventory (tosses every stack); replies with the list of dropped items. |
 | `/gentoken` | Generate a token (handler; not in the menu). |
 | `/lock` (alias `/adminlock`) / `/unlock` (alias `/adminunlock`) | Lock / unlock registration (admin). |
 | `/users` (alias `/adminusers`) | List users (admin). |
