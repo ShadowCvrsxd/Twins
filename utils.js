@@ -161,6 +161,7 @@ function sendMainTelegramNotification(text) {
     // Извлекаем отправителя: токен перед '›' в формате '<префикс> |  Nick › текст'
     const senderMatch = cleanedLower.match(/(?:^|\|)\s*([^\s›|]+)\s*›/);
     const sender = senderMatch ? senderMatch[1] : '';
+    const isTwinMsg = sender && getTwinks().some(t => t.toLowerCase() === sender);
 
     const token = process.env.TG_CHAT_BOT_TOKEN || process.env.TG_BOT_TOKEN;
     if (!token) return;
@@ -175,7 +176,7 @@ function sendMainTelegramNotification(text) {
       if (!streaming[chatId]) continue;
       if (!streamAll[chatId]) {
         const isMention = cleanedLower.includes(mainNick);
-        if (!isMention || (sender && getTwinks().some(t => t.toLowerCase() === sender))) continue;
+        if (!isMention || isTwinMsg) continue;
       }
 
       fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
