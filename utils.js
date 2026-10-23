@@ -181,6 +181,8 @@ function sendMainTelegramNotification(text) {
   } catch(e){}
 }
 
+const failoverState = new Map();
+
 function relayChatToTelegram({ ownerId, botName, text, isMain }, deps) {
   const { get, set, sendChatMessage, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks } = deps;
   try {
@@ -215,10 +217,33 @@ function relayChatToTelegram({ ownerId, botName, text, isMain }, deps) {
     }
 
     const streaming = get('chat_streaming', {});
-    const userStream = streaming[ownerId];
-    if (!userStream || !userStream[botName.toLowerCase()]) {
-        return;
+    const userStream = streaming[ownerId] || {};
+    const botKey = botName.toLowerCase();
+    let failoverFrom = null;
+    let allow = !!userStream[botKey];
+    if (!allow) {
+      const enabled = Object.keys(userStream).filter(k => userStream[k]);
+      if (enabled.length > 0) {
+        const statuses = get('bots_status', {}) || {};
+        const approved = (get('links_approved', {}) || {})[ownerId] || [];
+        const senderApproved = approved.some(b => String(b).toLowerCase() === botKey);
+        const offlineTwin = enabled.find(k => k !== botKey && (!statuses[k] || !statuses[k].online));
+        if (senderApproved && offlineTwin) {
+          allow = true;
+          failoverFrom = offlineTwin;
+        }
+      }
     }
+    if (!allow) {
+      return;
+    }
+    const prevFailover = failoverState.get(ownerId);
+    if (failoverFrom && prevFailover !== failoverFrom) {
+      console.log(`[Chat] failover: дупликация переключена ${failoverFrom} → ${botName}`);
+    } else if (!failoverFrom && prevFailover) {
+      console.log(`[Chat] failover: дупликация вернулась на ${botName}`);
+    }
+    failoverState.set(ownerId, failoverFrom);
     const displayName = getBotDisplayName(ownerId, botName);
     const prefix = displayName ? `[${displayName}] ` : '';
     sendChatMessage(ownerId, `💬 ${prefix}${cleanedText}`);
