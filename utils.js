@@ -191,6 +191,13 @@ function sendMainTelegramNotification(text) {
   } catch(e){}
 }
 
+function escapeTelegramHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 const failoverState = new Map();
 
 function relayChatToTelegram({ ownerId, botName, text, isMain }, deps) {
@@ -210,6 +217,10 @@ function relayChatToTelegram({ ownerId, botName, text, isMain }, deps) {
       const cleanedLower = cleanedText.toLowerCase();
       const senderMatch = cleanedLower.match(/(?:^|\|)\s*([^\s›|]+)\s*›/);
       const sender = senderMatch ? senderMatch[1] : '';
+      const tgUsers = get('tg_users', {}) || {};
+      const dmSenderMatch = cleanedLower.match(/^✉️\s*\|\s*([^\s›|]+)\s*›/);
+      const dmSender = dmSenderMatch ? dmSenderMatch[1] : '';
+      const isIncomingDm = cleanedText.startsWith('✉️') && !!dmSender && dmSender !== mainNick;
 
       const allApproved = { ...approved };
       for (const [chatId, mains] of Object.entries(mainsApproved)) {
@@ -226,7 +237,21 @@ function relayChatToTelegram({ ownerId, botName, text, isMain }, deps) {
         const senderIsTwin = !!sender && sender !== mainNick && approvedTwins.includes(sender);
         const twinCopyDelivered = senderIsTwin && (!!(twinStreaming[chatId] && twinStreaming[chatId][sender]) || Object.keys(twinStreaming[chatId] || {}).some(k => twinStreaming[chatId][k] && k !== sender && !(botsStatus[k] && botsStatus[k].online)));
         if (twinCopyDelivered) continue;
-        sendChatMessage(chatId, `💬 [мейн] ${cleanedText}`);
+        let mention = '';
+        let parseMode = null;
+        let textPart = cleanedText;
+        if (isIncomingDm) {
+          const u = tgUsers[chatId];
+          if (u && u.username) {
+            mention = '@' + u.username;
+          } else if (u && u.id) {
+            mention = '<a href="tg://user?id=' + u.id + '">' + escapeTelegramHtml(u.firstName || 'владелец') + '</a>';
+            parseMode = 'HTML';
+            textPart = escapeTelegramHtml(cleanedText);
+          }
+        }
+        const composed = '💬 [мейн] ' + (mention ? mention + ' ' : '') + textPart;
+        sendChatMessage(chatId, composed, parseMode);
       }
       return;
     }
