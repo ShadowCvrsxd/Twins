@@ -260,4 +260,9 @@ function applyBotStatus(message, socket, deps) {
   set('bots_status', statuses);
 }
 
-module.exports = { getTwinks, getMainAccount, getBotDisplayName, cleanMinecraftText, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification, sendMainTelegramNotification, relayChatToTelegram, shouldSend, forwardResponse, applyBotStatus };
+function formatDropResult(username, items) {
+  if (items.length === 0) return `🧹 Инвентарь ${username} пуст.`;
+  return `🧹 ${username}: выброшено ${items.length} стаков\n${items.map(i => `${i.name}×${i.count}`).join(', ')}`;
+}
+
+module.exports = { getTwinks, getMainAccount, getBotDisplayName, cleanMinecraftText, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, formatDropResult, updateTraffic, getTraffic, updateBotStatus, sendTelegramNotification, sendMainTelegramNotification, relayChatToTelegram, shouldSend, forwardResponse, applyBotStatus };

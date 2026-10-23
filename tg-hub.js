@@ -1030,6 +1030,29 @@ async function poll() {
             await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
           }
         }
+        else if (cmd === '/dropall') {
+          const targetArg = parts[1];
+          if (!targetArg) {
+            await sendMessage(chatId, '❌ Укажи твинка: `/dropall <алиас или ник>`');
+            continue;
+          }
+          const targetBot = resolveBot(chatId, targetArg);
+          if (!targetBot) {
+            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден.`);
+            continue;
+          }
+
+          if (!clients.has(targetBot.toLowerCase())) {
+            await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
+            continue;
+          }
+
+          if (sendCommand(targetBot, { action: 'dropAll', chatId })) {
+            await sendMessage(chatId, `🧹 Команда выброса инвентаря отправлена твинку *${targetBot}*.`);
+          } else {
+            await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
+          }
+        }
         else if (cmd === '/startmain' || cmd === '/mainon') {
           if (!isAdmin(chatId)) { await sendMessage(chatId, '❌ Нет прав.'); continue; }
           const mainsApproved = readJSON(MAINS_APPROVED_FILE);

@@ -43,7 +43,7 @@ function getAttackSpeed(bot) {
   }
   return 1.6;
 }
-const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, getTraffic, shouldSend } = require('./utils.js');
+const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, formatDropResult, getTraffic, shouldSend } = require('./utils.js');
 const { shouldScheduleReconnect } = require('./hub-util.js');
 
 // ponytail: one bot instance per process (documented), so timer state lives at
@@ -261,6 +261,25 @@ function startBot(envPath, configOverrides) {
     setTimeout(() => botInstance.chat(`!${pickMeow()}`), Math.random() * 2000 + 500);
   }
 
+  async function handleDropAll(botInstance, chatId) {
+    try {
+      if (!botInstance || !botInstance.inventory) {
+        sendToHub({ type: 'response', text: `❌ Твинк ${config.username} не в игре — дропнуть нечего.`, chatId });
+        return;
+      }
+      const items = botInstance.inventory.items().map(i => ({ name: i.name, count: i.count }));
+      if (items.length === 0) {
+        sendToHub({ type: 'response', text: formatDropResult(config.username, []), chatId });
+        return;
+      }
+      await dropAll(botInstance);
+      sendToHub({ type: 'response', text: formatDropResult(config.username, items), chatId });
+      console.log(`[${config.username}] [Command Received] dropAll: выброшено ${items.length} стаков`);
+    } catch (e) {
+      sendToHub({ type: 'response', text: `❌ Ошибка дропа: ${e.message}`, chatId });
+    }
+  }
+
   function sendToHub(payload) {
     if (!shouldSend(hubSocket)) return;
     try {
@@ -464,6 +483,8 @@ function startBot(envPath, configOverrides) {
             } else {
                 console.log(`[Command] Received start command, already running.`);
             }
+        } else if (command.action === 'dropAll') {
+            handleDropAll(botInstance, command.chatId).catch(() => {});
         } else if (command.action === 'stoptwin') {
             isManualQuit = true;
             botInstance.quit();
