@@ -140,6 +140,11 @@ function startBot(envPath, configOverrides) {
     ...configOverrides
   };
 
+  if (!configOverrides.isMain) {
+    config.viewDistance = 7;
+    config.loadInternalChunks = true;
+  }
+
   const PASSWORD = process.env.PASSWORD;
 
   let bot;
