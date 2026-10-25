@@ -118,9 +118,9 @@ function startBot(envPath, configOverrides) {
     host: process.env.MINECRAFT_HOST || process.env.MAIN_SERVER_HOST || '5.83.140.251',
     port: parseInt(process.env.MINECRAFT_PORT || process.env.MAIN_SERVER_PORT || 25809),
     username: configOverrides.username || process.env.USERNAME,
-    version: false,
+    version: '26.1', // ponytail: сервер 26.2, но mc-data ещё не выпустила 26.2; поднять при выходе
     brand: 'Гися няшка 󰂑',
-    viewDistance: 'tiny',          // ponytail: самый минимум чанков (избегаем таймаутов в лобби)
+    viewDistance: 'short',          // ponytail: 8 чанков; числовой 7 в задеплоенном рантайме невалиден
     loadInternalChunks: false,     // ponytail: не качаем мир вообще (избегаем таймаутов)
     checkTimeoutInterval: 30000, 
     hideErrors: true,
@@ -141,7 +141,6 @@ function startBot(envPath, configOverrides) {
   };
 
   if (!configOverrides.isMain) {
-    config.viewDistance = 7;
     config.loadInternalChunks = true;
   }
 
