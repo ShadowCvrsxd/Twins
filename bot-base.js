@@ -46,6 +46,12 @@ function getAttackSpeed(bot) {
 const { getTwinks, getMainAccount, RESPECT_COOLDOWN, parseCooldown, sendResourcePackAck, dropAll, formatDropResult, getTraffic, shouldSend } = require('./utils.js');
 const { shouldScheduleReconnect } = require('./hub-util.js');
 
+const PROTOCOL_DESYNC_RE = /array size is abnormally large|Parse error|Invalid tag|Unsupported protocol version/i;
+function isProtocolDesyncError(err) {
+  const message = err && err.message ? err.message : String(err);
+  return PROTOCOL_DESYNC_RE.test(message);
+}
+
 // ponytail: one bot instance per process (documented), so timer state lives at
 // module scope — testable via require('./bot-base') without calling startBot.
 let autoClickTimer = null;
@@ -722,6 +728,16 @@ function startBot(envPath, configOverrides) {
         }
     }, 60000); // 1 минута на вход
 
+    // ponytail: один end на инстанс — mineflayer ре-эмитит ошибку клиента на bot.on('error').
+    let protocolDesyncEnded = false;
+    const failFastOnProtocolDesync = (err) => {
+      if (protocolDesyncEnded || !isProtocolDesyncError(err)) return;
+      protocolDesyncEnded = true;
+      console.error(`[Система] Похоже на рассинхрон протокола (version=${config.version}). Проверь, что сервер принимает эту версию; перезапуск.`);
+      if (!bot || !bot._client) return;
+      try { bot._client.end('protocol-desync'); } catch (e) {}
+    };
+
     try {
       bot = mineflayer.createBot(config);
       self = bot;
@@ -729,7 +745,7 @@ function startBot(envPath, configOverrides) {
       bot.physicsEnabled = false; // ponytail: отключаем физику до спавна (1.21 config phase)
       
       // ponytail: ловим абсолютно всё, что происходит с сокетом
-      bot._client.on('error', (err) => console.log('[DEBUG] Socket error:', err));
+      bot._client.on('error', (err) => { console.log('[DEBUG] Socket error:', err); failFastOnProtocolDesync(err); });
       
       // ponytail: дебаг пакетов для поиска "обжоры" трафика
       let packetStats = {};
@@ -758,6 +774,7 @@ function startBot(envPath, configOverrides) {
 
     bot.on('error', (err) => {
         console.error('[Система] Ошибка mineflayer:', err);
+        failFastOnProtocolDesync(err);
     });
 
     bot.on('login', () => {
@@ -966,4 +983,4 @@ function startBot(envPath, configOverrides) {
   createBotInstance();
 }
 
-module.exports = { startBot, stopAutoClick, getAutoClickTimer: () => autoClickTimer, pickMeow, MEOW_VARIANTS };
+module.exports = { startBot, stopAutoClick, getAutoClickTimer: () => autoClickTimer, pickMeow, MEOW_VARIANTS, isProtocolDesyncError };
