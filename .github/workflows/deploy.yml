@@ -3,13 +3,15 @@ name: Deploy to VPS
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '24'
       - run: npm ci
@@ -20,6 +22,7 @@ jobs:
           for f in test/*.test.js; do DB_PATH=/tmp/ci-db-$(basename "$f").db node "$f"; done
   deploy:
     needs: tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to VPS via SSH
@@ -33,7 +36,7 @@ jobs:
           timeout: 120s
           script: |
             cd /root/Twins || cd ~/Twins
-            git pull origin main
+            git pull --ff-only origin main
             touch .just_updated
-            sudo systemctl restart twins-bot1 twins-bot2 twins-tghub twins-tgchat twins-discord1 twins-discord2
+            sudo systemctl restart twins-main twins-bot1 twins-bot2 twins-tghub twins-tgchat twins-discord1 twins-discord2
             echo "Deployment successful!"
