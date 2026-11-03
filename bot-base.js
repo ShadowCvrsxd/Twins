@@ -110,7 +110,7 @@ process.on('unhandledRejection', (reason) => {
   console.error('[Unhandled Rejection]:', reason);
 });
 
-function startBot(envPath, configOverrides) {
+function startBot(envPath, configOverrides, startOptions = {}) {
   console.log('--- [DEBUG] Запуск инициализации startBot ---');
   require('dotenv').config();
   require('dotenv').config({ path: fs.existsSync(envPath) ? envPath : '.env', override: true });
@@ -154,7 +154,6 @@ function startBot(envPath, configOverrides) {
 
   let bot;
   let hubSocket = null;
-  let hubSocketBot = null;
   let isManualQuit = false;
   let isScheduledOffline = false; // ponytail: флаг планового отключения
   let reconnectDelayMs = 30000; // ponytail: backoff реконнекта, сброс на успешном спавне
@@ -299,21 +298,11 @@ function startBot(envPath, configOverrides) {
     }
   }
 
-  // ponytail: WebSocket соединение для получения команд из хаба
-  function connectToHub(botInstance) {
-    // ponytail: всегда привязываем сокет к ЖИВОМУ инстансу — таймер реконнекта (ниже) замыкается
-    // на старый botInstance и иначе закрывает здоровый сокет ради мёртвого бота.
-    botInstance = bot;
-    if (!botInstance) return null;
+  // ponytail: WebSocket соединение для получения команд из хаба; сокет живёт независимо от бота
+  function connectToHub() {
     if (hubSocket && (hubSocket.readyState === WebSocket.OPEN || hubSocket.readyState === WebSocket.CONNECTING)) {
-      if (hubSocketBot === botInstance) {
-        console.log(`[WebSocket] Соединение с Hub уже активно (readyState=${hubSocket.readyState}). Новый сокет не создаётся.`);
-        return hubSocket;
-      }
-      // ponytail: stale socket bound to a previous botInstance — its handlers would operate on a dead bot
-      try { hubSocket.close(); } catch (e) {}
-      hubSocket = null;
-      hubSocketBot = null;
+      console.log(`[WebSocket] Соединение с Hub уже активно (readyState=${hubSocket.readyState}). Новый сокет не создаётся.`);
+      return hubSocket;
     }
     const botName = config.username.toLowerCase();
     const token = process.env.BOT_TOKEN || '';
@@ -323,17 +312,17 @@ function startBot(envPath, configOverrides) {
     const url = base ? `${base}?bot=${botName}` : `ws://${host}:${port}?bot=${botName}`;
     const ws = new WebSocket(url);
     hubSocket = ws;
-    hubSocketBot = botInstance;
 
     let chatQueue = [];
     let isSendingChat = false;
 
     function processChatQueue() {
       if (isSendingChat || chatQueue.length === 0) return;
+      if (!bot) return;
       isSendingChat = true;
       const text = chatQueue.shift();
       try {
-        botInstance.chat(text);
+        bot.chat(text);
         console.log(`[Telegram Chat] Отправлено в игру: "${text}"`);
       } catch (e) {
         console.error(`[Telegram Chat] ОШИБКА отправки в игру "${text}": ${e.message}`);
@@ -361,20 +350,28 @@ function startBot(envPath, configOverrides) {
         }
 
         if (command.action === 'chat') {
-          chatQueue.push(command.text);
-          processChatQueue();
+          if (!bot) {
+            sendToHub({ type: 'response', text: '❌ Мейн не в игре.', chatId: command.chatId });
+          } else {
+            chatQueue.push(command.text);
+            processChatQueue();
+          }
         } else if (command.action === 'players') {
-            const players = Object.keys(botInstance.players || {});
-            let msg = `👥 Игроки онлайн (${players.length}): ${players.join(', ')}`;
-            if (lastTabHeader) {
-              const cleanHeader = lastTabHeader.replace(/[\ufffd\uFFFD]/g, '');
-              msg = `📌 Header: ${cleanHeader}\n\n` + msg;
+            if (!bot) {
+              sendToHub({ type: 'response', text: '❌ Мейн не в игре.', chatId: command.chatId });
+            } else {
+              const players = Object.keys(bot.players || {});
+              let msg = `👥 Игроки онлайн (${players.length}): ${players.join(', ')}`;
+              if (lastTabHeader) {
+                const cleanHeader = lastTabHeader.replace(/[\ufffd\uFFFD]/g, '');
+                msg = `📌 Header: ${cleanHeader}\n\n` + msg;
+              }
+              if (lastTabFooter) {
+                const cleanFooter = lastTabFooter.replace(/[\ufffd\uFFFD]/g, '');
+                msg = msg + `\n\n📌 Footer: ${cleanFooter}`;
+              }
+              sendToHub({ type: 'response', text: msg, chatId: command.chatId });
             }
-            if (lastTabFooter) {
-              const cleanFooter = lastTabFooter.replace(/[\ufffd\uFFFD]/g, '');
-              msg = msg + `\n\n📌 Footer: ${cleanFooter}`;
-            }
-            sendToHub({ type: 'response', text: msg, chatId: command.chatId });
         } else if (command.action === 'switchServer') {
             const { host, port } = command;
             if (host && port) {
@@ -382,8 +379,8 @@ function startBot(envPath, configOverrides) {
               config.host = host;
               config.port = parseInt(port);
               isManualQuit = false;
-              if (botInstance) {
-                botInstance.quit();
+              if (bot) {
+                bot.quit();
               } else {
                 createBotInstance();
               }
@@ -444,15 +441,15 @@ function startBot(envPath, configOverrides) {
             const enabled = command.enabled !== undefined ? command.enabled : (command.action === 'autoclickon');
             clickerState.enabled = enabled;
             saveFeatureState(config.username, { clicker: clickerState, meow: { enabled: meowState.enabled, cooldownMs: meowState.cooldownMs }, autoRespectEnabled });
-            if (enabled) {
-              startAutoClick(botInstance);
-            } else {
+            if (enabled && bot) {
+              startAutoClick(bot);
+            } else if (!enabled) {
               stopAutoClick();
             }
             console.log(`[${config.username}] [Command Received] setAutoClick: enabled=${clickerState.enabled}`);
         } else if (command.action === 'pos') {
-            if (botInstance && botInstance.entity && botInstance.entity.position) {
-              const p = botInstance.entity.position;
+            if (bot && bot.entity && bot.entity.position) {
+              const p = bot.entity.position;
               const f = (n) => Math.floor(n);
               const x = f(p.x);
               const y = f(p.y);
@@ -494,10 +491,9 @@ function startBot(envPath, configOverrides) {
                 console.log(`[Command] Received start command, already running.`);
             }
         } else if (command.action === 'dropAll') {
-            handleDropAll(botInstance, command.chatId).catch(() => {});
+            handleDropAll(bot, command.chatId).catch(() => {});
         } else if (command.action === 'stoptwin') {
-            isManualQuit = true;
-            botInstance.quit();
+            if (bot) { isManualQuit = true; bot.quit(); }
         }
       } catch (e) {
         console.error('[WebSocket] Ошибка обработки команды:', e);
@@ -505,7 +501,7 @@ function startBot(envPath, configOverrides) {
     });
 
     ws.on('close', () => {
-      if (hubSocket === ws) { hubSocket = null; hubSocketBot = null; }
+      if (hubSocket === ws) hubSocket = null;
       const hasOpenSocket = !!(hubSocket && (hubSocket.readyState === WebSocket.OPEN || hubSocket.readyState === WebSocket.CONNECTING));
       if (!shouldScheduleReconnect({ hubSocketState: hubSocket && hubSocket.readyState, hasOpenSocket, isManualQuit, reconnectScheduled })) {
         console.log(`[WebSocket] Бот ${botName} отключен. Реконнект не требуется.`);
@@ -515,7 +511,7 @@ function startBot(envPath, configOverrides) {
       console.log(`[WebSocket] Бот ${botName} отключен. Реконнект через 5 сек...`);
       setTimeout(() => {
         reconnectScheduled = false;
-        connectToHub(botInstance);
+        connectToHub();
       }, 5000);
     });
 
@@ -691,6 +687,7 @@ function startBot(envPath, configOverrides) {
 
     setTimeout(() => {
       console.log('[Scheduler] Время 11:58 МСК. Выполняю плановый выход.');
+      const wasOnline = !!bot; // ponytail: фиксируем до quit — иначе bot уже null
       isManualQuit = true;
       if (bot) {
         try { bot.quit(); } catch (e) {}
@@ -699,7 +696,12 @@ function startBot(envPath, configOverrides) {
       setTimeout(() => {
         console.log('[Scheduler] Время 12:12 МСК. Выполняю плановое подключение.');
         isManualQuit = false;
-        createBotInstance();
+        const shouldReconnect = wasOnline || startOptions.autoConnect !== false;
+        if (shouldReconnect) {
+          createBotInstance();
+        } else {
+          console.log('[Scheduler] main idle — reconnect skipped');
+        }
         scheduleNextRestart();
       }, 14 * 60 * 1000); // 14 минут (12:12 МСК)
     }, target.getTime() - msk.getTime());
@@ -741,7 +743,7 @@ function startBot(envPath, configOverrides) {
     try {
       bot = mineflayer.createBot(config);
       self = bot;
-      connectToHub(bot);
+      connectToHub();
       bot.physicsEnabled = false; // ponytail: отключаем физику до спавна (1.21 config phase)
       
       // ponytail: ловим абсолютно всё, что происходит с сокетом
@@ -980,7 +982,12 @@ function startBot(envPath, configOverrides) {
     else if (bot && handleCommand(bot, input)) console.log(`[Терминал] Команда выполнена: "${input}"`);
   });
 
-  createBotInstance();
+  if (startOptions.autoConnect === false) {
+    console.log(`[Система] ${config.username}: idle — hub подключён, ожидаю /startmain.`);
+    connectToHub();
+  } else {
+    createBotInstance();
+  }
 }
 
 module.exports = { startBot, stopAutoClick, getAutoClickTimer: () => autoClickTimer, pickMeow, MEOW_VARIANTS, isProtocolDesyncError };

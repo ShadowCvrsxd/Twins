@@ -86,47 +86,48 @@ check('close consults guard, open resets flag, end stops auto-click, connectToHu
   assert.ok(/readyState === WebSocket\.(OPEN|CONNECTING)/.test(connBlock), 'connectToHub guards OPEN/CONNECTING');
 });
 
-console.log('--- stale-instance rebind ---');
-check('source: connectToHub rebinds hubSocketBot (compare + set + clear), close clears it', () => {
+console.log('--- bot-independent hub socket ---');
+check('source: connectToHub() takes no bot instance, no hubSocketBot, close clears only hubSocket', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'bot-base.js'), 'utf8');
-  const conn = src.match(/function connectToHub[\s\S]*?hubSocketBot = botInstance;/)[0];
-  assert.ok(conn.includes('hubSocketBot === botInstance'), 'reuse branch compares hubSocketBot === botInstance');
-  assert.ok(conn.includes('hubSocketBot = botInstance'), 'connectToHub binds hubSocketBot on create');
-  assert.ok(conn.includes('hubSocketBot = null'), 'connectToHub clears stale hubSocketBot');
+  assert.ok(/function connectToHub\s*\(\s*\)/.test(src), 'connectToHub has no parameter');
+  assert.ok(!/function connectToHub\s*\(\s*botInstance\s*\)/.test(src), 'connectToHub parameter removed');
+  assert.ok(!src.includes('hubSocketBot'), 'no hubSocketBot state remains');
+  const connBlock = src.match(/function connectToHub[\s\S]*?\n    const botName/)[0];
+  assert.ok(/readyState === WebSocket\.(OPEN|CONNECTING)/.test(connBlock), 'connectToHub reuses OPEN/CONNECTING socket');
+  assert.ok(!/botInstance/.test(connBlock), 'connectToHub does not bind to a bot instance');
   const closeBlock = src.match(/ws\.on\('close'[\s\S]*?\n    \}\);/)[0];
-  assert.ok(/if \(hubSocket === ws\) \{ hubSocket = null; hubSocketBot = null; \}/.test(closeBlock), 'close handler clears hubSocketBot');
+  assert.ok(/if \(hubSocket === ws\) hubSocket = null;/.test(closeBlock), 'close clears only hubSocket');
+  assert.ok(!closeBlock.includes('hubSocketBot'), 'close does not touch hubSocketBot');
 });
-check('logic simulation: same-instance OPEN reuses; stale instance closes+recreates; close clears hubSocketBot', () => {
-  // Honest model of connectToHub's rebind branch (connectToHub itself is closure-bound).
-  const OPEN = 1, CLOSED = 3;
+check('logic simulation: no-arg OPEN/CONNECTING reuse; closed socket replaced; close clears hubSocket', () => {
+  // Honest model of connectToHub's reuse branch (connectToHub itself is closure-bound).
+  const OPEN = 1, CONNECTING = 0, CLOSED = 3;
   let created = 0, closed = 0;
-  let hubSocket = null, hubSocketBot = null;
+  let hubSocket = null;
   const makeSocket = () => { created++; return { readyState: OPEN, close() { this.readyState = CLOSED; closed++; } }; };
-  const connect = (botInstance) => {
-    if (hubSocket && (hubSocket.readyState === OPEN || hubSocket.readyState === 0)) {
-      if (hubSocketBot === botInstance) return hubSocket;
-      try { hubSocket.close(); } catch (e) {}
-      hubSocket = null; hubSocketBot = null;
-    }
+  const connect = () => {
+    if (hubSocket && (hubSocket.readyState === OPEN || hubSocket.readyState === CONNECTING)) return hubSocket;
     const ws = makeSocket();
-    hubSocket = ws; hubSocketBot = botInstance;
+    hubSocket = ws;
     return ws;
   };
-  const botA = { name: 'A' }, botB = { name: 'B' };
 
-  const s1 = connect(botA);
+  const s1 = connect();
   assert.strictEqual(created, 1, 'first connect creates 1 socket');
-  assert.strictEqual(connect(botA), s1, 'same instance + OPEN reuses the socket');
-  assert.strictEqual(created, 1, 'same-instance reuse does not create a new socket');
+  assert.strictEqual(connect(), s1, 'OPEN socket is reused without a bot instance');
+  assert.strictEqual(created, 1, 'reuse does not create a new socket');
 
-  const s2 = connect(botB);
-  assert.notStrictEqual(s2, s1, 'stale instance does NOT reuse');
-  assert.strictEqual(closed, 1, 'stale socket was closed');
-  assert.strictEqual(created, 2, 'fresh socket created for new instance');
-  assert.strictEqual(hubSocketBot, botB, 'hubSocketBot rebound to new instance');
+  s1.readyState = CONNECTING;
+  assert.strictEqual(connect(), s1, 'CONNECTING socket is reused');
+  s1.readyState = CLOSED;
 
-  if (hubSocket === s2) { hubSocket = null; hubSocketBot = null; }
-  assert.strictEqual(hubSocketBot, null, 'close handler clears hubSocketBot');
+  const s2 = connect();
+  assert.notStrictEqual(s2, s1, 'closed socket is not reused');
+  assert.strictEqual(created, 2, 'fresh socket created after close');
+
+  if (hubSocket === s2) hubSocket = null;
+  assert.strictEqual(hubSocket, null, 'close handler clears only hubSocket');
+  assert.strictEqual(closed, 0, 'no socket is force-closed for a stale bot instance');
 });
 
 console.log('\nNOTE: live fake-ws process smoke NOT reachable: connectToHub lives inside the startBot closure and needs a mineflayer botInstance + dotenv env; the guard unit + state-machine + source-wiring assertions above are the evidence.');

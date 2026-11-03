@@ -15,4 +15,4 @@ startBot(envMainPath, {
     isMain: true, // ponytail: помечаем явно, чтобы не слал уведомления об обновлениях сам себе
     tablist: true, // Включаем, так как обходы в bot-base зависят от него
     // ... любые специфичные оверрайды
-});
+}, { autoConnect: false });
