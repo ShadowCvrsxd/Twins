@@ -35,8 +35,11 @@ jobs:
           command_timeout: 4m
           timeout: 120s
           script: |
-            cd /root/Twins || cd ~/Twins
-            git pull --ff-only origin main
-            touch .just_updated
-            sudo systemctl restart twins-main twins-bot1 twins-bot2 twins-tghub twins-tgchat twins-discord1 twins-discord2
-            echo "Deployment successful!"
+            bash -lc '
+              set -e
+              cd /home/shdcvrsxd/Twins
+              git pull --ff-only origin main
+              touch .just_updated
+              sudo -n systemctl restart twins-main twins-bot1 twins-bot2 twins-tghub twins-tgchat twins-discord1 twins-discord2
+              echo "Deployment successful!"
+            '
