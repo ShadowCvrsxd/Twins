@@ -246,15 +246,16 @@ assert.strictEqual(calls.length, 1);
 assert.ok(!calls[0][1].includes('@owner'));
 assert.strictEqual(calls[0][2], null);
 
-// 11. no tg_users -> incoming DM gets no mention
+// 11. no tg_users -> private incoming DM mentions the chat owner via tg://
+// (private chat: chat.id === user.id, so the positive chatId itself is the user id)
 resetStore();
-store.main_chat_streaming = { chat1: true };
-store.main_chat_stream_all = { chat1: true };
-store.links_approved = { chat1: ['bot1'] };
+store.main_chat_streaming = { 123: true };
+store.main_chat_stream_all = { 123: true };
+store.links_approved = { 123: ['bot1'] };
 relayChatToTelegram({ isMain: true, text: '✉️ | serphut › main › hi' }, relayDeps);
 assert.strictEqual(calls.length, 1);
-assert.ok(!calls[0][1].includes('@'));
-assert.strictEqual(calls[0][2], null);
+assert.ok(calls[0][1].includes('<a href="tg://user?id=123">владелец</a>'));
+assert.strictEqual(calls[0][2], 'HTML');
 
 // 12. public line containing ✉️ mid-text -> no mention
 resetStore();
@@ -275,6 +276,35 @@ store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
 relayChatToTelegram({ isMain: true, text: '✉️ |  serphut › main › hi' }, relayDeps);
 assert.strictEqual(calls.length, 1);
 assert.ok(calls[0][1].includes('@owner'));
+
+// 13a. no tg_users, group chat -> no fallback mention, plain mode
+resetStore();
+store.main_chat_streaming = { '-100123': true };
+store.main_chat_stream_all = { '-100123': true };
+store.links_approved = { '-100123': ['bot1'] };
+relayChatToTelegram({ isMain: true, text: '✉️ | serphut › main › hi' }, relayDeps);
+assert.strictEqual(calls.length, 1);
+assert.ok(!calls[0][1].includes('tg://'));
+assert.strictEqual(calls[0][2], null);
+
+// 13b. no tg_users, private chat -> fallback link and text are HTML-escaped
+resetStore();
+store.main_chat_streaming = { 123: true };
+store.main_chat_stream_all = { 123: true };
+store.links_approved = { 123: ['bot1'] };
+relayChatToTelegram({ isMain: true, text: '✉️ | serphut › main › <&>' }, relayDeps);
+assert.strictEqual(calls.length, 1);
+assert.strictEqual(calls[0][2], 'HTML');
+assert.ok(calls[0][1].includes('<a href="tg://user?id=123">владелец</a>'));
+assert.ok(calls[0][1].includes('&lt;&amp;&gt;'));
+
+// 13c. no tg_users, mentions-only mode -> fallback mention still happens
+resetStore();
+store.main_chat_streaming = { 123: true };
+store.links_approved = { 123: ['bot1'] };
+relayChatToTelegram({ isMain: true, text: '✉️ | serphut › main › hi' }, relayDeps);
+assert.strictEqual(calls.length, 1);
+assert.ok(calls[0][1].includes('<a href="tg://user?id=123">владелец</a>'));
 
 // 14. main all-stream on + twin stream on -> twin copy suppressed
 resetStore();

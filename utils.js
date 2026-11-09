@@ -248,6 +248,10 @@ function relayChatToTelegram({ ownerId, botName, text, isMain }, deps) {
             mention = '<a href="tg://user?id=' + u.id + '">' + escapeTelegramHtml(u.firstName || 'владелец') + '</a>';
             parseMode = 'HTML';
             textPart = escapeTelegramHtml(cleanedText);
+          } else if (Number(chatId) > 0) {
+            mention = '<a href="tg://user?id=' + Number(chatId) + '">' + escapeTelegramHtml('владелец') + '</a>';
+            parseMode = 'HTML';
+            textPart = escapeTelegramHtml(cleanedText);
           }
         }
         const composed = '💬 [мейн] ' + (mention ? mention + ' ' : '') + textPart;
