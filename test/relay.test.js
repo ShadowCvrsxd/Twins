@@ -275,6 +275,63 @@ store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
 relayChatToTelegram({ isMain: true, text: '✉️ |  serphut › main › hi' }, relayDeps);
 assert.strictEqual(calls.length, 1);
 assert.ok(calls[0][1].includes('@owner'));
+
+// 14. main all-stream on + twin stream on -> twin copy suppressed
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.chat_streaming = { chat1: { bot1: true } };
+relayChatToTelegram({ isMain: true, text: '| main › мяу' }, relayDeps);
+relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: '| main › мяу' }, relayDeps);
+assert.strictEqual(calls.length, 1);
+assert.deepStrictEqual(calls[0], ['chat1', '💬 [мейн] | main › мяу', null]);
+
+// 15. hidden display (empty prefix) still suppresses the twin copy
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.chat_streaming = { chat1: { bot1: true } };
+relayChatToTelegram({ isMain: true, text: '| main › мяу' }, relayDeps);
+relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: '| main › мяу' }, { ...relayDeps, getBotDisplayName: () => '' });
+assert.strictEqual(calls.length, 1);
+
+// 16. mentions-only on + text mentions main -> twin copy suppressed
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.chat_streaming = { chat1: { bot1: true } };
+relayChatToTelegram({ isMain: true, text: '| main › main hi' }, relayDeps);
+relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: '| main › main hi' }, relayDeps);
+assert.strictEqual(calls.length, 1);
+
+// 17. mentions-only on + text does not mention main -> main silent, twin delivers
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.chat_streaming = { chat1: { bot1: true } };
+relayChatToTelegram({ isMain: true, text: '| bot1 › hi' }, relayDeps);
+assert.strictEqual(calls.length, 0);
+relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: '| bot1 › hi' }, relayDeps);
+assert.strictEqual(calls.length, 1);
+assert.strictEqual(calls[0][1], '💬 [bot1] | bot1 › hi');
+
+// 18. main stream off + twin stream on -> twin delivers
+resetStore();
+store.links_approved = { chat1: ['bot1'] };
+store.chat_streaming = { chat1: { bot1: true } };
+relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: '| main › hi' }, relayDeps);
+assert.strictEqual(calls.length, 1);
+
+// 19. two identical main calls -> two calls (no text cache)
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+relayChatToTelegram({ isMain: true, text: '| main › мяу' }, relayDeps);
+relayChatToTelegram({ isMain: true, text: '| main › мяу' }, relayDeps);
+assert.strictEqual(calls.length, 2);
 console.log('✓ main-stream twin filter and DM pings passed');
 
 console.log('--- All tests passed ---');

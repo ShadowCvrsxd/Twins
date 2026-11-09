@@ -256,6 +256,14 @@ function relayChatToTelegram({ ownerId, botName, text, isMain }, deps) {
       return;
     }
 
+    const mainNick = (getMainAccount() || '').toLowerCase();
+    const senderMatch = cleanedText.toLowerCase().match(/(?:^|\|)\s*([^\s›|]+)\s*›/);
+    const sender = senderMatch ? senderMatch[1] : '';
+    const mainStreaming = get('main_chat_streaming', {}) || {};
+    const mainStreamAll = get('main_chat_stream_all', {}) || {};
+    const mainCopyDelivered = !!sender && sender === mainNick && !!mainStreaming[ownerId] && (!!mainStreamAll[ownerId] || cleanedText.toLowerCase().includes(mainNick));
+    if (mainCopyDelivered) return;
+
     const streaming = get('chat_streaming', {});
     const userStream = streaming[ownerId] || {};
     const botKey = botName.toLowerCase();
