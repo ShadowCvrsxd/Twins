@@ -306,12 +306,13 @@ relayChatToTelegram({ isMain: true, text: '✉️ | serphut › main › hi' }, 
 assert.strictEqual(calls.length, 1);
 assert.ok(calls[0][1].includes('<a href="tg://user?id=123">владелец</a>'));
 
-// 14. main all-stream on + twin stream on -> twin copy suppressed
+// 14. main all-stream on + twin stream on + main in game -> twin copy suppressed
 resetStore();
 store.main_chat_streaming = { chat1: true };
 store.main_chat_stream_all = { chat1: true };
 store.links_approved = { chat1: ['bot1'] };
 store.chat_streaming = { chat1: { bot1: true } };
+store.bots_status = { main: { online: true } };
 relayChatToTelegram({ isMain: true, text: '| main › мяу' }, relayDeps);
 relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: '| main › мяу' }, relayDeps);
 assert.strictEqual(calls.length, 1);
@@ -323,18 +324,50 @@ store.main_chat_streaming = { chat1: true };
 store.main_chat_stream_all = { chat1: true };
 store.links_approved = { chat1: ['bot1'] };
 store.chat_streaming = { chat1: { bot1: true } };
+store.bots_status = { main: { online: true } };
 relayChatToTelegram({ isMain: true, text: '| main › мяу' }, relayDeps);
 relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: '| main › мяу' }, { ...relayDeps, getBotDisplayName: () => '' });
 assert.strictEqual(calls.length, 1);
 
-// 16. mentions-only on + text mentions main -> twin copy suppressed
+// 16. mentions-only on + text mentions main + main in game -> twin copy suppressed
 resetStore();
 store.main_chat_streaming = { chat1: true };
 store.links_approved = { chat1: ['bot1'] };
 store.chat_streaming = { chat1: { bot1: true } };
+store.bots_status = { main: { online: true } };
 relayChatToTelegram({ isMain: true, text: '| main › main hi' }, relayDeps);
 relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: '| main › main hi' }, relayDeps);
 assert.strictEqual(calls.length, 1);
+
+// 16a. main offline -> twin copy NOT suppressed, twin delivers
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.chat_streaming = { chat1: { bot1: true } };
+store.bots_status = { main: { online: false } };
+relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: '| main › hi' }, relayDeps);
+assert.deepStrictEqual(calls, [['chat1', '💬 [bot1] | main › hi']]);
+
+// 16b. no bots_status entry for main -> twin copy NOT suppressed, twin delivers
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.chat_streaming = { chat1: { bot1: true } };
+delete store.bots_status;
+relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: '| main › hi' }, relayDeps);
+assert.deepStrictEqual(calls, [['chat1', '💬 [bot1] | main › hi']]);
+
+// 16c. main in game -> twin copy suppressed (online gate, twin call only)
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.chat_streaming = { chat1: { bot1: true } };
+store.bots_status = { main: { online: true } };
+relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: '| main › hi' }, relayDeps);
+assert.strictEqual(calls.length, 0);
 
 // 17. mentions-only on + text does not mention main -> main silent, twin delivers
 resetStore();

@@ -265,7 +265,9 @@ function relayChatToTelegram({ ownerId, botName, text, isMain }, deps) {
     const sender = senderMatch ? senderMatch[1] : '';
     const mainStreaming = get('main_chat_streaming', {}) || {};
     const mainStreamAll = get('main_chat_stream_all', {}) || {};
-    const mainCopyDelivered = !!sender && sender === mainNick && !!mainStreaming[ownerId] && (!!mainStreamAll[ownerId] || cleanedText.toLowerCase().includes(mainNick));
+    const statuses = get('bots_status', {}) || {};
+    const mainOnline = !!(mainNick && statuses[mainNick] && statuses[mainNick].online);
+    const mainCopyDelivered = mainOnline && !!sender && sender === mainNick && !!mainStreaming[ownerId] && (!!mainStreamAll[ownerId] || cleanedText.toLowerCase().includes(mainNick));
     if (mainCopyDelivered) return;
 
     const streaming = get('chat_streaming', {});
