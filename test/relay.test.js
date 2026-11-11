@@ -306,6 +306,49 @@ relayChatToTelegram({ isMain: true, text: '✉️ | serphut › main › hi' }, 
 assert.strictEqual(calls.length, 1);
 assert.ok(calls[0][1].includes('<a href="tg://user?id=123">владелец</a>'));
 
+// 13d. bare ✉ incoming DM with username -> mention, plain mode
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
+relayChatToTelegram({ isMain: true, text: '✉ |  serphut › main › hi' }, relayDeps);
+assert.strictEqual(calls.length, 1);
+assert.ok(calls[0][1].includes('@owner'));
+assert.strictEqual(calls[0][2], null);
+
+// 13e. bare ✉ incoming DM without tg_users, private chat -> fallback mention
+resetStore();
+store.main_chat_streaming = { 123: true };
+store.main_chat_stream_all = { 123: true };
+store.links_approved = { 123: ['bot1'] };
+relayChatToTelegram({ isMain: true, text: '✉ | serphut › main › hi' }, relayDeps);
+assert.strictEqual(calls.length, 1);
+assert.ok(calls[0][1].includes('<a href="tg://user?id=123">владелец</a>'));
+assert.strictEqual(calls[0][2], 'HTML');
+
+// 13f. bare ✉ outgoing DM -> no mention, plain mode
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
+relayChatToTelegram({ isMain: true, text: '✉ | main › serphut › hi' }, relayDeps);
+assert.strictEqual(calls.length, 1);
+assert.ok(!calls[0][1].includes('@owner'));
+assert.strictEqual(calls[0][2], null);
+
+// 13g. bare ✉ mid-text -> no mention
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
+relayChatToTelegram({ isMain: true, text: 'hi ✉ there' }, relayDeps);
+assert.strictEqual(calls.length, 1);
+assert.ok(!calls[0][1].includes('@owner'));
+assert.strictEqual(calls[0][2], null);
+
 // 14. main all-stream on + twin stream on + main in game -> twin copy suppressed
 resetStore();
 store.main_chat_streaming = { chat1: true };

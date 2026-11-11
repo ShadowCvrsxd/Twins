@@ -218,9 +218,10 @@ function relayChatToTelegram({ ownerId, botName, text, isMain }, deps) {
       const senderMatch = cleanedLower.match(/(?:^|\|)\s*([^\s›|]+)\s*›/);
       const sender = senderMatch ? senderMatch[1] : '';
       const tgUsers = get('tg_users', {}) || {};
-      const dmSenderMatch = cleanedLower.match(/^✉️\s*\|\s*([^\s›|]+)\s*›/);
+      const dmSenderMatch = cleanedLower.match(/^✉\uFE0F?\s*\|\s*([^\s›|]+)\s*›/);
       const dmSender = dmSenderMatch ? dmSenderMatch[1] : '';
-      const isIncomingDm = cleanedText.startsWith('✉️') && !!dmSender && dmSender !== mainNick;
+      const isDm = /^✉\uFE0F?\s*\|/.test(cleanedText);
+      const isIncomingDm = isDm && !!dmSender && dmSender !== mainNick;
 
       const allApproved = { ...approved };
       for (const [chatId, mains] of Object.entries(mainsApproved)) {
