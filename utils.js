@@ -201,7 +201,7 @@ function escapeTelegramHtml(s) {
 const failoverState = new Map();
 
 function relayChatToTelegram({ ownerId, botName, text, isMain }, deps) {
-  const { get, set, sendChatMessage, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks } = deps;
+  const { get, set, sendChatMessage, sendHubMessage, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks } = deps;
   try {
     const cleanedText = cleanMinecraftText(text);
     if (!cleanedText) return;
@@ -255,7 +255,12 @@ function relayChatToTelegram({ ownerId, botName, text, isMain }, deps) {
             textPart = escapeTelegramHtml(cleanedText);
           }
         }
-        const composed = '💬 [мейн] ' + (mention ? mention + ' ' : '') + textPart;
+        if (mention) {
+          sendHubMessage(chatId, '💬 [мейн] ' + mention + ' ' + textPart, parseMode);
+          textPart = cleanedText;
+          parseMode = null;
+        }
+        const composed = '💬 [мейн] ' + textPart;
         sendChatMessage(chatId, composed, parseMode);
       }
       return;

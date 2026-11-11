@@ -7,6 +7,8 @@ const get = (k, d) => store[k] ?? d;
 const set = (k, v) => { store[k] = v; };
 const calls = [];
 const sendChatMessage = (...a) => calls.push(a);
+const hubCalls = [];
+const sendHubMessage = (...a) => hubCalls.push(a);
 const getBotDisplayName = (o, b) => b;
 const cleanMinecraftText = (t) => (t || '').trim();
 const getMainAccount = () => 'main';
@@ -26,7 +28,8 @@ console.log('✓ shouldSend passed');
 // Streaming ON
 store.chat_streaming = { chat1: { bot1: true } };
 calls.length = 0;
-relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: 'hello' }, { get, set, sendChatMessage, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks });
+hubCalls.length = 0;
+relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: 'hello' }, { get, set, sendChatMessage, sendHubMessage, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks });
 assert.strictEqual(calls.length, 1);
 assert.strictEqual(calls[0][0], 'chat1');
 assert.strictEqual(calls[0][1], '💬 [bot1] hello');
@@ -34,13 +37,15 @@ assert.strictEqual(calls[0][1], '💬 [bot1] hello');
 // Streaming OFF
 store.chat_streaming = { chat1: { bot1: false } };
 calls.length = 0;
-relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: 'hello' }, { get, set, sendChatMessage, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks });
+hubCalls.length = 0;
+relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: 'hello' }, { get, set, sendChatMessage, sendHubMessage, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks });
 assert.strictEqual(calls.length, 0);
 
 // Empty text
 store.chat_streaming = { chat1: { bot1: true } };
 calls.length = 0;
-relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: '   ' }, { get, set, sendChatMessage, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks });
+hubCalls.length = 0;
+relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: '   ' }, { get, set, sendChatMessage, sendHubMessage, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks });
 assert.strictEqual(calls.length, 0);
 
 // isMain path
@@ -48,7 +53,8 @@ store.main_chat_streaming = { chat1: true };
 store.main_chat_stream_all = { chat1: true };
 store.links_approved = { chat1: ['bot1'] };
 calls.length = 0;
-relayChatToTelegram({ isMain: true, text: 'main msg' }, { get, set, sendChatMessage, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks });
+hubCalls.length = 0;
+relayChatToTelegram({ isMain: true, text: 'main msg' }, { get, set, sendChatMessage, sendHubMessage, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks });
 assert.strictEqual(calls.length, 1);
 assert.strictEqual(calls[0][0], 'chat1');
 assert.strictEqual(calls[0][1], '💬 [мейн] main msg');
@@ -83,7 +89,7 @@ console.log('✓ applyBotStatus passed');
 
 // (e) twin chat failover
 store.links_approved = { chat1: ['bot1', 'bot2'], chat2: ['bot1', 'bot2'] };
-const relayDeps = { get, set, sendChatMessage, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks };
+const relayDeps = { get, set, sendChatMessage, sendHubMessage, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks };
 
 // 1. designated twin online, its own flag on
 store.chat_streaming = { chat2: { bot1: true } };
@@ -152,6 +158,7 @@ console.log('✓ failover transition logging passed');
 const resetStore = () => {
   for (const k of ['main_chat_streaming', 'main_chat_stream_all', 'links_approved', 'mains_approved', 'chat_streaming', 'tg_users', 'bots_status']) delete store[k];
   calls.length = 0;
+  hubCalls.length = 0;
 };
 
 // 1. streamAll on, no twin flag -> one plain call
@@ -215,136 +222,159 @@ relayChatToTelegram({ isMain: true, text: '| bot1 › hi' }, relayDeps);
 assert.strictEqual(calls.length, 1);
 assert.strictEqual(calls[0][0], 'chat1');
 
-// 8. incoming DM with username -> mention, plain mode
+// 8. incoming DM with username -> hub mention, chat-bot duplicate mention-free
 resetStore();
 store.main_chat_streaming = { chat1: true };
 store.main_chat_stream_all = { chat1: true };
 store.links_approved = { chat1: ['bot1'] };
 store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
 relayChatToTelegram({ isMain: true, text: '✉️ |  serphut › main › hi' }, relayDeps);
-assert.deepStrictEqual(calls, [['chat1', '💬 [мейн] @owner ✉️ |  serphut › main › hi', null]]);
+assert.deepStrictEqual(hubCalls, [['chat1', '💬 [мейн] @owner ✉️ |  serphut › main › hi', null]]);
+assert.deepStrictEqual(calls, [['chat1', '💬 [мейн] ✉️ |  serphut › main › hi', null]]);
 
-// 9. incoming DM without username -> escaped HTML mention
+// 9. incoming DM without username -> hub escaped HTML mention, chat dup raw text
 resetStore();
 store.main_chat_streaming = { chat1: true };
 store.main_chat_stream_all = { chat1: true };
 store.links_approved = { chat1: ['bot1'] };
 store.tg_users = { chat1: { id: 42, firstName: '<O&>' } };
 relayChatToTelegram({ isMain: true, text: '✉️ | serphut › main › hi' }, relayDeps);
-assert.strictEqual(calls.length, 1);
-assert.strictEqual(calls[0][2], 'HTML');
-assert.ok(calls[0][1].includes('<a href="tg://user?id=42">&lt;O&amp;&gt;</a>'));
+assert.strictEqual(hubCalls.length, 1);
+assert.strictEqual(hubCalls[0][2], 'HTML');
+assert.ok(hubCalls[0][1].includes('<a href="tg://user?id=42">&lt;O&amp;&gt;</a>'));
+assert.deepStrictEqual(calls, [['chat1', '💬 [мейн] ✉️ | serphut › main › hi', null]]);
 
-// 10. outgoing DM -> no mention, plain mode
+// 10. outgoing DM -> no hub ping, chat call has no mention
 resetStore();
 store.main_chat_streaming = { chat1: true };
 store.main_chat_stream_all = { chat1: true };
 store.links_approved = { chat1: ['bot1'] };
 store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
 relayChatToTelegram({ isMain: true, text: '✉️ | main › serphut › hi' }, relayDeps);
+assert.strictEqual(hubCalls.length, 0);
 assert.strictEqual(calls.length, 1);
 assert.ok(!calls[0][1].includes('@owner'));
 assert.strictEqual(calls[0][2], null);
 
-// 11. no tg_users -> private incoming DM mentions the chat owner via tg://
+// 11. no tg_users -> hub private incoming DM mentions the chat owner via tg://
 // (private chat: chat.id === user.id, so the positive chatId itself is the user id)
 resetStore();
 store.main_chat_streaming = { 123: true };
 store.main_chat_stream_all = { 123: true };
 store.links_approved = { 123: ['bot1'] };
 relayChatToTelegram({ isMain: true, text: '✉️ | serphut › main › hi' }, relayDeps);
+assert.strictEqual(hubCalls.length, 1);
+assert.ok(hubCalls[0][1].includes('<a href="tg://user?id=123">владелец</a>'));
+assert.strictEqual(hubCalls[0][2], 'HTML');
 assert.strictEqual(calls.length, 1);
-assert.ok(calls[0][1].includes('<a href="tg://user?id=123">владелец</a>'));
-assert.strictEqual(calls[0][2], 'HTML');
+assert.strictEqual(calls[0][2], null);
+assert.ok(!calls[0][1].includes('tg://'));
 
-// 12. public line containing ✉️ mid-text -> no mention
+// 12. public line containing ✉️ mid-text -> no hub ping, no mention
 resetStore();
 store.main_chat_streaming = { chat1: true };
 store.main_chat_stream_all = { chat1: true };
 store.links_approved = { chat1: ['bot1'] };
 store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
 relayChatToTelegram({ isMain: true, text: 'hi ✉️ there' }, relayDeps);
+assert.strictEqual(hubCalls.length, 0);
 assert.strictEqual(calls.length, 1);
 assert.ok(!calls[0][1].includes('@owner'));
 assert.strictEqual(calls[0][2], null);
 
-// 13. mentions-only mode still pings the owner on an incoming DM
+// 13. mentions-only mode still pings the owner on an incoming DM via hub
 resetStore();
 store.main_chat_streaming = { chat1: true };
 store.links_approved = { chat1: ['bot1'] };
 store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
 relayChatToTelegram({ isMain: true, text: '✉️ |  serphut › main › hi' }, relayDeps);
+assert.strictEqual(hubCalls.length, 1);
+assert.ok(hubCalls[0][1].includes('@owner'));
 assert.strictEqual(calls.length, 1);
-assert.ok(calls[0][1].includes('@owner'));
+assert.ok(!calls[0][1].includes('@owner'));
 
-// 13a. no tg_users, group chat -> no fallback mention, plain mode
+// 13a. no tg_users, group chat -> no hub ping, no fallback mention, plain mode
 resetStore();
 store.main_chat_streaming = { '-100123': true };
 store.main_chat_stream_all = { '-100123': true };
 store.links_approved = { '-100123': ['bot1'] };
 relayChatToTelegram({ isMain: true, text: '✉️ | serphut › main › hi' }, relayDeps);
+assert.strictEqual(hubCalls.length, 0);
 assert.strictEqual(calls.length, 1);
 assert.ok(!calls[0][1].includes('tg://'));
 assert.strictEqual(calls[0][2], null);
 
-// 13b. no tg_users, private chat -> fallback link and text are HTML-escaped
+// 13b. no tg_users, private chat -> hub fallback link and text are HTML-escaped
 resetStore();
 store.main_chat_streaming = { 123: true };
 store.main_chat_stream_all = { 123: true };
 store.links_approved = { 123: ['bot1'] };
 relayChatToTelegram({ isMain: true, text: '✉️ | serphut › main › <&>' }, relayDeps);
+assert.strictEqual(hubCalls.length, 1);
+assert.strictEqual(hubCalls[0][2], 'HTML');
+assert.ok(hubCalls[0][1].includes('<a href="tg://user?id=123">владелец</a>'));
+assert.ok(hubCalls[0][1].includes('&lt;&amp;&gt;'));
 assert.strictEqual(calls.length, 1);
-assert.strictEqual(calls[0][2], 'HTML');
-assert.ok(calls[0][1].includes('<a href="tg://user?id=123">владелец</a>'));
-assert.ok(calls[0][1].includes('&lt;&amp;&gt;'));
+assert.strictEqual(calls[0][2], null);
+assert.ok(calls[0][1].includes('<&>'));
+assert.ok(!calls[0][1].includes('tg://'));
+assert.ok(!calls[0][1].includes('&lt;'));
 
-// 13c. no tg_users, mentions-only mode -> fallback mention still happens
+// 13c. no tg_users, mentions-only mode -> hub fallback mention still happens
 resetStore();
 store.main_chat_streaming = { 123: true };
 store.links_approved = { 123: ['bot1'] };
 relayChatToTelegram({ isMain: true, text: '✉️ | serphut › main › hi' }, relayDeps);
+assert.strictEqual(hubCalls.length, 1);
+assert.ok(hubCalls[0][1].includes('<a href="tg://user?id=123">владелец</a>'));
 assert.strictEqual(calls.length, 1);
-assert.ok(calls[0][1].includes('<a href="tg://user?id=123">владелец</a>'));
+assert.ok(!calls[0][1].includes('tg://'));
 
-// 13d. bare ✉ incoming DM with username -> mention, plain mode
+// 13d. bare ✉ incoming DM with username -> hub mention, plain mode
 resetStore();
 store.main_chat_streaming = { chat1: true };
 store.main_chat_stream_all = { chat1: true };
 store.links_approved = { chat1: ['bot1'] };
 store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
 relayChatToTelegram({ isMain: true, text: '✉ |  serphut › main › hi' }, relayDeps);
+assert.strictEqual(hubCalls.length, 1);
+assert.ok(hubCalls[0][1].includes('@owner'));
+assert.strictEqual(hubCalls[0][2], null);
 assert.strictEqual(calls.length, 1);
-assert.ok(calls[0][1].includes('@owner'));
-assert.strictEqual(calls[0][2], null);
+assert.ok(!calls[0][1].includes('@owner'));
 
-// 13e. bare ✉ incoming DM without tg_users, private chat -> fallback mention
+// 13e. bare ✉ incoming DM without tg_users, private chat -> hub fallback mention
 resetStore();
 store.main_chat_streaming = { 123: true };
 store.main_chat_stream_all = { 123: true };
 store.links_approved = { 123: ['bot1'] };
 relayChatToTelegram({ isMain: true, text: '✉ | serphut › main › hi' }, relayDeps);
+assert.strictEqual(hubCalls.length, 1);
+assert.strictEqual(hubCalls[0][2], 'HTML');
+assert.ok(hubCalls[0][1].includes('tg://user?id=123'));
 assert.strictEqual(calls.length, 1);
-assert.ok(calls[0][1].includes('<a href="tg://user?id=123">владелец</a>'));
-assert.strictEqual(calls[0][2], 'HTML');
+assert.ok(!calls[0][1].includes('tg://'));
 
-// 13f. bare ✉ outgoing DM -> no mention, plain mode
+// 13f. bare ✉ outgoing DM -> no hub ping, no mention
 resetStore();
 store.main_chat_streaming = { chat1: true };
 store.main_chat_stream_all = { chat1: true };
 store.links_approved = { chat1: ['bot1'] };
 store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
 relayChatToTelegram({ isMain: true, text: '✉ | main › serphut › hi' }, relayDeps);
+assert.strictEqual(hubCalls.length, 0);
 assert.strictEqual(calls.length, 1);
 assert.ok(!calls[0][1].includes('@owner'));
 assert.strictEqual(calls[0][2], null);
 
-// 13g. bare ✉ mid-text -> no mention
+// 13g. bare ✉ mid-text -> no hub ping, no mention
 resetStore();
 store.main_chat_streaming = { chat1: true };
 store.main_chat_stream_all = { chat1: true };
 store.links_approved = { chat1: ['bot1'] };
 store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
 relayChatToTelegram({ isMain: true, text: 'hi ✉ there' }, relayDeps);
+assert.strictEqual(hubCalls.length, 0);
 assert.strictEqual(calls.length, 1);
 assert.ok(!calls[0][1].includes('@owner'));
 assert.strictEqual(calls[0][2], null);

@@ -237,7 +237,7 @@ wss.on('connection', (socket, req) => {
             if (message.type === 'chat' || message.action === 'chat') {
                 relayChatToTelegram(
                     { ownerId: socket.ownerId, botName: socket.botName, text: message.text, isMain: !!message.isMain },
-                    { get, set, sendChatMessage, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks }
+                    { get, set, sendChatMessage, sendHubMessage: sendMessage, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks }
                 );
                 return;
             }
