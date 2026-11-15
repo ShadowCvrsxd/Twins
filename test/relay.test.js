@@ -221,6 +221,7 @@ store.chat_streaming = { chat2: { bot1: true } };
 relayChatToTelegram({ isMain: true, text: '| bot1 › hi' }, relayDeps);
 assert.strictEqual(calls.length, 1);
 assert.strictEqual(calls[0][0], 'chat1');
+assert.strictEqual(hubCalls.length, 0);
 
 // 8. incoming DM with username -> hub mention, chat-bot duplicate mention-free
 resetStore();
@@ -378,6 +379,21 @@ assert.strictEqual(hubCalls.length, 0);
 assert.strictEqual(calls.length, 1);
 assert.ok(!calls[0][1].includes('@owner'));
 assert.strictEqual(calls[0][2], null);
+
+// 13h. twin-delivered incoming DM to main -> hub ping still sent, no main chat duplicate
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.chat_streaming = { chat1: { bot1: true } };
+store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
+relayChatToTelegram({ isMain: true, text: '✉ | bot1 › main › hi' }, relayDeps);
+assert.deepStrictEqual(hubCalls, [['chat1', '💬 [мейн] @owner ✉ | bot1 › main › hi', null]]);
+assert.strictEqual(calls.length, 0);
+
+relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: '✉ | bot1 › main › hi' }, relayDeps);
+assert.deepStrictEqual(calls, [['chat1', '💬 [bot1] ✉ | bot1 › main › hi']]);
+assert.strictEqual(hubCalls.length, 1);
 
 // 14. main all-stream on + twin stream on + main in game -> twin copy suppressed
 resetStore();

@@ -237,7 +237,6 @@ function relayChatToTelegram({ ownerId, botName, text, isMain }, deps) {
         const approvedTwins = (approved[chatId] || []).map(b => String(b).toLowerCase());
         const senderIsTwin = !!sender && sender !== mainNick && approvedTwins.includes(sender);
         const twinCopyDelivered = senderIsTwin && (!!(twinStreaming[chatId] && twinStreaming[chatId][sender]) || Object.keys(twinStreaming[chatId] || {}).some(k => twinStreaming[chatId][k] && k !== sender && !(botsStatus[k] && botsStatus[k].online)));
-        if (twinCopyDelivered) continue;
         let mention = '';
         let parseMode = null;
         let textPart = cleanedText;
@@ -260,6 +259,7 @@ function relayChatToTelegram({ ownerId, botName, text, isMain }, deps) {
           textPart = cleanedText;
           parseMode = null;
         }
+        if (twinCopyDelivered) continue;
         const composed = '💬 [мейн] ' + textPart;
         sendChatMessage(chatId, composed, parseMode);
       }
