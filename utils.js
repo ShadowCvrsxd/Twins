@@ -304,6 +304,31 @@ function relayChatToTelegram({ ownerId, botName, text, isMain }, deps) {
       console.log(`[Chat] failover: дупликация вернулась на ${botName}`);
     }
     failoverState.set(ownerId, failoverFrom);
+    const tgUsers = get('tg_users', {}) || {};
+    const dmSenderMatch = cleanedText.toLowerCase().match(/^✉\uFE0F?\s*\|\s*([^\s›|]+)\s*›/);
+    const dmSender = dmSenderMatch ? dmSenderMatch[1] : '';
+    const isDm = /^✉\uFE0F?\s*\|/.test(cleanedText);
+    const isIncomingDm = isDm && !!dmSender && dmSender !== mainNick;
+    if (!mainOnline && isIncomingDm) {
+      let mention = '';
+      let parseMode = null;
+      let textPart = cleanedText;
+      const u = tgUsers[ownerId];
+      if (u && u.username) {
+        mention = '@' + u.username;
+      } else if (u && u.id) {
+        mention = '<a href="tg://user?id=' + u.id + '">' + escapeTelegramHtml(u.firstName || 'владелец') + '</a>';
+        parseMode = 'HTML';
+        textPart = escapeTelegramHtml(cleanedText);
+      } else if (Number(ownerId) > 0) {
+        mention = '<a href="tg://user?id=' + Number(ownerId) + '">' + escapeTelegramHtml('владелец') + '</a>';
+        parseMode = 'HTML';
+        textPart = escapeTelegramHtml(cleanedText);
+      }
+      if (mention) {
+        sendHubMessage(ownerId, '💬 [мейн] ' + mention + ' ' + textPart, parseMode);
+      }
+    }
     const displayName = getBotDisplayName(ownerId, botName);
     const prefix = displayName ? `[${displayName}] ` : '';
     sendChatMessage(ownerId, `💬 ${prefix}${cleanedText}`);

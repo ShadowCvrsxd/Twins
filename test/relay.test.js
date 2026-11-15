@@ -387,6 +387,7 @@ store.main_chat_stream_all = { chat1: true };
 store.links_approved = { chat1: ['bot1'] };
 store.chat_streaming = { chat1: { bot1: true } };
 store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
+store.bots_status = { main: { online: true } };
 relayChatToTelegram({ isMain: true, text: '✉ | bot1 › main › hi' }, relayDeps);
 assert.deepStrictEqual(hubCalls, [['chat1', '💬 [мейн] @owner ✉ | bot1 › main › hi', null]]);
 assert.strictEqual(calls.length, 0);
@@ -394,6 +395,54 @@ assert.strictEqual(calls.length, 0);
 relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: '✉ | bot1 › main › hi' }, relayDeps);
 assert.deepStrictEqual(calls, [['chat1', '💬 [bot1] ✉ | bot1 › main › hi']]);
 assert.strictEqual(hubCalls.length, 1);
+
+// 13i. main offline + twin-only incoming DM -> one hub ping + one chat duplicate
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.chat_streaming = { chat1: { bot1: true } };
+store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
+store.bots_status = { main: { online: false } };
+relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: '✉ | bot1 › main › hi' }, relayDeps);
+assert.deepStrictEqual(hubCalls, [['chat1', '💬 [мейн] @owner ✉ | bot1 › main › hi', null]]);
+assert.deepStrictEqual(calls, [['chat1', '💬 [bot1] ✉ | bot1 › main › hi']]);
+
+// 13j. main online + twin-only incoming DM -> no twin hub ping
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.chat_streaming = { chat1: { bot1: true } };
+store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
+store.bots_status = { main: { online: true } };
+relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: '✉ | bot1 › main › hi' }, relayDeps);
+assert.strictEqual(hubCalls.length, 0);
+assert.deepStrictEqual(calls, [['chat1', '💬 [bot1] ✉ | bot1 › main › hi']]);
+
+// 13k. main offline + id-only owner -> HTML mention and escaped text
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.chat_streaming = { chat1: { bot1: true } };
+store.tg_users = { chat1: { id: 42, firstName: 'O' } };
+store.bots_status = { main: { online: false } };
+relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: '✉ | bot1 › main › <&>' }, relayDeps);
+assert.deepStrictEqual(hubCalls, [['chat1', '💬 [мейн] <a href="tg://user?id=42">O</a> ✉ | bot1 › main › &lt;&amp;&gt;', 'HTML']]);
+assert.deepStrictEqual(calls, [['chat1', '💬 [bot1] ✉ | bot1 › main › <&>']]);
+
+// 13l. main offline + twin streaming off -> no hub ping and no chat duplicate
+resetStore();
+store.main_chat_streaming = { chat1: true };
+store.main_chat_stream_all = { chat1: true };
+store.links_approved = { chat1: ['bot1'] };
+store.chat_streaming = { chat1: { bot1: false } };
+store.tg_users = { chat1: { id: 42, username: 'owner', firstName: 'O' } };
+store.bots_status = { main: { online: false } };
+relayChatToTelegram({ ownerId: 'chat1', botName: 'bot1', text: '✉ | bot1 › main › hi' }, relayDeps);
+assert.strictEqual(hubCalls.length, 0);
+assert.strictEqual(calls.length, 0);
 
 // 14. main all-stream on + twin stream on + main in game -> twin copy suppressed
 resetStore();
