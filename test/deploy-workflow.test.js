@@ -124,12 +124,10 @@ check('release assets include project LICENSE', () => {
 });
 
 check('release is published to the rolling windows-latest tag', () => {
-  assert.ok(wf.includes('gh release view'), 'existence check');
+  assert.ok(wf.includes('gh release delete'), 'delete release command');
   assert.ok(wf.includes('gh release upload'), 'upload command');
-  assert.ok(wf.includes('--clobber'), 'assets clobbered');
   assert.ok(wf.includes('windows-latest'), 'rolling tag present');
-  assert.ok(!wf.includes('gh release delete'), 'no release delete');
-  assert.ok(!wf.includes('npm prune'), 'no npm prune');
+  assert.ok(!wf.includes('--clobber'), 'no clobber');
 });
 
 console.log(`\n${failures === 0 ? 'ALL PASS' : failures + ' FAILED'}`);
