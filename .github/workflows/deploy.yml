@@ -38,7 +38,7 @@ jobs:
             bash -lc '
               set -e
               cd /home/shdcvrsxd/Twins
-              git pull --ff-only origin main
+              git fetch origin main && git reset --hard origin/main
               touch .just_updated
               sudo -n systemctl restart twins-main twins-bot1 twins-bot2 twins-tghub twins-tgchat twins-discord1 twins-discord2
               echo "Deployment successful!"
