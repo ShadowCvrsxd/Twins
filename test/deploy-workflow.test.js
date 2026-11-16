@@ -117,6 +117,12 @@ check('portable asset bundles node.exe, node_modules and license', () => {
   assert.ok(wf.includes('NODE-LICENSE.txt'), 'node license bundled');
 });
 
+check('release assets include project LICENSE', () => {
+  const staged = wf.match(/\$files\s*=\s*@\([\s\S]*?\)/);
+  assert.ok(staged, '$files staging array present');
+  assert.ok(/\$files\s*=\s*@\([\s\S]*?'LICENSE'[\s\S]*?\)/.test(staged[0]), 'staged $files includes LICENSE');
+});
+
 check('release is published to the rolling windows-latest tag', () => {
   assert.ok(wf.includes('gh release view'), 'existence check');
   assert.ok(wf.includes('gh release upload'), 'upload command');

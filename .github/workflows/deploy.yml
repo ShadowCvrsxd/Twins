@@ -66,7 +66,7 @@ jobs:
           New-Item -ItemType Directory -Force dist-node | Out-Null
           $files = @(
             'bot.js','bot-2.js','bot-base.js','feature-state.js','hub-util.js','utils.js','db.js',
-            'package.json','package-lock.json','.env.client','.env.example',
+            'package.json','package-lock.json','LICENSE','.env.client','.env.example',
             'install.bat','run_bot1.bat','run_bot2.bat','README-WINDOWS.md'
           )
           foreach ($file in $files) {

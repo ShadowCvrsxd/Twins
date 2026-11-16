@@ -38,3 +38,7 @@ TWINKS=AlexZTI_Twin,AlexZTI_Twin1
 - `node --version` fails or prints below 22.5 → install Node.js 22.5+ or use the portable build.
 - Bot starts but cannot connect → make sure the file is named `.env` (or `.env.twin1`/`.env.twin2` for two bots), not `.env.client` or `.env.txt`.
 - Connection refused on the hub → open port `40316` (or the `HUB_PORT` you configured) in your firewall.
+
+## License
+
+GPL-3.0-only. See LICENSE.

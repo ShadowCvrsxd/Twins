@@ -166,3 +166,7 @@ Serve the public API/WS over HTTPS/WSS without buying a domain. `nip.io`/`sslip.
 Rollback: unset `HUB_BIND` → port 8089 is exposed again, as before.
 
 Discord embeds are unchanged — uguu.se stays the primary source (the hub's raw domain does not embed); HTTPS here is for WS/API and token security.
+
+## License
+
+GPL-3.0-only. See [LICENSE](LICENSE).
