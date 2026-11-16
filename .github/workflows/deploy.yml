@@ -43,3 +43,66 @@ jobs:
               sudo -n systemctl restart twins-main twins-bot1 twins-bot2 twins-tghub twins-tgchat twins-discord1 twins-discord2
               echo "Deployment successful!"
             '
+  windows-release:
+    needs: tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - name: Install dependencies
+        run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: '1'
+      - name: Stage source asset
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force dist-node | Out-Null
+          $files = @(
+            'bot.js','bot-2.js','bot-base.js','feature-state.js','hub-util.js','utils.js','db.js',
+            'package.json','package-lock.json','.env.client','.env.example',
+            'install.bat','run_bot1.bat','run_bot2.bat','README-WINDOWS.md'
+          )
+          foreach ($file in $files) {
+            if (-not (Test-Path $file)) { throw "Missing release file: $file" }
+            Copy-Item $file dist-node
+          }
+          Compress-Archive -Path dist-node\* -DestinationPath twins-windows-node.zip -Force
+      - name: Stage portable asset
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force dist-portable | Out-Null
+          Copy-Item dist-node\* dist-portable -Recurse
+          Copy-Item node_modules dist-portable\node_modules -Recurse
+          $nodeExe = (Get-Command node).Source
+          if (-not $nodeExe) { throw 'node.exe not found' }
+          Copy-Item $nodeExe dist-portable\node.exe
+          $nodeLicense = Join-Path (Split-Path $nodeExe) 'LICENSE'
+          if (Test-Path $nodeLicense) {
+            Copy-Item $nodeLicense dist-portable\NODE-LICENSE.txt
+          } else {
+            $version = node -p "process.versions.node"
+            Invoke-WebRequest "https://raw.githubusercontent.com/nodejs/node/v$version/LICENSE" -OutFile dist-portable\NODE-LICENSE.txt
+          }
+          Compress-Archive -Path dist-portable\* -DestinationPath twins-windows-portable.zip -Force
+      - name: Publish rolling Windows release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = 'windows-latest'
+          gh release view $tag 2>$null | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --title 'Windows build' --notes "Automated build from $env:GITHUB_SHA"
+            if ($LASTEXITCODE -ne 0) { throw 'gh release create failed' }
+          }
+          gh release upload $tag twins-windows-node.zip twins-windows-portable.zip --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'gh release upload failed' }

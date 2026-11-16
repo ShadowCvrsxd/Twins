@@ -90,5 +90,41 @@ check('.gitignore unignores launchers and env templates', () => {
   );
 });
 
+check('windows-release job is guarded to push on main', () => {
+  assert.ok(wf.includes('windows-release:'), 'windows-release job present');
+  assert.ok(wf.includes('runs-on: windows-latest'), 'runs on windows-latest');
+  assert.ok(wf.includes('needs: tests'), 'runs after tests');
+});
+
+check('windows-release job can write release assets', () => {
+  assert.ok(wf.includes('permissions:'), 'permissions block present');
+  assert.ok(wf.includes('contents: write'), 'contents write granted');
+});
+
+check('windows-release PowerShell steps fail fast', () => {
+  assert.ok(wf.includes('shell: pwsh'), 'pwsh shell present');
+  assert.ok(wf.includes('$ErrorActionPreference'), 'ErrorActionPreference present');
+});
+
+check('windows-release builds both asset names', () => {
+  assert.ok(wf.includes('twins-windows-node.zip'), 'source zip name');
+  assert.ok(wf.includes('twins-windows-portable.zip'), 'portable zip name');
+});
+
+check('portable asset bundles node.exe, node_modules and license', () => {
+  assert.ok(wf.includes('node.exe'), 'node.exe bundled');
+  assert.ok(wf.includes('node_modules'), 'node_modules bundled');
+  assert.ok(wf.includes('NODE-LICENSE.txt'), 'node license bundled');
+});
+
+check('release is published to the rolling windows-latest tag', () => {
+  assert.ok(wf.includes('gh release view'), 'existence check');
+  assert.ok(wf.includes('gh release upload'), 'upload command');
+  assert.ok(wf.includes('--clobber'), 'assets clobbered');
+  assert.ok(wf.includes('windows-latest'), 'rolling tag present');
+  assert.ok(!wf.includes('gh release delete'), 'no release delete');
+  assert.ok(!wf.includes('npm prune'), 'no npm prune');
+});
+
 console.log(`\n${failures === 0 ? 'ALL PASS' : failures + ' FAILED'}`);
 process.exit(failures === 0 ? 0 : 1);
