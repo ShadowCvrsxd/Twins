@@ -24,6 +24,11 @@ watchdog.sh
 setup-warp.sh
 *.zip
 *.bat
+!install.bat
+!run_bot1.bat
+!run_bot2.bat
+!.env.client
+!.env.example
 
 test/artifacts/
 
