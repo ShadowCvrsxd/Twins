@@ -33,8 +33,8 @@ check('deploy job is guarded to push on main only', () => {
   );
 });
 
-check('deploy pulls fast-forward only', () => {
-  assert.ok(wf.includes('git pull --ff-only origin main'), 'ff-only pull');
+check('deploy fetches and resets hard to origin/main', () => {
+  assert.ok(wf.includes('git fetch origin main && git reset --hard origin/main'), 'fetch and hard reset origin/main');
 });
 
 check('deploy restarts twins-main with the other services', () => {
