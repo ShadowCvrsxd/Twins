@@ -168,4 +168,11 @@ function evictBotSocket(clients, socket, botName) {
   return true;
 }
 
-module.exports = { resolveCommandTarget, shouldScheduleReconnect, removeAliasesForBot, handleMediaUpload, handleMediaGet, MAX_BODY_BYTES, isOversizedBody, isBotOwnedByChat, isChatSenderAllowed, evictBotSocket };
+// T1: escape for Telegram legacy-Markdown (parse_mode 'Markdown').
+// Escapes ONLY _ * ` [ with a backslash. Does NOT escape backslash itself.
+function escapeMarkdown(s) {
+  if (s == null) return '';
+  return String(s).replace(/([_*`\[\]])/g, '\\$1');
+}
+
+module.exports = { resolveCommandTarget, shouldScheduleReconnect, removeAliasesForBot, handleMediaUpload, handleMediaGet, MAX_BODY_BYTES, isOversizedBody, isBotOwnedByChat, isChatSenderAllowed, evictBotSocket, escapeMarkdown };
