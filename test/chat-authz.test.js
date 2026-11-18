@@ -122,5 +122,8 @@ check('tg-hub.js: reads APPROVED_FILE and MAINS_APPROVED_FILE for owner check', 
 check('tg-hub.js: calls isBotOwnedByChat with correct args', hubJs2.includes('isBotOwnedByChat(approved, mainsApproved, command.ownerChatId, targetBot)'), true);
 check('tg-hub.js: returns 403 on isBotOwnedByChat failure', hubJs2.includes('!isBotOwnedByChat') && hubJs2.includes('res.writeHead(403)'), true);
 
+check('tg-hub.js: /delmain calls evictBotSocket', /cmd === '\/delmain'[\s\S]*?evictBotSocket\(clients,/.test(hubJs2), true);
+check('tg-hub.js: /deltwin calls evictBotSocket', /cmd === '\/deltwin'[\s\S]*?evictBotSocket\(clients,/.test(hubJs2), true);
+
 console.log(failed === 0 ? '--- All tests passed ---' : `--- ${failed} test(s) failed ---`);
 process.exit(failed === 0 ? 0 : 1);

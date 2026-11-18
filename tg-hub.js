@@ -4,7 +4,7 @@ const WebSocket = require('ws');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
 const { get, set } = require('./db.js');
-const { resolveCommandTarget, removeAliasesForBot, handleMediaUpload, handleMediaGet, isOversizedBody, isBotOwnedByChat } = require('./hub-util.js');
+const { resolveCommandTarget, removeAliasesForBot, handleMediaUpload, handleMediaGet, isOversizedBody, isBotOwnedByChat, evictBotSocket } = require('./hub-util.js');
 const { relayChatToTelegram, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks, forwardResponse, applyBotStatus, mergeTgUser } = require('./utils.js');
 
 const clients = new Map();
@@ -863,6 +863,11 @@ async function poll() {
                 writeJSON(ALIASES_FILE, aliases);
               }
 
+              const socket = clients.get(username.toLowerCase());
+              if (evictBotSocket(clients, socket, username)) {
+                applyBotStatus({ online: false }, { botName: username.toLowerCase() }, { get, set });
+              }
+
               await sendMessage(chatId, `🗑 Мейн-бот <b>${escapeHtml(username)}</b> успешно отвязан.`, 'HTML');
             } else {
               await sendMessage(chatId, `❌ Мейн-бот <b>${escapeHtml(username)}</b> не найден в твоем списке.`, 'HTML');
@@ -936,6 +941,11 @@ async function poll() {
                   }
                 }
                 writeJSON(ALIASES_FILE, aliases);
+              }
+
+              const socket = clients.get(username.toLowerCase());
+              if (evictBotSocket(clients, socket, username)) {
+                applyBotStatus({ online: false }, { botName: username.toLowerCase() }, { get, set });
               }
 
               await sendMessage(chatId, `🗑 Твинк <b>${escapeHtml(username)}</b> успешно отвязан.`, 'HTML');
