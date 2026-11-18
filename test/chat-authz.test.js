@@ -114,5 +114,13 @@ check('tg-chat-bot.js: bare fallback userMains[0] || getMainAccount() removed', 
 check('tg-chat-bot.js: admin fallback isAdminChat(chatId) ? getMainAccount() exists', chatBotJs.includes('isAdminChat(chatId) ? getMainAccount()'), true);
 check('tg-chat-bot.js: ownerChatId in /command body', chatBotJs.includes('ownerChatId: String(chatId)'), true);
 
+const hubJs2 = fs.readFileSync('tg-hub.js', 'utf8');
+check('tg-hub.js: imports isBotOwnedByChat from hub-util', hubJs2.includes('isBotOwnedByChat'), true);
+check('tg-hub.js: system-token chat command owner check', hubJs2.includes('isSystemToken && command.action === \'chat\''), true);
+check('tg-hub.js: responds 403 if ownerChatId missing', hubJs2.includes('typeof command.ownerChatId !== \'string\''), true);
+check('tg-hub.js: reads APPROVED_FILE and MAINS_APPROVED_FILE for owner check', hubJs2.includes('readJSON(APPROVED_FILE)') && hubJs2.includes('readJSON(MAINS_APPROVED_FILE)'), true);
+check('tg-hub.js: calls isBotOwnedByChat with correct args', hubJs2.includes('isBotOwnedByChat(approved, mainsApproved, command.ownerChatId, targetBot)'), true);
+check('tg-hub.js: returns 403 on isBotOwnedByChat failure', hubJs2.includes('!isBotOwnedByChat') && hubJs2.includes('res.writeHead(403)'), true);
+
 console.log(failed === 0 ? '--- All tests passed ---' : `--- ${failed} test(s) failed ---`);
 process.exit(failed === 0 ? 0 : 1);

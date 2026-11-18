@@ -4,7 +4,7 @@ const WebSocket = require('ws');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
 const { get, set } = require('./db.js');
-const { resolveCommandTarget, removeAliasesForBot, handleMediaUpload, handleMediaGet, isOversizedBody } = require('./hub-util.js');
+const { resolveCommandTarget, removeAliasesForBot, handleMediaUpload, handleMediaGet, isOversizedBody, isBotOwnedByChat } = require('./hub-util.js');
 const { relayChatToTelegram, getBotDisplayName, cleanMinecraftText, getMainAccount, getTwinks, forwardResponse, applyBotStatus, mergeTgUser } = require('./utils.js');
 
 const clients = new Map();
@@ -78,6 +78,16 @@ const apiServer = http.createServer((req, res) => {
                 const targetBot = resolveCommandTarget({ isSystemToken, authorizedBot, command });
                 if (!targetBot) {
                     res.writeHead(400); res.end('Missing targetBot'); return;
+                }
+                if (isSystemToken && command.action === 'chat') {
+                    if (typeof command.ownerChatId !== 'string') {
+                        res.writeHead(403); res.end('Forbidden'); return;
+                    }
+                    const approved = readJSON(APPROVED_FILE);
+                    const mainsApproved = readJSON(MAINS_APPROVED_FILE);
+                    if (!isBotOwnedByChat(approved, mainsApproved, command.ownerChatId, targetBot)) {
+                        res.writeHead(403); res.end('Forbidden'); return;
+                    }
                 }
                 if (sendCommand(targetBot, command)) {
                     res.writeHead(200); res.end('OK');
