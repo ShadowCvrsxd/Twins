@@ -135,4 +135,37 @@ function handleMediaGet(req, res, pathname) {
 const MAX_BODY_BYTES = 64 * 1024;
 function isOversizedBody(str) { return str.length > MAX_BODY_BYTES; }
 
-module.exports = { resolveCommandTarget, shouldScheduleReconnect, removeAliasesForBot, handleMediaUpload, handleMediaGet, MAX_BODY_BYTES, isOversizedBody };
+// T1: chat authz — three pure helpers, no deps, no env reads.
+// (a) isBotOwnedByChat: true iff approved[chatId] OR mainsApproved[chatId] contains botName (case-insensitive). Safe on missing maps/keys.
+function isBotOwnedByChat(approved, mainsApproved, chatId, botName) {
+  const bn = (botName || '').toLowerCase();
+  if (!bn) return false;
+  const a = approved && approved[chatId];
+  const m = mainsApproved && mainsApproved[chatId];
+  if (Array.isArray(a) && a.some(x => (x || '').toLowerCase() === bn)) return true;
+  if (Array.isArray(m) && m.some(x => (x || '').toLowerCase() === bn)) return true;
+  return false;
+}
+
+// (b) isChatSenderAllowed: true iff !selectedLower, OR userBots contains selectedLower (ci), OR (isAdminChat && mainAccount && selectedLower === mainAccount.toLowerCase()).
+function isChatSenderAllowed(userBots, selectedLower, { isAdminChat, mainAccount } = {}) {
+  if (!selectedLower) return true;
+  const sl = selectedLower.toLowerCase();
+  const bots = Array.isArray(userBots) ? userBots : [];
+  if (bots.some(x => (x || '').toLowerCase() === sl)) return true;
+  const adminChat = Boolean(isAdminChat);
+  const main = mainAccount ? String(mainAccount).toLowerCase() : null;
+  if (adminChat && main && sl === main) return true;
+  return false;
+}
+
+// (c) evictBotSocket: if clients.get(botName.toLowerCase()) exists, delete it THEN close socket. Returns true if evicted.
+function evictBotSocket(clients, socket, botName) {
+  const key = (botName || '').toLowerCase();
+  if (!key || !clients || typeof clients.get !== 'function' || !clients.has(key)) return false;
+  clients.delete(key);
+  if (socket && typeof socket.close === 'function') socket.close();
+  return true;
+}
+
+module.exports = { resolveCommandTarget, shouldScheduleReconnect, removeAliasesForBot, handleMediaUpload, handleMediaGet, MAX_BODY_BYTES, isOversizedBody, isBotOwnedByChat, isChatSenderAllowed, evictBotSocket };
