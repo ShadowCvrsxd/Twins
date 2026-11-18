@@ -458,7 +458,7 @@ async function initBotMenu() {
       { command: 'users', description: 'Список пользователей (админ)' },
       { command: 'testserver', description: 'На тестовый сервер (админ)' },
       { command: 'mainserver', description: 'На основной сервер (админ)' },
-{ command: 'voice', description: 'Управление Discord-войсом (/voice <1|2> <on|off|reconnect|channel|status>)' },
+      { command: 'voice', description: 'Управление Discord-войсом (/voice <1|2> <on|off|reconnect|channel|status>)' },
         { command: 'mainstreamon', description: 'Вкл. дублирование чата мейна (/mainstreamon)' },
         { command: 'mainstreamoff', description: 'Выкл. дублирование чата мейна (/mainstreamoff)' },
         { command: 'mainstreamallon', description: 'Вкл. дублирование ВСЕГО чата мейна (/mainstreamallon)' },
