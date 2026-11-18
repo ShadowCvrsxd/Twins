@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
 const { getMainAccount } = require('./utils.js');
+const { isChatSenderAllowed } = require('./hub-util.js');
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -22,6 +23,12 @@ if (!TOKEN) {
 
 const HUB_API_TOKEN = process.env.HUB_API_TOKEN;
 const HUB_PORT = parseInt(process.env.HUB_PORT || '8089', 10);
+
+const ADMIN_ID = process.env.ADMIN_TG_ID ? process.env.ADMIN_TG_ID.trim() : '';
+
+function isAdminChat(chatId) {
+  return !!ADMIN_ID && chatId.toString() === ADMIN_ID;
+}
 
 function hubAuthHeader() {
   if (!HUB_API_TOKEN) {
@@ -341,6 +348,10 @@ async function sendToGame(chatId, text) {
       return;
     }
     targetBot = selectedLower;
+    if (!isChatSenderAllowed(userBots, selectedLower, { isAdminChat: isAdminChat(chatId), mainAccount: getMainAccount() })) {
+      await sendMessage(chatId, '❌ Отправитель не привязан к твоему аккаунту.');
+      return;
+    }
   } else {
     const onlineBots = userBots.filter(b => { const st = statuses[b.toLowerCase()]; return st && st.online; });
     if (onlineBots.length === 0) {
@@ -361,7 +372,7 @@ async function sendToGame(chatId, text) {
       'Content-Type': 'application/json',
       'Authorization': hubAuth
     },
-    body: JSON.stringify({ targetBot: targetBot.toLowerCase(), action: 'chat', text })
+    body: JSON.stringify({ targetBot: targetBot.toLowerCase(), action: 'chat', text, ownerChatId: String(chatId) })
   });
   if (!resp.ok) {
     if (resp.status === 404) {
@@ -503,7 +514,7 @@ async function poll() {
           }
           let resolved = null;
           if (target === 'main') {
-            resolved = userMains[0] || getMainAccount();
+            resolved = userMains[0] || (isAdminChat(chatId) ? getMainAccount() : null);
           } else {
             const index = parseInt(target) - 1;
             resolved = userTwins[index];
@@ -514,6 +525,10 @@ async function poll() {
           }
           if (!resolved) {
             await sendMessage(chatId, '❌ Мейн не настроен (MAIN_ACCOUNT пуст).');
+            continue;
+          }
+          if (!isChatSenderAllowed(userBots, resolved.toLowerCase(), { isAdminChat: isAdminChat(chatId), mainAccount: getMainAccount() })) {
+            await sendMessage(chatId, '❌ Отправитель не привязан к твоему аккаунту.');
             continue;
           }
           const selection = await apiGet('chat_sender_selection', {});
@@ -643,4 +658,11 @@ async function poll() {
 
 if (require.main === module) poll();
 
-module.exports = { detectMedia, mediaExt, buildCaption, uploadToHub, uploadToUguu, isRealGif, mp4ToGif };
+function decideChatSender({ userBots, selectedLower, chatId, adminId, mainAccount }) {
+  const isAdmin = !!adminId && chatId.toString() === adminId;
+  const allowed = isChatSenderAllowed(userBots, selectedLower, { isAdminChat: isAdmin, mainAccount });
+  const targetBot = allowed ? selectedLower : null;
+  return { allowed, targetBot };
+}
+
+module.exports = { detectMedia, mediaExt, buildCaption, uploadToHub, uploadToUguu, isRealGif, mp4ToGif, decideChatSender };

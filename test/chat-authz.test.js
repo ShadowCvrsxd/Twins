@@ -1,5 +1,7 @@
 // T1: chat authz — three pure helpers.
+// T2: sender selection restricted to owned bots; admin-only env-main; ownerChatId passed
 const { isBotOwnedByChat, isChatSenderAllowed, evictBotSocket } = require('../hub-util');
+const { decideChatSender } = require('../tg-chat-bot.js');
 
 let failed = 0;
 function check(name, actual, expected) {
@@ -30,6 +32,32 @@ check('non-admin chat with mainAccount denied', isChatSenderAllowed([], 'owner',
 check('userBots undefined treated as empty', isChatSenderAllowed(undefined, 'owner', { isAdminChat: true, mainAccount: 'owner' }), true);
 check('options undefined safe', isChatSenderAllowed(['bot'], 'bot', undefined), true);
 check('mainAccount case-insensitive', isChatSenderAllowed([], 'OWNER', { isAdminChat: true, mainAccount: 'owner' }), true);
+
+// decideChatSender (T2 runtime behavioral)
+check('non-admin chat: selectedLower not in userBots -> denied', (() => {
+  const r = decideChatSender({ userBots: ['own'], selectedLower: 'victim', chatId: '123', adminId: '999', mainAccount: 'owner' });
+  return r.allowed === false && r.targetBot === null;
+})(), true);
+check('non-admin chat: selectedLower in userBots -> allowed', (() => {
+  const r = decideChatSender({ userBots: ['own'], selectedLower: 'own', chatId: '123', adminId: '999', mainAccount: 'owner' });
+  return r.allowed === true && r.targetBot === 'own';
+})(), true);
+check('admin chat: selectedLower is mainAccount -> allowed', (() => {
+  const r = decideChatSender({ userBots: [], selectedLower: 'owner', chatId: '999', adminId: '999', mainAccount: 'owner' });
+  return r.allowed === true && r.targetBot === 'owner';
+})(), true);
+check('admin chat: selectedLower not mainAccount -> denied', (() => {
+  const r = decideChatSender({ userBots: [], selectedLower: 'other', chatId: '999', adminId: '999', mainAccount: 'owner' });
+  return r.allowed === false && r.targetBot === null;
+})(), true);
+check('non-admin chat: empty selectedLower -> allowed (no-op)', (() => {
+  const r = decideChatSender({ userBots: ['own'], selectedLower: '', chatId: '123', adminId: '999', mainAccount: 'owner' });
+  return r.allowed === true && r.targetBot === '';
+})(), true);
+check('adminId undefined: behaves as non-admin', (() => {
+  const r = decideChatSender({ userBots: ['own'], selectedLower: 'owner', chatId: '123', adminId: undefined, mainAccount: 'owner' });
+  return r.allowed === false && r.targetBot === null;
+})(), true);
 
 // evictBotSocket
 check('eviction deletes then closes', (() => {
@@ -79,6 +107,12 @@ check('README: ADMIN_TG_ID for both hub and chat bot', readme.includes('read by 
 check('tg-hub.js: no setserver in menu', hubJs.includes('setserver'), false);
 check('tg-hub.js: no setservice in menu', hubJs.includes('setservice'), false);
 check('tg-hub.js: no setserver in admin panel text', hubJs.includes('/setserver <ip> <port>'), false);
+
+const chatBotJs = fs.readFileSync('tg-chat-bot.js', 'utf8');
+
+check('tg-chat-bot.js: bare fallback userMains[0] || getMainAccount() removed', chatBotJs.includes('userMains[0] || getMainAccount()'), false);
+check('tg-chat-bot.js: admin fallback isAdminChat(chatId) ? getMainAccount() exists', chatBotJs.includes('isAdminChat(chatId) ? getMainAccount()'), true);
+check('tg-chat-bot.js: ownerChatId in /command body', chatBotJs.includes('ownerChatId: String(chatId)'), true);
 
 console.log(failed === 0 ? '--- All tests passed ---' : `--- ${failed} test(s) failed ---`);
 process.exit(failed === 0 ? 0 : 1);
