@@ -66,5 +66,19 @@ check('clients missing get returns false', (() => {
   return res === false;
 })(), true);
 
+const fs = require('fs');
+
+const readme = fs.readFileSync('README.md', 'utf8');
+const hubJs = fs.readFileSync('tg-hub.js', 'utf8');
+
+check('README: no setserver string', readme.includes('setserver'), false);
+check('README: no setservice string', readme.includes('setservice'), false);
+check('README: /setchat row updated', readme.includes('Select the sender bot (/setchat <1|2|main>)'), true);
+check('README: ADMIN_TG_ID for both hub and chat bot', readme.includes('read by BOTH the hub and the chat bot'), true);
+
+check('tg-hub.js: no setserver in menu', hubJs.includes('setserver'), false);
+check('tg-hub.js: no setservice in menu', hubJs.includes('setservice'), false);
+check('tg-hub.js: no setserver in admin panel text', hubJs.includes('/setserver <ip> <port>'), false);
+
 console.log(failed === 0 ? '--- All tests passed ---' : `--- ${failed} test(s) failed ---`);
 process.exit(failed === 0 ? 0 : 1);

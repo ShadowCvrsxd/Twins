@@ -458,13 +458,11 @@ async function initBotMenu() {
       { command: 'users', description: 'Список пользователей (админ)' },
       { command: 'testserver', description: 'На тестовый сервер (админ)' },
       { command: 'mainserver', description: 'На основной сервер (админ)' },
-       { command: 'setserver', description: 'Сменить сервер (админ) (/setserver <ip> <port>)' },
-        { command: 'voice', description: 'Управление Discord-войсом (/voice <1|2> <on|off|reconnect|channel|status>)' },
+{ command: 'voice', description: 'Управление Discord-войсом (/voice <1|2> <on|off|reconnect|channel|status>)' },
         { command: 'mainstreamon', description: 'Вкл. дублирование чата мейна (/mainstreamon)' },
         { command: 'mainstreamoff', description: 'Выкл. дублирование чата мейна (/mainstreamoff)' },
         { command: 'mainstreamallon', description: 'Вкл. дублирование ВСЕГО чата мейна (/mainstreamallon)' },
-        { command: 'mainstreamalloff', description: 'Выкл. дублирование ВСЕГО чата мейна (/mainstreamalloff)' },
-      { command: 'setservice', description: 'Привязать бота к сервису (/setservice <ник> <сервис>)' }
+        { command: 'mainstreamalloff', description: 'Выкл. дублирование ВСЕГО чата мейна (/mainstreamalloff)' }
       ]
     });
   }
@@ -505,7 +503,7 @@ async function poll() {
         if (cmd === '/start') {
           let msg = '🤖 *Twins Telegram Hub*\n\nТвой Telegram зарегистрирован как основной.\n\nКоманды управления:\n`/addtwin <ник>` - привязать твинка\n`/deltwin <ник>` - отвязать твинка\n`/alias <бот> <алиас>` - задать алиас\n`/unalias <алиас>` - удалить алиас\n`/starttwin <алиас>` - запустить твинка\n`/stoptwin <алиас>` - остановить твинка\n`/startmain` - запустить мейн-бота\n`/stopmain` - остановить мейн-бота\n`/status` - список и статус ботов\n`/players <бот>` - онлайн игроков\n`/chat <алиас> <текст>` - написать в чат\n`/meowon <алиас>` - вкл. мяуканье\n`/meowoff <алиас>` - выкл. мяуканье\n`/meowcd <алиас> <время>` - кулдаун мяуканья\n`/autorepon <алиас>` - вкл. авто-респекты\n`/autorepoff <алиас>` - выкл. авто-респекты\n`/spamlist <алиас>` - список спам-задач\n`/addspam <алиас> <сек> <текст>` - добавить спам-задачу\n`/delspam <алиас> <номер>` - удалить спам-задачу\n`/autoclickon <алиас>` - вкл. автокликер\n`/autoclickoff <алиас>` - выкл. автокликер\n`/setswing <алиас> <мс|auto>` - тайминг удара\n`/pos <алиас>` - координаты твинка\n`/mainstreamallon` - дублировать ВЕСЬ чат мейна\n`/mainstreamalloff` - только сообщения с ником мейна\n`/stopspam` - остановить спам';
           if (isAdmin(chatId)) {
-            msg += '\n\n👑 *Админ-панель:*\nСтатус регистрации: ' + (isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта') + '\n`/lock` - заблокировать\n`/unlock` - разблокировать\n`/users` - список юзеров\n`/testserver` - на тестовый\n`/mainserver` - на основной\n`/setserver <ip> <port>` - сменить сервер';
+            msg += '\n\n👑 *Админ-панель:*\nСтатус регистрации: ' + (isRegistrationLocked() ? '🔴 Заблокирована' : '🟢 Открыта') + '\n`/lock` - заблокировать\n`/unlock` - разблокировать\n`/users` - список юзеров\n`/testserver` - на тестовый\n`/mainserver` - на основной';
           }
           await sendMessage(chatId, msg);
         }

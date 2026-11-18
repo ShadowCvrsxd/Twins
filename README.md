@@ -63,7 +63,7 @@ Never commit real `.env*` files; the committed templates (`.env.example`, `.env.
 | `DB_JSON_PATH` | `db.js` | Path to the JSON fallback store (default `twins_store.json`). |
 | `USER_SYSTEMD` | hub | Set to `true` so `/startmain`/`/stopmain` use `systemctl --user` instead of `sudo systemctl`. |
 
-Client-only variables from the templates: `USERNAME`, `PASSWORD` (Minecraft credentials), `MINECRAFT_HOST`, `MINECRAFT_PORT` (server to join), `HUB_HOST` (hub IP/domain), `BOT_TOKEN` (per-bot bearer token issued by the hub), plus `HUB_PORT`, `MAIN_ACCOUNT`, `TWINKS` above. The hub-side template also carries `ADMIN_TG_ID` (admin Telegram ID).
+Client-only variables from the templates: `USERNAME`, `PASSWORD` (Minecraft credentials), `MINECRAFT_HOST`, `MINECRAFT_PORT` (server to join), `HUB_HOST` (hub IP/domain), `BOT_TOKEN` (per-bot bearer token issued by the hub), plus `HUB_PORT`, `MAIN_ACCOUNT`, `TWINKS` above. The hub-side template also carries `ADMIN_TG_ID` (admin Telegram ID), which is read by BOTH the hub and the chat bot (chat bot needs it for the admin-only main fallback) and must be present in the shared `.env` on the hub host.
 
 **Warn-once behavior:** if `TWINKS` or `MAIN_ACCOUNT` is unset, the affected feature disables itself with a one-time console warning (warn-once getters in `utils.js`). Nick defaults are intentionally gone — configuration comes from the environment only.
 
@@ -109,14 +109,12 @@ Client-only variables from the templates: `USERNAME`, `PASSWORD` (Minecraft cred
 | `/lock` (alias `/adminlock`) / `/unlock` (alias `/adminunlock`) | Lock / unlock registration (admin). |
 | `/users` (alias `/adminusers`) | List users (admin). |
 | `/testserver` (alias `/movetest`) / `/mainserver` (alias `/prodserver`) | Switch to the test / main server (admin). |
-| `/setserver <ip> <port>` | Change the server (admin; advertised in the menu). |
-| `/setservice <ник> <сервис>` | Bind a bot to a service. |
 
 ### Chat-bot commands (`tg-chat-bot.js`)
 
 | Command | Description |
 |---|---|
-| `/setchat` | Bind this chat for duplication output. |
+| `/setchat` | Select the sender bot (/setchat <1|2|main>). |
 | `/start` | Menu / help. |
 | `/globalon` / `/globaloff` | Global duplication on/off. |
 | `/streamon` (alias `/chaton`) / `/streamoff` (alias `/chatoff`) | Per-twin chat streaming on/off (the flag the failover logic reads). |
