@@ -1,6 +1,40 @@
 # Twins Bot Framework
 
+Distributed Minecraft multi-account (twins) framework — control every account and duplicate chat from one Telegram window via a VPS hub and remote clients.
+
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE) [![Node](https://img.shields.io/badge/Node-%E2%89%A522.5-brightgreen.svg)](https://nodejs.org) [![Deploy to VPS](https://github.com/ShadowCvrsxd/Twins/actions/workflows/deploy.yml/badge.svg)](https://github.com/ShadowCvrsxd/Twins/actions/workflows/deploy.yml)
+
 A distributed Minecraft multi-account ("twins") framework controlled entirely from Telegram. A central hub on a VPS relays commands and chat to Mineflayer-based client bots running on local machines, so every account can be driven, watched and duplicated from one chat window.
+
+**Contents**
+
+- [Features](#features)
+- [Quick start](#quick-start)
+- [Architecture](#architecture)
+- [Requirements](#requirements)
+- [Install](#install)
+- [Configuration](#configuration)
+- [Startup commands](#startup-commands)
+- [Telegram command reference](#telegram-command-reference)
+- [Testing](#testing)
+- [Backups](#backups)
+- [TLS (optional, nginx + nip.io)](#tls-optional-nginx--nipio)
+- [License](#license)
+
+## Quick start
+
+Install dependencies, then start the hub first and the interfaces/bots you need:
+
+```
+npm install
+npm run hub
+npm run chat
+npm run bot1   # Twin 1 (bot.js)
+npm run bot2   # Twin 2 (bot-2.js)
+npm run main   # main account (bot-main.js)
+```
+
+Windows users can download a prebuilt bundle from the rolling [`windows-latest`](https://github.com/ShadowCvrsxd/Twins/releases/tag/windows-latest) release: [twins-windows-portable.zip](https://github.com/ShadowCvrsxd/Twins/releases/download/windows-latest/twins-windows-portable.zip) (portable) or [twins-windows-node.zip](https://github.com/ShadowCvrsxd/Twins/releases/download/windows-latest/twins-windows-node.zip) (needs Node.js installed).
 
 ## Features
 
@@ -22,6 +56,17 @@ Mirrors [TWINS_ARCHITECTURE.md](TWINS_ARCHITECTURE.md):
 - **Remote client bots** — `bot.js`, `bot-2.js`, `bot-main.js`: Mineflayer instances connected to the hub's WebSocket bridge.
 - **Authentication & security** — client connections and API endpoints authenticate via bearer tokens validated against the hub's registry; credentials stay isolated on the client machines.
 - **Decoupling** — no file queues or database polling for real-time commands; everything flows through the port 8089 WebSocket/HTTP bridge.
+
+```mermaid
+flowchart LR
+  TG["Telegram users"] --> HUB["Hub + API gateway<br/>tg-hub.js :8089"]
+  CHAT["Chat bot<br/>tg-chat-bot.js"] --> HUB
+  HUB --> B1["bot.js / bot-2.js<br/>remote clients"]
+  HUB --> BM["bot-main.js<br/>main account"]
+  HUB --> DB[("Storage<br/>db.js")]
+```
+
+See [TWINS_ARCHITECTURE.md](TWINS_ARCHITECTURE.md) for the full protocol and component detail.
 
 ## Requirements
 
@@ -123,7 +168,7 @@ Client-only variables from the templates: `USERNAME`, `PASSWORD` (Minecraft cred
 
 ## Testing
 
-Run the full suite (13 test files) before every commit and keep it green:
+Run the full suite (20 test files) before every commit and keep it green:
 
 ```
 for f in test/*.test.js; do DB_PATH=/tmp/x-$f.db node "$f"; done
