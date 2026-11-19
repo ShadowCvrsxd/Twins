@@ -1,5 +1,9 @@
 # Twins Client — Windows
 
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE) [![Deploy to VPS](https://github.com/ShadowCvrsxd/Twins/actions/workflows/deploy.yml/badge.svg)](https://github.com/ShadowCvrsxd/Twins/actions/workflows/deploy.yml)
+
+[Main README](README.md)
+
 ## Which download do I need?
 
 - `twins-windows-portable.zip` — **Node.js included.** Unzip and run. No install step.
