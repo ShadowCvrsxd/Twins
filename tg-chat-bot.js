@@ -537,7 +537,7 @@ async function poll() {
           await sendMessage(chatId, `✅ Сообщения будут отправляться с бота *${escapeMarkdown(resolved)}*.`);
         }
         else if (cmd === '/start') {
-          await sendMessage(chatId, `💬 *Twins Chat Stream Bot*\n\nЭтот бот управляет дублированием игрового чата твинков.\n\nТвои привязанные твинки: ${userBots.length > 0 ? userBots.join(', ') : 'нет (привяжи через мейн-бота)'}\n\nКоманды:\n\`/streamon <алиас или ник>\` - вкл. трансляцию\n\`/streamoff <алиас или ник>\` - выкл. трансляцию\n\`/setchat <1|2|main>\` - выбрать отправителя\n\`/display <alias|nick|both|hidden>\` - режим отображения\n\`/globalon\` - вкл. глобальный чат (!)\n\`/globaloff\` - выкл. глобальный чат (!)`);
+          await sendMessage(chatId, `💬 *Twins Chat Stream Bot*\n\nЭтот бот управляет дублированием игрового чата твинков.\n\nТвои привязанные твинки: ${userBots.length > 0 ? userBots.map(escapeMarkdown).join(', ') : 'нет (привяжи через мейн-бота)'}\n\nКоманды:\n\`/streamon <алиас или ник>\` - вкл. трансляцию\n\`/streamoff <алиас или ник>\` - выкл. трансляцию\n\`/setchat <1|2|main>\` - выбрать отправителя\n\`/display <alias|nick|both|hidden>\` - режим отображения\n\`/globalon\` - вкл. глобальный чат (!)\n\`/globaloff\` - выкл. глобальный чат (!)`);
         }
         else if (cmd === '/globalon') {
           const globalModes = await readJSON(GLOBAL_MODE_FILE);
@@ -558,13 +558,13 @@ async function poll() {
           }
           const targetArg = parts[1];
           if (!targetArg) {
-            await sendMessage(chatId, `❌ Укажи твинка: \`/streamon <алиас или ник>\`\nДоступные: ${userBots.join(', ')}`);
+            await sendMessage(chatId, `❌ Укажи твинка: \`/streamon <алиас или ник>\`\nДоступные: ${userBots.map(escapeMarkdown).join(', ')}`);
             continue;
           }
 
           const targetBot = await resolveBot(chatId, targetArg);
           if (!targetBot) {
-            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден в твоем списке привязанных ботов.`);
+            await sendMessage(chatId, `❌ Твинк '${escapeMarkdown(targetArg)}' не найден в твоем списке привязанных ботов.`);
             continue;
           }
 
@@ -573,7 +573,7 @@ async function poll() {
           streaming[chatId][targetBot.toLowerCase()] = true;
           await writeJSON(STREAMING_FILE, streaming);
 
-          await sendMessage(chatId, `🟢 Трансляция чата для твинка *${targetBot}* включена в этот чат.`);
+          await sendMessage(chatId, `🟢 Трансляция чата для твинка *${escapeMarkdown(targetBot)}* включена в этот чат.`);
         }
         else if (cmd === '/streamoff' || cmd === '/chatoff') {
           if (userBots.length === 0) {
@@ -588,7 +588,7 @@ async function poll() {
 
           const targetBot = await resolveBot(chatId, targetArg);
           if (!targetBot) {
-            await sendMessage(chatId, `❌ Твинк '${targetArg}' не найден.`);
+            await sendMessage(chatId, `❌ Твинк '${escapeMarkdown(targetArg)}' не найден.`);
             continue;
           }
 
@@ -598,7 +598,7 @@ async function poll() {
             await writeJSON(STREAMING_FILE, streaming);
           }
 
-          await sendMessage(chatId, `🔴 Трансляция чата для твинка *${targetBot}* выключена.`);
+          await sendMessage(chatId, `🔴 Трансляция чата для твинка *${escapeMarkdown(targetBot)}* выключена.`);
         }
         else if (cmd === '/display' || cmd === '/mode') {
           const modeArg = parts[1] ? parts[1].toLowerCase() : '';
@@ -613,7 +613,7 @@ async function poll() {
           modes[chatId] = modeArg;
           await writeJSON(DISPLAY_MODE_FILE, modes);
 
-          await sendMessage(chatId, `✅ Режим отображения имен в чате установлен на: *${modeArg}*`);
+          await sendMessage(chatId, `✅ Режим отображения имен в чате установлен на: *${escapeMarkdown(modeArg)}*`);
         }
         else if (cmd === '/status' || cmd === '/list') {
           if (userBots.length === 0) {
@@ -627,10 +627,10 @@ async function poll() {
             const globalModes = await readJSON(GLOBAL_MODE_FILE);
             const isGlobal = !!globalModes[chatId];
             
-            let msg = `💬 *Статус трансляций чата (режим: ${currentMode}, глобальный чат: ${isGlobal ? '🟢 ВКЛ' : '🔴 ВЫКЛ'}):*\n\n`;
+            let msg = `💬 *Статус трансляций чата (режим: ${escapeMarkdown(currentMode)}, глобальный чат: ${isGlobal ? '🟢 ВКЛ' : '🔴 ВЫКЛ'}):*\n\n`;
             userMains.forEach((botName) => {
               const isStreaming = !!userStream[botName.toLowerCase()];
-              msg += `• *${botName}* (мейн-бот)\n   Трансляция в ТГ: ${isStreaming ? '🟢 ВКЛ' : '🔴 ВЫКЛ'}\n\n`;
+              msg += `• *${escapeMarkdown(botName)}* (мейн-бот)\n   Трансляция в ТГ: ${isStreaming ? '🟢 ВКЛ' : '🔴 ВЫКЛ'}\n\n`;
             });
             userTwins.forEach((botName, index) => {
               const isStreaming = !!userStream[botName.toLowerCase()];
@@ -639,9 +639,9 @@ async function poll() {
                 .filter(([al, rb]) => rb.toLowerCase() === botName.toLowerCase())
                 .map(([al]) => al);
 
-              msg += `• *${botName}* (системный: \`${alias}\``;
+              msg += `• *${escapeMarkdown(botName)}* (системный: \`${alias}\``;
               if (customAliases.length > 0) {
-                msg += `, алиасы: \`${customAliases.join(', ')}\``;
+                msg += `, алиасы: \`${customAliases.map(escapeMarkdown).join(', ')}\``;
               }
               msg += `)\n   Трансляция в ТГ: ${isStreaming ? '🟢 ВКЛ' : '🔴 ВЫКЛ'}\n\n`;
             });
