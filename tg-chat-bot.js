@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
 const { getMainAccount } = require('./utils.js');
-const { isChatSenderAllowed } = require('./hub-util.js');
+const { isChatSenderAllowed, escapeMarkdown } = require('./hub-util.js');
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -344,7 +344,7 @@ async function sendToGame(chatId, text) {
     if (!selStatus || !selStatus.online) {
       const mainAccount = getMainAccount();
       const nick = mainAccount && selectedLower === mainAccount.toLowerCase() ? 'Мейн' : selectedLower;
-      await sendMessage(chatId, `❌ Бот *${nick}* оффлайн.`);
+      await sendMessage(chatId, `❌ Бот *${escapeMarkdown(nick)}* оффлайн.`);
       return;
     }
     targetBot = selectedLower;
@@ -376,13 +376,13 @@ async function sendToGame(chatId, text) {
   });
   if (!resp.ok) {
     if (resp.status === 404) {
-      await sendMessage(chatId, `❌ Бот *${targetBot}* офлайн.`);
+      await sendMessage(chatId, `❌ Бот *${escapeMarkdown(targetBot)}* офлайн.`);
     } else {
-      await sendMessage(chatId, `❌ Ошибка отправки сообщения боту *${targetBot}* (статус ${resp.status}).`);
+      await sendMessage(chatId, `❌ Ошибка отправки сообщения боту *${escapeMarkdown(targetBot)}* (статус ${resp.status}).`);
     }
     return;
   }
-  await sendMessage(chatId, `✉️ Отправлено от *${targetBot}*: ${text}`);
+  await sendMessage(chatId, `✉️ Отправлено от *${escapeMarkdown(targetBot)}*: ${escapeMarkdown(text)}`);
 }
 
 async function relayMediaMessage(message) {
@@ -534,7 +534,7 @@ async function poll() {
           const selection = await apiGet('chat_sender_selection', {});
           selection[chatId] = resolved.toLowerCase();
           await apiSet('chat_sender_selection', selection);
-          await sendMessage(chatId, `✅ Сообщения будут отправляться с бота *${resolved}*.`);
+          await sendMessage(chatId, `✅ Сообщения будут отправляться с бота *${escapeMarkdown(resolved)}*.`);
         }
         else if (cmd === '/start') {
           await sendMessage(chatId, `💬 *Twins Chat Stream Bot*\n\nЭтот бот управляет дублированием игрового чата твинков.\n\nТвои привязанные твинки: ${userBots.length > 0 ? userBots.join(', ') : 'нет (привяжи через мейн-бота)'}\n\nКоманды:\n\`/streamon <алиас или ник>\` - вкл. трансляцию\n\`/streamoff <алиас или ник>\` - выкл. трансляцию\n\`/setchat <1|2|main>\` - выбрать отправителя\n\`/display <alias|nick|both|hidden>\` - режим отображения\n\`/globalon\` - вкл. глобальный чат (!)\n\`/globaloff\` - выкл. глобальный чат (!)`);
